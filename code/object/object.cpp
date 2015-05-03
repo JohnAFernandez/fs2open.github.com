@@ -790,11 +790,17 @@ void obj_player_fire_stuff( object *objp, control_info ci )
 	if ( !MULTIPLAYER_CLIENT 
 		// Cyborg17 - except clients now fire dumbfires for rollback on the server
 		|| !(Weapon_info[shipp->weapons.secondary_bank_weapons[shipp->weapons.current_secondary_bank]].is_homing())) {		
-		if (ci.fire_secondary_count) {
-			ship_fire_secondary( objp );
+		if ( ci.fire_secondary_count ) {
+   			if ( !ship_start_secondary_fire(objp) ) {
+				ship_fire_secondary( objp );
+			}
 
 			// kill the secondary count
 			ci.fire_secondary_count = 0;
+		} else {
+			if ( ship_stop_secondary_fire(objp) ) {
+				ship_fire_secondary( objp );
+			}
 		}
 	}
 
