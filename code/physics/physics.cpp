@@ -1137,7 +1137,7 @@ void avd_movement::setAVD(float final_position, float total_movement_time, float
 	if(Tai+Taf >= Tf)
 	{
 		Tai = Tf;
-		Taf = 0.0f;
+		Taf = Tai/1000.0f; //Cyborg17 - Because of edge-case float devision below, make Taf insignificant instead of 0.0
 	}
 
 	if(Tf <= 0.0f)
