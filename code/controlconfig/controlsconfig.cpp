@@ -552,7 +552,7 @@ int cc_line_query_visible(int n)
 	if ((y < 0) || (y + gr_get_font_height() > Control_list_coords[gr_screen.res][CONTROL_H_COORD])){
 		return 0;
 	}
-
+	// I'm bob
 	return 1;
 }
 
