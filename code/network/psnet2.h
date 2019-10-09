@@ -42,6 +42,7 @@
 //   10 bytes required for reliable packet header
 //   1 byte added to every packet for psnet ident
 #define MAX_PACKET_SIZE		(MAX_TOP_LAYER_PACKET_SIZE-11)
+#define MAX_PACKET_DESC_LEN MAX_PACKET_SIZE - 12
 
 #define DEFAULT_GAME_PORT 7808
 
