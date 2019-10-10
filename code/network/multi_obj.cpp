@@ -46,6 +46,7 @@ float oo_arrive_time_next[MAX_SHIPS];			// how many seconds have gone by. should
 int oo_interp_count[MAX_SHIPS];
 vec3d oo_interp_points[MAX_SHIPS][2];
 bez_spline oo_interp_splines[MAX_SHIPS][2];
+bez_matrix oo_interp_rot[MAX_SHIPS];
 void multi_oo_calc_interp_splines(int ship_index, vec3d *cur_pos, matrix *cur_orient, physics_info *cur_phys_info, vec3d *new_pos, matrix *new_orient, physics_info *new_phys_info);
 
 // HACK!!!
@@ -1015,7 +1016,7 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 }
 
 // reset the timestamp appropriately for the passed in object
-void multi_oo_reset_timestamp(net_player *pl, object *objp, int range, int in_cone)
+void multi_oo_reset_timestamp(net_player *pl, object *objp, int range)
 {
 	int stamp = 0;	
 
@@ -1024,24 +1025,20 @@ void multi_oo_reset_timestamp(net_player *pl, object *objp, int range, int in_co
 		stamp = Multi_oo_target_update_times[pl->p_info.options.obj_update_level];
 	} else {
 		// reset the timestamp appropriately
-		if(in_cone){
-			// base it upon range
-			switch(range){
-			case OO_NEAR:
+		// base it upon range and cone
+		switch(range){
+			case OO_CONE_NEAR:
 				stamp = Multi_oo_front_near_update_times[pl->p_info.options.obj_update_level];
 				break;
 
-			case OO_MIDRANGE:
+			case OO_CONE_MIDRANGE:
 				stamp = Multi_oo_front_medium_update_times[pl->p_info.options.obj_update_level];
 				break;
 
-			case OO_FAR:
+			case OO_CONE_FAR:
 				stamp = Multi_oo_front_far_update_times[pl->p_info.options.obj_update_level];
 				break;
-			}
-		} else {
-			// base it upon range
-			switch(range){
+			
 			case OO_NEAR:
 				stamp = Multi_oo_rear_near_update_times[pl->p_info.options.obj_update_level];
 				break;
@@ -1053,8 +1050,7 @@ void multi_oo_reset_timestamp(net_player *pl, object *objp, int range, int in_co
 			case OO_FAR:
 				stamp = Multi_oo_rear_far_update_times[pl->p_info.options.obj_update_level];
 				break;
-			}
-		}						
+		}							
 	}
 
 	// reset the timestamp for this object
@@ -1132,17 +1128,27 @@ int multi_oo_maybe_update(net_player *pl, object *obj, ubyte *data)
 							
 	// determine distance (near, medium, far)
 	vm_vec_sub(&obj_dot, &obj->pos, &pl->s_info.eye_pos);
-	dist = vm_vec_mag(&obj_dot);		
-	if(dist < OO_NEAR_DIST){
-		range = OO_NEAR;
-	} else if(dist < OO_MIDRANGE_DIST){
-		range = OO_MIDRANGE;
+	dist = vm_vec_mag(&obj_dot);
+	if (in_cone) {
+		if (dist < OO_CONE_NEAR_DIST) {
+			range = OO_CONE_NEAR;
+		} else if (dist < OO_CONE_MIDRANGE_DIST) {
+			range = OO_CONE_MIDRANGE;
+		} else {
+			range = OO_CONE_FAR;
+		}
 	} else {
-		range = OO_FAR;
+		if (dist < OO_NEAR_DIST) {
+			range = OO_NEAR;
+		} else if (dist < OO_MIDRANGE_DIST) {
+			range = OO_MIDRANGE;
+		} else {
+			range = OO_FAR;
+		}
 	}
 
 	// reset the timestamp for the next update for this guy
-	multi_oo_reset_timestamp(pl, obj, range, in_cone);
+	multi_oo_reset_timestamp(pl, obj, range);
 
 	// base oo_flags
 	oo_flags = OO_POS_NEW | OO_ORIENT_NEW;
@@ -1907,15 +1913,20 @@ void multi_oo_interp(object *objp)
 	vec3d p_bad, p_good;
 	oo_interp_splines[objp->instance][0].bez_get_point(&p_bad, u);
 	oo_interp_splines[objp->instance][1].bez_get_point(&p_good, u);		
-	vm_vec_scale(&p_good, t);
-	vm_vec_scale(&p_bad, 1.0f - t);
+	vm_vec_scale(&p_good, 0.75f);
+	vm_vec_scale(&p_bad, 0.25f);
 	vm_vec_add(&objp->pos, &p_bad, &p_good);	
 
 	// set new velocity
 	// vm_vec_sub(&objp->phys_info.vel, &objp->pos, &objp->last_pos);
 	
-	// run the sim for rotation	
-	physics_sim_rot(&objp->orient, &objp->phys_info, flFrametime);
+	// Cyborg17 now activate the rotational interp
+	const bez_matrix* bez_for_orient = &oo_interp_rot[objp->instance];
+	const vec3d max_accel = {10000.0f, 10000.0f, 10000.0f};  //shameful hack
+
+	vm_matrix_interpolate(&bez_for_orient->future, &bez_for_orient->past, &objp->phys_info.rotvel,
+	                      oo_arrive_time_avg_diff[objp->instance], &objp->orient, &objp->phys_info.rotvel,
+	                      &objp->phys_info.max_rotvel, &max_accel);
 
 	// blend velocity vectors together with an average weight
 	/*
@@ -2008,6 +2019,11 @@ void multi_oo_calc_interp_splines(int ship_index, vec3d *cur_pos, matrix *cur_or
 
 	// now we've got a spline representing our "new" path and where we would've gone had we been perfect before
 	// we'll modify our velocity to move along a blend of these splines.
+
+	//Cyborg17 - Now set up Rotational Bezier using the same predicted values.
+	oo_interp_rot[ship_index].past = *cur_orient;
+	oo_interp_rot[ship_index].present = *new_orient;
+	oo_interp_rot[ship_index].future  = m_copy;
 }
 
 void oo_update_time()

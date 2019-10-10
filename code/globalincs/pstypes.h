@@ -121,6 +121,12 @@ typedef struct matrix {
 	};
 } matrix;
 
+typedef struct bez_matrix {
+	union {
+		matrix past, present, future;
+	};
+} bez_matrix;
+
 typedef struct matrix4 {
 	union {
 		struct {
