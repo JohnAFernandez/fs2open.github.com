@@ -1862,6 +1862,11 @@ int button_function_critical(int n, net_player *p = NULL)
 				}
 			}
 
+			if (/*gamesettings flag*/ || Weapon_info[Player_ship->weapons.secondary_bank_weapons[Player_ship->weapons.current_secondary_bank]].) {
+			    gamesnd_play_iface(InterfaceSounds::GENERAL_FAIL);
+			    break;
+			}
+
 			polymodel *pm = model_get(Ship_info[Ships[objp->instance].ship_info_index].model_num);
 
 			int firepoints = pm->missile_banks[Ships[objp->instance].weapons.current_secondary_bank].num_slots;

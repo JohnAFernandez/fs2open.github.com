@@ -81,7 +81,8 @@ namespace Weapon {
 		Apply_Recoil,						// Apply Recoil using weapon and ship info
         Dont_spawn_if_shot,                 // Prevent shot down parent weapons from spawning children (DahBlount)
         Die_on_lost_lock,                   // WIF_LOCKED_HOMING missiles will die if they lose their lock
-		
+		No_Dual_Fire,						// Secondary cannot be placed in Dual Fire Mode
+
         NUM_VALUES
 	};
 
