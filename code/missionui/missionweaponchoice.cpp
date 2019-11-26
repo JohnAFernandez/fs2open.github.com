@@ -3415,8 +3415,11 @@ void wl_bash_ship_weapons(ship_weapon *swp, wss_unit *slot)
 				// since wep_count for primaries does not store the ammo; ballistic
 				// primaries always come with a full magazine
 				swp->primary_bank_ammo[j] = wl_calc_ballistic_fit(swp->primary_bank_weapons[j], Ship_info[slot->ship_class].primary_bank_ammo_capacity[i]);
+				// Cyborg17 - Make sure support ship knows this weapon's limit
+				swp->primary_bank_start_ammo[j] = swp->primary_bank_ammo[j];
 			} else {
 				swp->primary_bank_ammo[j] = 0;
+				swp->primary_bank_start_ammo[j] = 0;
 			}
 
 			j++;
@@ -3436,6 +3439,8 @@ void wl_bash_ship_weapons(ship_weapon *swp, wss_unit *slot)
 		if ( (slot->wep_count[sidx] > 0) && (slot->wep[sidx] >= 0) ) {
 			swp->secondary_bank_weapons[j] = slot->wep[sidx];
 			swp->secondary_bank_ammo[j] = slot->wep_count[sidx];
+			// Cyborg17 - Make sure support ship knows this weapon's max ammo.
+			swp->secondary_bank_start_ammo[j] = wl_calc_missile_fit(swp->secondary_bank_weapons[j], Ship_info[slot->ship_class].secondary_bank_ammo_capacity[sidx]);
 			j++;
 		}
 	}
