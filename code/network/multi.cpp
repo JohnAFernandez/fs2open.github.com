@@ -141,7 +141,7 @@ LOCAL ubyte Multi_read_count;
 
 int Multi_restr_query_timestamp = -1;
 join_request Multi_restr_join_request;
-net_addr Multi_restr_addr;				
+net_addr Multi_restr_addr;
 int Multi_join_restr_mode = -1;
 
 LOCAL fix Multi_server_wait_start;				// variable to hold start time when waiting to reestablish with server
@@ -177,7 +177,7 @@ void multi_init()
 	// clear out all netplayers
 	memset(Net_players, 0, sizeof(net_player) * MAX_PLAYERS);
 	for(idx=0; idx<MAX_PLAYERS; idx++){
-		Net_players[idx].reliable_socket = INVALID_SOCKET;
+		Net_players[idx].reliable_socket = PSNET_INVALID_SOCKET;
 	}
 
 	// initialize the local netplayer
@@ -270,10 +270,10 @@ void multi_level_init()
 	// initialize the Net_players array
 	for ( idx = 0; idx < MAX_PLAYERS; idx++) {
 		// close all sockets down just for good measure
-		psnet_rel_close_socket(&Net_players[idx].reliable_socket);
+		psnet_rel_close_socket(Net_players[idx].reliable_socket);
 
 		memset(&Net_players[idx],0,sizeof(net_player));
-		Net_players[idx].reliable_socket = INVALID_SOCKET;
+		Net_players[idx].reliable_socket = PSNET_INVALID_SOCKET;
 
 		Net_players[idx].s_info.xfer_handle = -1;
 		Net_players[idx].p_info.team = 0;
@@ -331,13 +331,14 @@ void multi_check_listen()
 {
 	int i;
 	net_addr addr;
-	PSNET_SOCKET_RELIABLE sock = INVALID_SOCKET;
+	PSNET_SOCKET_RELIABLE sock = PSNET_INVALID_SOCKET;
 
 	// call psnet routine which calls select to see if we need to check for a connect from a client
 	// by passing addr, we are telling check_for_listen to do the accept and return who it was from in
 	// addr.  The
 	sock = psnet_rel_check_for_listen(&addr);
-	if ( sock != INVALID_SOCKET ) {
+
+	if (sock != PSNET_INVALID_SOCKET) {
 		// be sure that my address and the server address are set correctly.
 		if ( !psnet_same(&Psnet_my_addr, &Net_player->p_info.addr) ){
 			Net_player->p_info.addr = Psnet_my_addr;
@@ -377,7 +378,7 @@ void multi_check_listen()
 		// if we didn't find a player, close the socket
 		if ( i == MAX_PLAYERS ) {
 			nprintf(("Network", "Got accept on my listen socket, but unknown player.  Closing socket.\n"));
-			psnet_rel_close_socket(&sock);
+			psnet_rel_close_socket(sock);
 		}
 	}
 }
@@ -599,7 +600,7 @@ void process_packet_normal(ubyte* data, header *header_info)
 			Assert(header_info->id >= 0);
 			int np_index;
 			PSNET_SOCKET_RELIABLE sock;
-			sock = INVALID_SOCKET;
+			sock = PSNET_INVALID_SOCKET;
 
 			// if I'm the server of the game, find out who this came from			
 			if((Net_player != NULL) && (Net_player->flags & NETINFO_FLAG_AM_MASTER)){
@@ -1015,11 +1016,11 @@ void multi_process_reliable_details()
 				// if we're still waiting for this guy to connect on his reliable socket and he's timed out, boot him
 				if(Net_players[idx].s_info.reliable_connect_time != -1){
 					// if he's connected
-					if(Net_players[idx].reliable_socket != INVALID_SOCKET){
+					if(Net_players[idx].reliable_socket != PSNET_INVALID_SOCKET){
 						Net_players[idx].s_info.reliable_connect_time = -1;
 					} 
 					// if he's timed out
-					else if(((time(NULL) - Net_players[idx].s_info.reliable_connect_time) > MULTI_RELIABLE_CONNECT_WAIT) && (Net_players[idx].reliable_socket == INVALID_SOCKET)){
+					else if(((time(nullptr) - Net_players[idx].s_info.reliable_connect_time) > MULTI_RELIABLE_CONNECT_WAIT) && (Net_players[idx].reliable_socket == PSNET_INVALID_SOCKET)){
 						ml_string("Player timed out while connecting on reliable socket!");
 						delete_player(idx);
 					}
@@ -1085,7 +1086,7 @@ void multi_process_incoming()
 		}
 	} else {
 		// if I'm not the master of the game, read reliable data from my connection with the server
-		if((Net_player->reliable_socket != INVALID_SOCKET) && (Net_player->reliable_socket != 0)){
+		if((Net_player->reliable_socket != PSNET_INVALID_SOCKET) && (Net_player->reliable_socket != 0)){
 			while( (size = psnet_rel_get(Net_player->reliable_socket,data, MAX_NET_BUFFER)) > 0){				
 				multi_process_bigdata(data, size, &Netgame.server_addr, 1);
 			}
@@ -1452,7 +1453,6 @@ void standalone_main_init()
 
 
 	// set the protocol
-	psnet_use_protocol(Multi_options_g.protocol);
 	switch (Multi_options_g.protocol) {
 	case NET_TCP:
 		ADDRESS_LENGTH = IP_ADDRESS_LENGTH;
