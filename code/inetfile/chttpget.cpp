@@ -20,8 +20,6 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/ioctl.h>
-
-#define WSAGetLastError()  (errno)
 #endif
 
 #include <cstring>
