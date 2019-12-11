@@ -2254,9 +2254,8 @@ void broadcast_game_query()
 
 	// send out a broadcast if our options allow us
 	if(Net_player->p_info.options.flags & MLO_FLAG_LOCAL_BROADCAST){
-		BUILD_HEADER(GAME_QUERY);
 		psnet_broadcast(data, packet_size);
-	}
+	}		
 }
 
 // send an individual query to an address to see if there is an active game
