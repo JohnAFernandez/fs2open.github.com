@@ -142,7 +142,7 @@ int psnet_get_network_status();
 const char *psnet_addr_to_string(const net_addr *address, char *text, size_t max_len);
 
 // convert a string to a net addr
-void psnet_string_to_addr(const char *text, net_addr *address);
+bool psnet_string_to_addr(const char *text, net_addr *address);
 
 // compare 2 addresses
 int psnet_same(SOCKADDR_IN6 *a1, SOCKADDR_IN6 *a2);
