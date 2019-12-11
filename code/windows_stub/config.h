@@ -67,6 +67,8 @@ extern const char *inet_ntop(int af, const void *src, char *dst, int size);
 #define SOCKET			int
 #define SOCKADDR		struct sockaddr
 #define SOCKADDR_IN		struct sockaddr_in
+#define SOCKADDR_IN6	struct sockaddr_in6
+#define SOCKADDR_STORAGE	struct sockaddr_storage
 #define LPSOCKADDR		struct sockaddr*
 #define HOSTENT			struct hostent
 #define SERVENT			struct servent
@@ -85,8 +87,10 @@ extern const char *inet_ntop(int af, const void *src, char *dst, int size);
 
 #define NETCALL_WOULDBLOCK(err) (err == EAGAIN || err == EINPROGRESS)
 
+#define WSAGetLastError()  (errno)
+
 #ifndef INVALID_SOCKET
-#define INVALID_SOCKET ((SOCKET) -1)
+#define INVALID_SOCKET	(-1)
 #endif
 
 #define SOCKLEN_T socklen_t

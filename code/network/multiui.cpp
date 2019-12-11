@@ -839,7 +839,7 @@ void multi_join_game_init()
 	multi_level_init();		
 	Net_player->flags |= NETINFO_FLAG_DO_NETWORKING;	
 	Net_player->m_player = Player;
-	memcpy(&Net_player->p_info.addr,&Psnet_my_addr,sizeof(net_addr));
+	memcpy(&Net_player->p_info.addr, &Psnet_my_addr, sizeof(Net_player->p_info.addr));
 
 	// check for the existence of a CD
 	multi_common_verify_cd();
@@ -944,8 +944,7 @@ void multi_join_game_init()
 		int ip_addr;
 
 		// joining a game.  Send a join request to the given IP address, and wait for the return.
-		memset( &Multi_autojoin_addr, 0, sizeof(net_addr) );
-		Multi_autojoin_addr.type = NET_TCP;
+		memset(&Multi_autojoin_addr, 0, sizeof(Multi_autojoin_addr));
 
 		// create the address, looking out for port number at the end
 		port_num = DEFAULT_GAME_PORT;
@@ -983,22 +982,12 @@ void multi_join_clear_game_list()
 
 void multi_join_game_do_frame()
 {
-
 	// Because we can get to here through the options screen, we may have PXO games enabled when we're not connected.
 	// So we should go back and connect if that's true.
 	if ((Multi_options_g.pxo == 1) && !multi_fs_tracker_inited()) {
 		gameseq_post_event(GS_EVENT_PXO);
 		return;
 	}
-
-	// check the status of our reliable socket.  If not valid, popup error and return to main menu
-	// I put this code here to avoid nasty gameseq issues with states.  Also, we will have nice
-	// background for the popup
-	if ( !psnet_rel_check() ) {
-		popup(PF_USE_AFFIRMATIVE_ICON,1,POPUP_OK,XSTR("Network Error.  Try exiting and restarting FreeSpace to clear the error.  Otherwise, please reboot your machine.",756));
-		gameseq_post_event(GS_EVENT_MAIN_MENU);
-		return;
-	}	
 
 	// return here since we will be moving to the next stage anyway -- I don't want to see the backgrounds of
 	// all the screens for < 1 second for every screen we automatically move to.
@@ -1495,18 +1484,18 @@ void multi_join_load_tcp_addrs()
 			nprintf(("Network","Invalid ip string (%s)\n",line));
 		} else {			 
 			// copy the server ip address
-			memset(&addr,0,sizeof(net_addr));
-			addr.type = NET_TCP;
-			psnet_string_to_addr(&addr,line);
-			if ( addr.port == 0 ){
+			psnet_string_to_addr(line, &addr);
+
+			if (addr.port == 0) {
 				addr.port = DEFAULT_GAME_PORT;
 			}
 
 			// create a new server item on the list
 			item = multi_new_server_item();
-			if(item != NULL){
-				memcpy(&item->server_addr,&addr,sizeof(net_addr));
-			}			
+
+			if (item != nullptr) {
+				memcpy(&item->server_addr, &addr, sizeof(item->server_addr));
+			}
 		}
 	}
 
@@ -1937,7 +1926,7 @@ void multi_join_send_join_request(int as_observer)
 	memcpy(&Multi_join_request.player_options,&Player->m_local_options,sizeof(multi_local_options));
 			
 	// set the server address for the netgame
-	memcpy(&Netgame.server_addr,&Multi_join_selected_item->server_addr,sizeof(net_addr));
+	memcpy(&Netgame.server_addr, &Multi_join_selected_item->server_addr, sizeof(Netgame.server_addr));
 
 	// send a join request to the guy
 	send_join_packet(&Multi_join_selected_item->server_addr,&Multi_join_request);
