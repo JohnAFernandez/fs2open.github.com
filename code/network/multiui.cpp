@@ -1485,7 +1485,9 @@ void multi_join_load_tcp_addrs()
 			nprintf(("Network","Invalid ip string (%s)\n",line));
 		} else {			 
 			// copy the server ip address
-			psnet_string_to_addr(line, &addr);
+			if ( !psnet_string_to_addr(line, &addr) ) {
+				continue;
+			}
 
 			if (addr.port == 0) {
 				addr.port = DEFAULT_GAME_PORT;
