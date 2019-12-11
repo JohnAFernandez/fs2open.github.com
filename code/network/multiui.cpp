@@ -956,7 +956,6 @@ void multi_join_clear_game_list()
 
 void multi_join_game_do_frame()
 {
-
 	// Because we can get to here through the options screen, we may have PXO games enabled when we're not connected.
 	// So we should go back and connect if that's true.
 	if ((Multi_options_g.pxo == 1) && !multi_fs_tracker_inited()) {

@@ -555,8 +555,7 @@ void AckServer(unsigned int sig)
 
 	packet_length = SerializePilotPacket(&ack_pack, packet_data);
 	Assert(packet_length == PACKED_HEADER_ONLY_SIZE);
-	SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0,
-		   reinterpret_cast<LPSOCKADDR>(&ptrackaddr), sizeof(ptrackaddr), PSNET_TYPE_USER_TRACKER);
+	SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0, reinterpret_cast<struct sockaddr *>(&ptrackaddr), sizeof(struct sockaddr_in), PSNET_TYPE_USER_TRACKER);
 }
 
 void IdlePTrack()
@@ -573,9 +572,7 @@ void IdlePTrack()
 		} else if((timer_get_milliseconds()-FSLastSent)>=PILOT_REQ_RESEND_TIME){
 			//Send 'da packet
 			packet_length = SerializePilotPacket(&fs_pilot_req, packet_data);
-			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0,
-				   reinterpret_cast<LPSOCKADDR>(&ptrackaddr), sizeof(ptrackaddr), PSNET_TYPE_USER_TRACKER);
-
+			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0, reinterpret_cast<struct sockaddr *>(&ptrackaddr), sizeof(struct sockaddr_in), PSNET_TYPE_USER_TRACKER);
 			FSLastSent = timer_get_milliseconds();
 		}
 	}
@@ -588,9 +585,7 @@ void IdlePTrack()
 		} else if((timer_get_milliseconds()-FSLastSentWrite)>=PILOT_REQ_RESEND_TIME){
 			// Send 'da packet
 			packet_length = SerializePilotPacket(&fs_pilot_write, packet_data);
-			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0,
-				   reinterpret_cast<LPSOCKADDR>(&ptrackaddr), sizeof(ptrackaddr), PSNET_TYPE_USER_TRACKER);
-
+			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0, reinterpret_cast<struct sockaddr *>(&ptrackaddr), sizeof(struct sockaddr_in), PSNET_TYPE_USER_TRACKER);
 			FSLastSentWrite = timer_get_milliseconds();
 		}
 	}
@@ -602,9 +597,7 @@ void IdlePTrack()
 		} else if((timer_get_milliseconds()-SWLastSentWrite) >= PILOT_REQ_RESEND_TIME){
 			// Send 'da packet
 			packet_length = SerializePilotPacket(&sw_res_write, packet_data);
-			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0,
-				   reinterpret_cast<LPSOCKADDR>(&ptrackaddr), sizeof(ptrackaddr), PSNET_TYPE_USER_TRACKER);
-
+			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0, reinterpret_cast<struct sockaddr *>(&ptrackaddr), sizeof(struct sockaddr_in), PSNET_TYPE_USER_TRACKER);
 			SWLastSentWrite = timer_get_milliseconds();
 		}
 	}
@@ -634,8 +627,7 @@ void PollPTrackNet()
 		SDL_zero(inpacket);
 		addrsize = sizeof(fromaddr);
 
-		bytesin = RECVFROM(Psnet_socket, reinterpret_cast<char *>(&packet_data), sizeof(udp_packet_header), 0,
-						   reinterpret_cast<LPSOCKADDR>(&fromaddr), &addrsize, PSNET_TYPE_USER_TRACKER);
+		bytesin = RECVFROM(Psnet_socket, reinterpret_cast<char *>(&packet_data), sizeof(udp_packet_header), 0, reinterpret_cast<struct sockaddr *>(&fromaddr), &addrsize, PSNET_TYPE_USER_TRACKER);
 
 		if (bytesin > 0) {
 			DeserializePilotPacket(packet_data, bytesin, &inpacket);

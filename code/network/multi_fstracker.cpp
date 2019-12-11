@@ -963,11 +963,7 @@ void multi_fs_tracker_process_game_item(game_list *gl)
 		// package up the game information
 		memset(&ag,0,sizeof(active_game));
 		SDL_strlcpy(ag.name, gl->game_name[idx], SDL_arraysize(ag.name));
-
-		addr.s_addr = gl->game_server[idx];
-		psnet_map4to6(&addr, &addr6);
-		memcpy(&ag.server_addr.addr, &addr6, sizeof(ag.server_addr.addr));
-
+		memcpy(&ag.server_addr.addr[0], &gl->game_server[idx], IP_ADDRESS_LENGTH);
 		ag.server_addr.port = ntohs(gl->port[idx]); //DEFAULT_GAME_PORT;
 
 		// add to the active game list
