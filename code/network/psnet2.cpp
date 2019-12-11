@@ -496,7 +496,7 @@ bool psnet_init_my_addr()
 
 	//
 	// run through some public DNS servers to try and populate the routing table
-	// which should populate the socket with our local interface IP address on
+	// which should load the socket with our local interface IP address on
 	// the default route
 	//
 
@@ -622,24 +622,27 @@ const char *psnet_addr_to_string(const net_addr *address, char *text, size_t max
 /**
  * Convert a string to a net addr
  */
-void psnet_string_to_addr(const char *text, net_addr *address)
+bool psnet_string_to_addr(const char *text, net_addr *address)
 {
 	SCP_string host, port;
-	in6_addr addr6;
+	SOCKADDR_STORAGE sockaddr;
+	SOCKADDR_IN6 *addr6 = reinterpret_cast<SOCKADDR_IN6 *>(&sockaddr);
 
 	memset(address, 0, sizeof(*address));
 
 	if (Network_status != NETWORK_STATUS_RUNNING) {
-		return;
+		return false;
 	}
 
 	if ( !psnet_explode_ip_string(text, host, port) ) {
-		return;
+		return false;
 	}
 
-	inet_pton(AF_INET6, host.c_str(), &addr6);
+	if ( !psnet_get_addr(host.c_str(), DEFAULT_GAME_PORT, &sockaddr) ) {
+		return false;
+	}
 
-	memcpy(&address->addr, &addr6, sizeof(address->addr));
+	memcpy(&address->addr, &addr6->sin6_addr, sizeof(address->addr));
 
 	if ( !port.empty() ) {
 		try {
@@ -652,6 +655,8 @@ void psnet_string_to_addr(const char *text, net_addr *address)
 			mprintf(("Invalid port number in psnet_string_to_addr()"));
 		}
 	}
+
+	return true;
 }
 
 /**
