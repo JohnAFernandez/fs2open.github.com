@@ -257,6 +257,12 @@ int RECVFROM(SOCKET  /*s*/, char *buf, int  /*len*/, int  /*flags*/, SOCKADDR *f
 		return -1;
 	}
 
+	// make sure we have enough storage size for return addr
+	if ( *fromlen < static_cast<int>(sizeof(addr)) ) {
+		Int3();
+		return -1;
+	}
+
 	l = &Psnet_top_buffers[psnet_type];
 
 	// if we have no buffer! The user should have made sure this wasn't the case by calling SELECT()
@@ -268,8 +274,8 @@ int RECVFROM(SOCKET  /*s*/, char *buf, int  /*len*/, int  /*flags*/, SOCKADDR *f
 	}
 
 	// otherwise, stuff the outgoing data
-	memcpy(from, &addr, sizeof(SOCKADDR_IN6));
-	*fromlen = sizeof(SOCKADDR_IN6);
+	memcpy(from, &addr, sizeof(addr));
+	*fromlen = sizeof(addr);
 
 	// return bytes read
 	return static_cast<int>(ret_len);
