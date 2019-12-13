@@ -950,12 +950,15 @@ bool psnet_get_addr(const char *host, const char *port, SOCKADDR_STORAGE *addr, 
 {
 	struct addrinfo hints, *srvinfo;
 	bool success = false;
+	SOCKADDR_IN6 si4to6;
+
+	memset(&si4to6, 0, sizeof(si4to6));
 
 	memset(&hints, 0, sizeof(hints));
 
-	hints.ai_family = AF_INET6;	// AF_UNSPEC;
+	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = flags | AI_V4MAPPED;
+	hints.ai_flags = AI_V4MAPPED | flags;
 
 	if (host == nullptr) {
 		hints.ai_flags |= AI_PASSIVE;
@@ -976,7 +979,19 @@ bool psnet_get_addr(const char *host, const char *port, SOCKADDR_STORAGE *addr, 
 	for (auto *srv = srvinfo; srv != nullptr; srv = srv->ai_next) {
 		if ( (srv->ai_family == AF_INET) || (srv->ai_family == AF_INET6) ) {
 			if (addr) {
-				memcpy(addr, srv->ai_addr, srv->ai_addrlen);
+				// map ipv4 to ipv6
+				if (srv->ai_family == AF_INET) {
+					auto *si4 = reinterpret_cast<SOCKADDR_IN *>(srv->ai_addr);
+
+					si4to6.sin6_family = AF_INET6;
+					si4to6.sin6_port = si4->sin_port;
+
+					psnet_map4to6(&si4->sin_addr, &si4to6.sin6_addr);
+
+					memcpy(addr, &si4to6, sizeof(si4to6));
+				} else {
+					memcpy(addr, srv->ai_addr, srv->ai_addrlen);
+				}
 			}
 
 			success = true;
