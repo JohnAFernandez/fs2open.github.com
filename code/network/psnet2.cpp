@@ -957,7 +957,7 @@ bool psnet_get_addr(const char *host, const char *port, SOCKADDR_STORAGE *addr, 
 	memset(&hints, 0, sizeof(hints));
 
 	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_socktype = 0;
 	hints.ai_flags = AI_V4MAPPED | flags;
 
 	if (host == nullptr) {
