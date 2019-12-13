@@ -76,7 +76,7 @@ typedef int socklen_t;
 #define PSNET_TYPE_VALIDATION				4
 
 extern net_addr Psnet_my_addr;							// address information of this machine
-extern uint Psnet_my_ip;
+extern in6_addr Psnet_my_ip;
 
 extern int Network_status;
 extern int Psnet_failure_code;
