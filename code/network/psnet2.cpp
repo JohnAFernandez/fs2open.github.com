@@ -1279,9 +1279,12 @@ void psnet_rel_work()
 		FD_ZERO(&read_fds);
 		FD_SET(Psnet_socket, &read_fds);
 
-		rcode = SELECT(static_cast<int>(Psnet_socket+1), &read_fds, nullptr, nullptr, &timeout, PSNET_TYPE_RELIABLE);
+		if ( SELECT(static_cast<int>(Psnet_socket+1), &read_fds, nullptr, nullptr, &timeout, PSNET_TYPE_RELIABLE) == SOCKET_ERROR ) {
+			break;
+		}
 
-		if (rcode <= 0) {
+		// if the file descriptor is not set, then bail!
+		if ( !FD_ISSET(Psnet_socket, &read_fds) ) {
 			break;
 		}
 
@@ -1690,9 +1693,12 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 		FD_ZERO(&read_fds);
 		FD_SET(Psnet_socket, &read_fds);
 
-		rcode = SELECT(static_cast<int>(Psnet_socket+1), &read_fds, nullptr, nullptr, &timeout, PSNET_TYPE_RELIABLE);
+		if ( SELECT(static_cast<int>(Psnet_socket+1), &read_fds, nullptr, nullptr, &timeout, PSNET_TYPE_RELIABLE) == SOCKET_ERROR ) {
+			break;
+		}
 
-		if (rcode <= 0) {
+		// if the file descriptor is not set, then bail!
+		if ( !FD_ISSET(Psnet_socket, &read_fds) ) {
 			break;
 		}
 
@@ -1732,10 +1738,12 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 		FD_ZERO(&read_fds);
 		FD_SET(Psnet_socket, &read_fds);
 
-		rcode = SELECT(static_cast<int>(Psnet_socket+1), &read_fds, nullptr, nullptr, &timeout, PSNET_TYPE_RELIABLE);
+		if ( SELECT(static_cast<int>(Psnet_socket+1), &read_fds, nullptr, nullptr, &timeout, PSNET_TYPE_RELIABLE) == SOCKET_ERROR ) {
+			break;
+		}
 
-		if (rcode <= 0) {
-			ml_string("Received 0 bytes from recvfrom() in nw_ConnectToServer().");
+		// if the file descriptor is not set, then bail!
+		if ( !FD_ISSET(Psnet_socket, &read_fds) ) {
 			continue;
 		}
 
@@ -1746,6 +1754,7 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 						   reinterpret_cast<LPSOCKADDR>(&rcv_addr) ,&addrlen, PSNET_TYPE_RELIABLE);
 
 		if (bytesin == 0) {
+			ml_string("Received 0 bytes from recvfrom() in nw_ConnectToServer().");
 			continue;
 		}
 
