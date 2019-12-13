@@ -43,7 +43,7 @@
 //
 
 net_addr Psnet_my_addr;
-static SCP_string Psnet_my_ip_str;
+in6_addr Psnet_my_ip = IN6ADDR_ANY_INIT;
 
 int Tcp_active = 0;
 
@@ -235,6 +235,7 @@ static bool psnet_explode_ip_string(const char *ip_string, SCP_string &host, SCP
 // conversions
 static void psnet_sockaddr_to_addr(const SOCKADDR_IN6 *sockaddr, net_addr *addr);
 static void psnet_addr_to_sockaddr(const net_addr *addr, SOCKADDR_IN6 *sockaddr);
+static void psnet_map4to6(const in_addr *in4, in6_addr *in6);
 
 // -------------------------------------------------------------------------------------------------------
 // PSNET 2 TOP LAYER FUNCTIONS - these functions simply buffer and store packets based upon type (see PSNET_TYPE_* defines)
@@ -494,7 +495,6 @@ bool psnet_init_my_addr()
 {
 	SOCKADDR_STORAGE remote_addr;
 	SOCKADDR_STORAGE local_addr;
-	SOCKADDR_IN6 local_addr_6;
 	char ip_string[INET6_ADDRSTRLEN];
 	socklen_t addrlen;
 	SOCKET tsock;
@@ -502,8 +502,7 @@ bool psnet_init_my_addr()
 
 	//
 	// run through some public DNS servers to try and populate the routing table
-	// which should load the socket with our local interface IP address on
-	// the default route
+	// which should load the socket with our local interface IP address
 	//
 
 	const SCP_vector<SCP_string> remote_hosts = { "1.1.1.1", "1.0.0.1", "8.8.8.8", "9.9.9.9" };
@@ -546,34 +545,25 @@ bool psnet_init_my_addr()
 	// zero out my address
 	memset(&Psnet_my_addr, 0, sizeof(Psnet_my_addr));
 
-	Psnet_my_addr.port = Psnet_default_port;
-
 	// map to IPv6 if needed
 	if (local_addr.ss_family == AF_INET) {
 		auto *sa4 = reinterpret_cast<SOCKADDR_IN *>(&local_addr);
-		in6_addr addr6;
 
-		if (sa4->sin_addr.s_addr != INADDR_ANY) {
-			addr6.s6_addr32[0] = 0;
-			addr6.s6_addr32[1] = 0;
-			addr6.s6_addr32[2] = htonl(0xffff);
-			addr6.s6_addr32[3] = sa4->sin_addr.s_addr;
-
-			memcpy(&Psnet_my_addr.addr, &addr6, sizeof(Psnet_my_addr.addr));
-		}
-	} else if (local_addr.ss_family == AF_INET6) {
+		psnet_map4to6(&sa4->sin_addr, &Psnet_my_ip);
+	} else {
 		auto *sa6 = reinterpret_cast<SOCKADDR_IN6 *>(&local_addr);
 
-		memcpy(&Psnet_my_addr.addr, &sa6->sin6_addr, sizeof(Psnet_my_addr.addr));
+		Psnet_my_ip = sa6->sin6_addr;
 	}
 
+	memcpy(&Psnet_my_addr.addr, &Psnet_my_ip, sizeof(Psnet_my_addr.addr));
+	Psnet_my_addr.port = Psnet_default_port;
+
 	// log result to multi.log
-	psnet_addr_to_sockaddr(&Psnet_my_addr, &local_addr_6);
-	const char *local_ip = inet_ntop(AF_INET6, &local_addr_6.sin6_addr, ip_string, sizeof(ip_string));
+	const char *local_ip = inet_ntop(AF_INET6, &Psnet_my_ip, ip_string, sizeof(ip_string));
 
 	if (local_ip) {
 		ml_printf("Local interface IP address => %s", local_ip);
-		Psnet_my_ip_str = local_ip;
 	} else {
 		Int3();
 		ml_string("Local interface IP address => <undetermined>");
@@ -802,6 +792,21 @@ static void psnet_addr_to_sockaddr(const net_addr *addr, SOCKADDR_IN6 *sockaddr)
 
 	sockaddr->sin6_family = AF_INET6;
 	sockaddr->sin6_port = htons(addr->port);
+}
+
+/**
+ * Helper to map IPv4 to IPv6
+ */
+static void psnet_map4to6(const in_addr *in4, in6_addr *in6)
+{
+	if (in4->s_addr == INADDR_ANY) {
+		memcpy(in6, &in6addr_any, sizeof(in6_addr));
+	} else {
+		in6->s6_addr32[0] = 0;
+		in6->s6_addr32[1] = 0;
+		in6->s6_addr32[2] = htonl(0xffff);
+		in6->s6_addr32[3] = in4->s_addr;
+	}
 }
 
 /**
@@ -1983,6 +1988,7 @@ void psnet_set_socket_options()
 bool psnet_init_socket()
 {
 	SOCKADDR_STORAGE sockaddr;
+	char ip_string[INET6_ADDRSTRLEN];
 
 	Psnet_socket = socket(AF_INET6, SOCK_DGRAM, 0);
 
@@ -1993,8 +1999,12 @@ bool psnet_init_socket()
 		return false;
 	}
 
+	memset(ip_string, 0, sizeof(ip_string));
+
+	inet_ntop(AF_INET6, &Psnet_my_ip, ip_string, sizeof(ip_string));
+
 	// bind the socket
-	psnet_get_addr(Psnet_my_ip_str.empty() ? nullptr : Psnet_my_ip_str.c_str(), Psnet_default_port, &sockaddr);
+	psnet_get_addr(IN6_IS_ADDR_UNSPECIFIED(&Psnet_my_ip) ? nullptr : ip_string, Psnet_default_port, &sockaddr);
 
 	if ( bind(Psnet_socket, reinterpret_cast<LPSOCKADDR>(&sockaddr), sizeof(sockaddr)) == SOCKET_ERROR) {
 		Psnet_failure_code = WSAGetLastError();
