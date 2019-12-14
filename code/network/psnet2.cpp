@@ -304,6 +304,14 @@ int SELECT(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
 
 	// do we have any buffers in here?
 	if ( (l->psnet_lowest_id == -1) || (l->psnet_lowest_id > l->psnet_highest_id) ) {
+		if (readfds) {
+			FD_ZERO(readfds);
+		}
+
+		if (exceptfds) {
+			FD_ZERO(exceptfds);
+		}
+
 		return 0;
 	}
 
