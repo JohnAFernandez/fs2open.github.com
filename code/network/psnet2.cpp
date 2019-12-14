@@ -972,7 +972,7 @@ bool psnet_get_addr(const char *host, const char *port, SOCKADDR_STORAGE *addr, 
 	int rval = getaddrinfo(host, port, &hints, &srvinfo);
 
 	if (rval) {
-		ml_printf("PF_get_addr : getaddrinfo() => %s", gai_strerror(rval));
+		ml_printf("getaddrinfo() => %s", gai_strerror(rval));
 		return false;
 	}
 
@@ -2014,7 +2014,7 @@ bool psnet_init_socket()
 	SOCKADDR_STORAGE sockaddr;
 	char ip_string[INET6_ADDRSTRLEN];
 
-	Psnet_socket = socket(AF_INET6, SOCK_DGRAM, 0);
+	Psnet_socket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 
 	if (Psnet_socket == INVALID_SOCKET) {
 		Psnet_failure_code = WSAGetLastError();
