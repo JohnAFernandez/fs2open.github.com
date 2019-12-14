@@ -356,7 +356,7 @@ bool CFtpGet::IssuePasv()
 
 	m_DataSock = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 
-	if (m_DataSock == SOCKET_ERROR) {
+	if (m_DataSock == INVALID_SOCKET) {
 		return false;
 	}
 
@@ -443,7 +443,7 @@ int CFtpGet::SendFTPCommand(const char *command, SCP_string *response)
 	cmd += eol;
 
 	// Send the FTP command
-	if ( send(m_ControlSock, cmd.c_str(), static_cast<int>(cmd.length()), 0) == SOCKET_ERROR ) {
+	if ( send(m_ControlSock, cmd.c_str(), cmd.length(), 0) == SOCKET_ERROR ) {
 		// Return 999 to indicate an error has occurred
 		return 999;
 	}
@@ -541,8 +541,9 @@ uint CFtpGet::ReadDataChannel()
 
 		nBytesRecv = recv(m_DataSock, sDataBuffer, BUF_SIZE, 0);
 
+		m_iBytesIn += nBytesRecv;
+
 		if (nBytesRecv > 0) {
-			m_iBytesIn += static_cast<uint>(nBytesRecv);
 			fwrite(sDataBuffer, static_cast<size_t>(nBytesRecv), 1, LOCALFILE);
 		}
 
