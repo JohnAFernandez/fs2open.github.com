@@ -822,16 +822,6 @@ void multi_join_game_init()
 	Assert( Game_mode & GM_MULTIPLAYER );
 	Assert( Net_player != NULL );
 
-	switch (Multi_options_g.protocol) {	
-	case NET_TCP:
-		ADDRESS_LENGTH = IP_ADDRESS_LENGTH;		
-		PORT_LENGTH = IP_PORT_LENGTH;			
-		break;
-
-	default :
-		Int3();
-	} // end switch
-	
 	HEADER_LENGTH = 1;
 
 	memset( &Netgame, 0, sizeof(Netgame) );
@@ -938,25 +928,9 @@ void multi_join_game_init()
 	// if starting a network game, then go to the create game screen
 	if ( Cmdline_start_netgame ) {
 		multi_join_create_game();		
-	} else if ( Cmdline_connect_addr != NULL ) {
-		char *p;
-		short port_num;
-		int ip_addr;
-
+	} else if (Cmdline_connect_addr != nullptr) {
 		// joining a game.  Send a join request to the given IP address, and wait for the return.
-		memset(&Multi_autojoin_addr, 0, sizeof(Multi_autojoin_addr));
-
-		// create the address, looking out for port number at the end
-		port_num = DEFAULT_GAME_PORT;
-		p = strrchr(Cmdline_connect_addr, ':');
-		if ( p ) {
-			*p = '\0';
-			p++;
-			port_num = (short)atoi(p);
-		}
-		ip_addr = inet_addr(Cmdline_connect_addr);
-		memcpy(Multi_autojoin_addr.addr, &ip_addr, 4);
-		Multi_autojoin_addr.port = port_num;
+		psnet_string_to_addr(Cmdline_connect_addr, &Multi_autojoin_addr);
 
 		send_server_query(&Multi_autojoin_addr);
 		Multi_autojoin_query_stamp = timestamp(MULTI_AUTOJOIN_QUERY_STAMP);
@@ -2678,10 +2652,10 @@ void multi_sg_init_gamenet()
 		Multi_sg_netgame = &Multi_sg_netgame_temp;
 
 		// NETLOG
-		in_addr temp_addr;
-		memcpy(&temp_addr.s_addr, &Netgame.server_addr, 4);
-		char *server_addr = inet_ntoa(temp_addr);				
-		ml_printf(NOX("Starting netgame as Host on Standalone server : %s"), (server_addr == NULL) ? NOX("Unknown") : server_addr);
+		char server_addr[INET6_ADDRSTRLEN];
+		psnet_addr_to_string(&Netgame.server_addr, server_addr, INET6_ADDRSTRLEN);
+
+		ml_printf(NOX("Starting netgame as Host on Standalone server : %s"), (server_addr[0]) ? NOX("Unknown") : server_addr);
 	}
 	
 	Net_player->tracker_player_id = Multi_tracker_id;

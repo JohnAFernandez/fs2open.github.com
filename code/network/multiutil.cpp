@@ -461,7 +461,7 @@ int find_player_no_port(net_addr *addr)
 			continue;
 		}
 
-		if ( memcmp(&addr->addr,&Net_players[i].p_info.addr.addr,IP_ADDRESS_LENGTH)== 0){
+		if ( memcmp(&addr->addr, &Net_players[i].p_info.addr.addr, sizeof(addr->addr)) == 0) {
 			return i;
 		}
 	}
@@ -1058,36 +1058,8 @@ void fill_net_addr(net_addr* addr, ubyte* address, ushort port)
 	Assertion(addr != nullptr, "Invalid net address struct was passed to fill_net_addr(). Code error, please report.");
 	Assertion(address != nullptr, "Invalid net address was passed to fill_net_addr()");
 
-	memset( addr->addr, 0x00, sizeof(addr->addr));
-	memcpy( addr->addr, address, ADDRESS_LENGTH);
+	memcpy(addr->addr, address, sizeof(addr->addr));
 	addr->port = port;
-}
-
-
-
-// -------------------------------------------------------------------------------------------------
-// get_text_address()
-//
-//
-
-char* get_text_address( char * text, ubyte * address )
-{
-
-	in_addr temp_addr;
-
-	switch ( Multi_options_g.protocol ) {
-		case NET_TCP:
-			memcpy(&temp_addr.s_addr, address, 4);
-			strcpy( text, inet_ntoa(temp_addr) );
-			break;
-
-		default:
-			Assert(0);
-			break;
-
-	} // end switch
-
-	return text;
 }
 
 // non-16byte version of matrix packing
