@@ -108,8 +108,6 @@ int Multi_button_info_ok = 0;										// flag saying it is ok to apply critical
 int Multi_button_info_id = 0;										// identifier of the stored button info to be applying
 
 // low level networking vars
-int ADDRESS_LENGTH;
-int PORT_LENGTH;
 int HEADER_LENGTH;													// 1 byte (packet type)
 
 // misc data
@@ -946,7 +944,7 @@ void multi_process_bigdata(ubyte *data, int len, net_addr *from_addr, int reliab
 
 	// store fields that were passed along in the message
 	// store header information that was captured from the network-layer header
-	memcpy(header_info.addr, from_addr->addr, 6);
+	memcpy(header_info.addr, from_addr->addr, sizeof(header_info.addr));
 	header_info.port = from_addr->port;	
 	if(player_num >= 0){
 		header_info.id = Net_players[player_num].player_id;
@@ -1450,18 +1448,6 @@ void standalone_main_init()
 		exit(1);
 	}
 #endif // ifdef _WIN32
-
-
-	// set the protocol
-	switch (Multi_options_g.protocol) {
-	case NET_TCP:
-		ADDRESS_LENGTH = IP_ADDRESS_LENGTH;
-		PORT_LENGTH = IP_PORT_LENGTH;
-		break;
-
-	default:
-		Int3();
-	} // end switch
 
 	HEADER_LENGTH = 1;		
 	
