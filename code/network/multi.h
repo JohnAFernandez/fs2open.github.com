@@ -91,10 +91,6 @@ class player;
 #define DESCRIPT_LENGTH						512			// maximum length of a mission description (as specified by Fred)
 #define MAX_PASSWD_LEN						16				// maximum length of the password for a netgame
 
-// low level networking defines
-#define IP_ADDRESS_LENGTH					4				// length of the address field for an IP address
-#define IP_PORT_LENGTH						2				// length of the port field for an IP address
-
 // netgame defines
 #define MP_SINGLE_MISSION					0				// not playing a campaign - single mission
 #define MP_CAMPAIGN							1				// playing a campaign
@@ -378,9 +374,8 @@ class player;
 // definition of header packet used in any protocol
 typedef struct header {
 	int		bytes_processed;											// used to determine how many bytes this packet was
-	ubyte		net_id[4];													// obtained from network layer header
-	ubyte		addr[6];														// obtained from network-layer header
-	short		port;															// obtained from network-layer header
+	ubyte		addr[sizeof(in6_addr)];														// obtained from network-layer header
+	uint16_t	port;															// obtained from network-layer header
 	short		id;															// will be stuffed with player_id (short)
 } header;
 
@@ -754,8 +749,6 @@ extern int Multi_button_info_ok;										// flag saying it is ok to apply criti
 extern int Multi_button_info_id;										// identifier of the stored button info to be applying
 
 // low level networking vars
-extern int ADDRESS_LENGTH;												// will be 4 for IP
-extern int PORT_LENGTH;													// will be 2 for IP
 extern int HEADER_LENGTH;												// 1 byte (packet type)
 
 // misc data
