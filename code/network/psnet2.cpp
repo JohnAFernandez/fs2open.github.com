@@ -507,12 +507,19 @@ bool psnet_init_my_addr()
 	SOCKET tsock;
 	int rval;
 
+	// zero out my address
+	memset(&Psnet_my_addr, 0, sizeof(Psnet_my_addr));
+	Psnet_my_addr.port = Psnet_default_port;	// set this just in case we bail
+
+	local_addr.ss_family = AF_UNSPEC;
+
 	//
 	// run through some public DNS servers to try and populate the routing table
 	// which should load the socket with our local interface IP address
 	//
 
-	const SCP_vector<SCP_string> remote_hosts = { "1.1.1.1", "1.0.0.1", "8.8.8.8", "9.9.9.9" };
+	// IPv6 & IPv4 -> Cloudflare, Google Public DNS, Quad9
+	const SCP_vector<SCP_string> remote_hosts = { "2606:4700:4700::1111", "1.1.1.1", "2001:4860:4860::8888", "8.8.8.8", "2620:fe::fe", "9.9.9.9" };
 
 	tsock = socket(AF_INET6, SOCK_DGRAM, 0);
 
@@ -529,7 +536,7 @@ bool psnet_init_my_addr()
 		rval = connect(tsock, reinterpret_cast<LPSOCKADDR>(&remote_addr), sizeof(remote_addr));
 
 		if (rval) {
-			ml_printf("Error connecting to test host '%s'...", host.c_str());
+		//	ml_printf("Error connecting to test host '%s' ...", host.c_str());
 			continue;
 		}
 
@@ -549,15 +556,12 @@ bool psnet_init_my_addr()
 	// rest of this just normalizes and populates the internal structures
 	//
 
-	// zero out my address
-	memset(&Psnet_my_addr, 0, sizeof(Psnet_my_addr));
-
 	// map to IPv6 if needed
 	if (local_addr.ss_family == AF_INET) {
 		auto *sa4 = reinterpret_cast<SOCKADDR_IN *>(&local_addr);
 
 		psnet_map4to6(&sa4->sin_addr, &Psnet_my_ip);
-	} else {
+	} else if (local_addr.ss_family == AF_INET6) {
 		auto *sa6 = reinterpret_cast<SOCKADDR_IN6 *>(&local_addr);
 
 		Psnet_my_ip = sa6->sin6_addr;
