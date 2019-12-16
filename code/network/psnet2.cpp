@@ -860,6 +860,9 @@ static bool psnet_explode_ip_string(const char *ip_string, SCP_string &host, SCP
 {
 	SCP_string ip;
 
+	host.clear();
+	port.clear();
+
 	if (ip_string == nullptr) {
 		return false;
 	}
@@ -902,18 +905,24 @@ static bool psnet_explode_ip_string(const char *ip_string, SCP_string &host, SCP
 		if ( (lcolon != SCP_string::npos) && (cbracket < lcolon) ) {
 			port = ip.substr(lcolon + 1);
 		}
+
+		return true;
+	}
+
+	// if it has no dots then assume it's just IPv6
+	if (dot == SCP_string::npos) {
+		host = ip;
+		return true;
 	}
 
 	// if colon before dots then it's likely mapped IPv4
 	if ( (colon != SCP_string::npos) && (dot != SCP_string::npos) && (colon < dot) ) {
 		host = ip;
+		return true;
 	}
 
-	//
-	// IPv4
-	//
-
-	// if it has a port then strip it off
+	// otherwise it should be IPv4
+	// if it has a port then split it off
 	if (colon != SCP_string::npos) {
 		host = ip.substr(0, colon);
 		port = ip.substr(colon + 1);
