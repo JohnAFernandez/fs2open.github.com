@@ -1001,9 +1001,10 @@ bool psnet_is_valid_ip_string(const char *ip_string)
  */
 bool psnet_get_addr(const char *host, const char *port, SOCKADDR_STORAGE *addr, int flags)
 {
-	struct addrinfo hints, *srvinfo;
+	struct addrinfo hints, *srvinfo = nullptr;
 	bool success = false;
 	SOCKADDR_IN6 si4to6;
+	int rval;
 
 	memset(&si4to6, 0, sizeof(si4to6));
 
@@ -1022,10 +1023,13 @@ bool psnet_get_addr(const char *host, const char *port, SOCKADDR_STORAGE *addr, 
 		}
 	}
 
-	int rval = getaddrinfo(host, port, &hints, &srvinfo);
-
-	if (rval) {
+	if ( (rval = getaddrinfo(host, port, &hints, &srvinfo)) != 0 ) {
 		ml_printf("getaddrinfo() => %s", gai_strerror(rval));
+
+		if (srvinfo) {
+			freeaddrinfo(srvinfo);
+		}
+
 		return false;
 	}
 
