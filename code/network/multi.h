@@ -63,7 +63,7 @@ class player;
 // version 48 - 8/15/2016 Multiple changes to the packet format for multi sexps
 // STANDALONE_ONLY
 
-#define MULTI_FS_SERVER_VERSION							148
+#define MULTI_FS_SERVER_VERSION							2
 
 #define MULTI_FS_SERVER_COMPATIBLE_VERSION			MULTI_FS_SERVER_VERSION
 
