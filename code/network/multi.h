@@ -64,7 +64,7 @@ class player;
 // version 49 - 7/26/2020 Addition of multilock
 // STANDALONE_ONLY
 
-#define MULTI_FS_SERVER_VERSION							49
+#define MULTI_FS_SERVER_VERSION							2
 
 #define MULTI_FS_SERVER_COMPATIBLE_VERSION			MULTI_FS_SERVER_VERSION
 
