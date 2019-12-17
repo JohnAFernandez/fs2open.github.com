@@ -884,9 +884,7 @@ void main_hall_do(float frametime)
 					Game_mode = GM_MULTIPLAYER;
 					
 					main_hall_do_multi_ready();
-					
-					// NOTE : this isn't a great thing to be calling this anymore. But we'll leave it for now
-					gameseq_post_event(GS_EVENT_MULTI_JOIN_GAME);
+
 					break;
 
 				// load mission key was pressed
