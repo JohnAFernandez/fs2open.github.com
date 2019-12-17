@@ -344,7 +344,7 @@ void main_hall_do_multi_ready()
 	}
 
 	// if our selected protocol is not active
-	if ( !Tcp_active ) {
+	if ( !psnet_is_active() ) {
 		if (Psnet_failure_code == WSAEADDRINUSE) {
 			popup( PF_USE_AFFIRMATIVE_ICON | PF_NO_NETWORKING, 1, POPUP_OK, XSTR( "You have selected TCP/IP for multiplayer FreeSpace, but the TCP socket is already in use.  Check for another instance and/or use the \"-port <port_num>\" command line option to select an available port.", 1604));
 		} else {
