@@ -78,10 +78,7 @@ typedef int socklen_t;
 extern net_addr Psnet_my_addr;							// address information of this machine
 extern in6_addr Psnet_my_ip;
 
-extern int Network_status;
 extern int Psnet_failure_code;
-
-extern int Tcp_active;
 
 // specified their internet connnection type
 #define NETWORK_CONNECTION_NONE			1
@@ -131,6 +128,9 @@ void PSNET_TOP_LAYER_PROCESS();
 
 // initialize psnet to use the specified port
 void psnet_init(uint16_t default_port = 0);
+
+// is psnet initted properly
+bool psnet_is_active();
 
 // shutdown psnet
 void psnet_close();
