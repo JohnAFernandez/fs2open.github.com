@@ -45,10 +45,10 @@
 net_addr Psnet_my_addr;
 in6_addr Psnet_my_ip = IN6ADDR_ANY_INIT;
 
-int Tcp_active = 0;
+static bool Psnet_active = false;
 static bool Can_broadcast = false;
 
-int Network_status;
+static int Network_status;
 int Psnet_failure_code = 0;
 int Psnet_connection;
 
@@ -358,8 +358,7 @@ void PSNET_TOP_LAYER_PROCESS()
 	SOCKADDR_IN6 from_addr;
 	network_naked_packet packet_read;
 
-	if (Network_status != NETWORK_STATUS_RUNNING) {
-	//	ml_string("Network ==> socket not inited in PSNET_TOP_LAYER_PROCESS");
+	if ( !Psnet_active ) {
 		return;
 	}
 
@@ -423,11 +422,8 @@ void PSNET_TOP_LAYER_PROCESS()
 void psnet_init(uint16_t port_num)
 {	
 	int idx;
-	Tcp_active = 0;
 
-	// GAME PORT INITIALIZATION STUFF
-	if (Network_status == NETWORK_STATUS_RUNNING) {
-		ml_string("Skipping psnet_init() because network already running");
+	if (Psnet_active) {
 		return;
 	}
 
@@ -471,7 +467,7 @@ void psnet_init(uint16_t port_num)
 
 	psnet_init_rel_tcp();
 
-	Tcp_active = 1;
+	Psnet_active = true;
 
 	// specified network timeout
 	Nettimeout = NETTIMEOUT;
@@ -496,7 +492,7 @@ void psnet_init(uint16_t port_num)
  */
 void psnet_close()
 {
-	if (Network_status != NETWORK_STATUS_RUNNING) {
+	if ( !Psnet_active ) {
 		return;
 	}
 
@@ -514,11 +510,20 @@ void psnet_close()
 		closesocket(Psnet_socket);
 	}
 
+	Psnet_active = false;
 	Network_status = NETWORK_STATUS_NOT_INITIALIZED;
 
 #ifdef _WIN32
 	WSACleanup();
 #endif
+}
+
+/**
+ * Test whether psnet is ready or not
+ */
+bool psnet_is_active()
+{
+	return Psnet_active;
 }
 
 /**
@@ -638,11 +643,6 @@ const char *psnet_addr_to_string(const net_addr *address, char *text, size_t max
 {
 	in6_addr addr6;
 
-	if ( Network_status != NETWORK_STATUS_RUNNING ) {
-		strncpy(text, "", max_len);
-		return text;
-	}
-
 	memcpy(&addr6, &address->addr, sizeof(addr6));
 
 	if ( inet_ntop(AF_INET6, &addr6, text, static_cast<socklen_t>(max_len)) == nullptr ) {
@@ -662,10 +662,6 @@ bool psnet_string_to_addr(const char *text, net_addr *address)
 	SOCKADDR_IN6 *addr6 = reinterpret_cast<SOCKADDR_IN6 *>(&sockaddr);
 
 	memset(address, 0, sizeof(*address));
-
-	if (Network_status != NETWORK_STATUS_RUNNING) {
-		return false;
-	}
 
 	if ( !psnet_explode_ip_string(text, host, port) ) {
 		return false;
@@ -716,7 +712,7 @@ int psnet_send(net_addr *who_to_addr, void *data, int len, int np_index)	// NOLI
 	struct timeval timeout;
 	SOCKADDR_IN6 who_to;
 
-	if (Network_status != NETWORK_STATUS_RUNNING) {
+	if ( !Psnet_active ) {
 		ml_string("Network ==> Socket not inited in psnet_send");
 		return 0;
 	}
