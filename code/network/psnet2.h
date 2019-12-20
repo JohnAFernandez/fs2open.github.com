@@ -30,8 +30,6 @@
 #define NET_TCP		1
 #define NET_VMT		3
 
-// kazan - I think this should raise the ships limit across the network
-//#define MAX_PACKET_SIZE 4096
 #define MAX_PACKET_SIZE		512
 
 #define DEFAULT_GAME_PORT 7808
@@ -47,16 +45,11 @@ typedef struct net_addr {
 // define these in such a manner that a call to psnet_send_reliable is exactly the same and the new code in unobtrusive
 typedef uint PSNET_SOCKET;
 typedef uint PSNET_SOCKET_RELIABLE;
-#if defined(_WIN32)
-typedef int socklen_t;
-#endif
 
 #define PSNET_INVALID_SOCKET static_cast<PSNET_SOCKET>(~0)
 
 // defines for protocol overheads
 #define UDP_HEADER_SIZE						34
-#define TCP_HEADER_SIZE						40
-#define TCP_HEADER_SIZE_COMPRESSED		6
 
 // define values for network errors when trying to enter the ready room
 #define NETWORK_ERROR_NONE					0
@@ -106,9 +99,6 @@ extern unsigned int Serverconn;
 //
 
 struct sockaddr;
-#ifdef _WIN32
-struct fd_set;
-#endif
 struct timeval;
 
 // wrappers around select() and recvfrom() for lagging/losing data, and for sorting through different packet types
