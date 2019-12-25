@@ -389,7 +389,7 @@ void PSNET_TOP_LAYER_PROCESS()
 
 		// get data off the socket and process
 		from_len = sizeof(from_addr);
-		read_len = recvfrom(Psnet_socket, packet_read.data, MAX_TOP_LAYER_PACKET_SIZE,
+		read_len = recvfrom(Psnet_socket, reinterpret_cast<char *>(packet_read.data), MAX_TOP_LAYER_PACKET_SIZE,
 							0, reinterpret_cast<LPSOCKADDR>(&from_addr), &from_len);
 
 		if (read_len <= 0) {
@@ -842,10 +842,10 @@ void psnet_map4to6(const in_addr *in4, in6_addr *in6)
 	if (in4->s_addr == INADDR_ANY) {
 		memcpy(in6, &in6addr_any, sizeof(in6_addr));
 	} else {
-		in6->s6_addr32[0] = 0;
-		in6->s6_addr32[1] = 0;
-		in6->s6_addr32[2] = htonl(0xffff);
-		in6->s6_addr32[3] = in4->s_addr;
+		reinterpret_cast<uint32_t *>(in6)[0] = 0;
+		reinterpret_cast<uint32_t *>(in6)[1] = 0;
+		reinterpret_cast<uint32_t *>(in6)[2] = htonl(0xffff);
+		reinterpret_cast<uint32_t *>(in6)[3] = in4->s_addr;
 	}
 }
 
@@ -2171,7 +2171,7 @@ bool psnet_init_multicast()
 
 	// reuse socket, in case we're running multiple instances
 	option = 1;
-	if ( setsockopt(Psnet_mcast_socket, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option)) ) {
+	if ( setsockopt(Psnet_mcast_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&option), sizeof(option)) ) {
 		ml_printf("Unable to set multicast reuse addr option (%d)", WSAGetLastError());
 		return false;
 	}
@@ -2187,14 +2187,14 @@ bool psnet_init_multicast()
 	if (family == AF_INET6) {
 		// disable data loopback
 		option = 0;
-		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &option, sizeof(option)) ) {
+		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, reinterpret_cast<const char *>(&option), sizeof(option)) ) {
 			ml_printf("Unable to set multicast loop option (%d)", WSAGetLastError());
 			return false;
 		}
 
 		// set interface
 		unsigned int iface = 0;	// any
-		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IPV6, IPV6_MULTICAST_IF, &iface, sizeof(iface)) ) {
+		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IPV6, IPV6_MULTICAST_IF, reinterpret_cast<const char *>(&iface), sizeof(iface)) ) {
 			ml_printf("Unable to set multicast interface option (%d)", WSAGetLastError());
 			return false;
 		}
@@ -2210,7 +2210,7 @@ bool psnet_init_multicast()
 		memcpy(&mRequest.ipv6mr_multiaddr, &sa6->sin6_addr, sizeof(in6_addr));
 		mRequest.ipv6mr_interface = 0;	// any
 
-		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mRequest, sizeof(mRequest)) ) {
+		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, reinterpret_cast<const char *>(&mRequest), sizeof(mRequest)) ) {
 			ml_printf("Unable to set multicast membership option (%d)", WSAGetLastError());
 			return false;
 		}
@@ -2219,14 +2219,14 @@ bool psnet_init_multicast()
 
 		// disable data loopback
 		option = 0;
-		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IP, IP_MULTICAST_LOOP, &option, sizeof(option)) ) {
+		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IP, IP_MULTICAST_LOOP, reinterpret_cast<const char *>(&option), sizeof(option)) ) {
 			ml_printf("Unable to set multicast loop option (%d)", WSAGetLastError());
 			return false;
 		}
 
 		// set interface
-		in_addr_t iface = INADDR_ANY;
-		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IP, IP_MULTICAST_IF, &iface, sizeof(iface)) ) {
+		uint32_t iface = INADDR_ANY;
+		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IP, IP_MULTICAST_IF, reinterpret_cast<const char *>(&iface), sizeof(iface)) ) {
 			ml_printf("Unable to set multicast interface option (%d)", WSAGetLastError());
 			return false;
 		}
@@ -2242,7 +2242,7 @@ bool psnet_init_multicast()
 		memcpy(&mRequest.imr_multiaddr, &sa4->sin_addr, sizeof(in_addr));
 		mRequest.imr_interface.s_addr = htonl(INADDR_ANY);
 
-		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mRequest, sizeof(mRequest)) ) {
+		if ( setsockopt(Psnet_mcast_socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, reinterpret_cast<const char *>(&mRequest), sizeof(mRequest)) ) {
 			ml_printf("Unable to set multicast membership option (%d)", WSAGetLastError());
 			return false;
 		}
@@ -2281,7 +2281,7 @@ void psnet_multicast_process()
 	}
 
 	from_len = sizeof(from_addr);
-	read_len = recvfrom(Psnet_mcast_socket, packet_read.data, MAX_TOP_LAYER_PACKET_SIZE,
+	read_len = recvfrom(Psnet_mcast_socket, reinterpret_cast<char *>(packet_read.data), MAX_TOP_LAYER_PACKET_SIZE,
 						0, reinterpret_cast<LPSOCKADDR>(&from_addr), &from_len);
 
 	if (read_len <= 0) {
