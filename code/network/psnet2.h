@@ -9,12 +9,13 @@
 
 
 
-#ifndef _PSNET2_H
-#define _PSNET2_H
+#ifndef PSNET2_H
+#define PSNET2_H
 
 
 #ifdef _WIN32
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
 #include <cerrno>

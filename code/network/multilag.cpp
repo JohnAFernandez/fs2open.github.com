@@ -263,7 +263,7 @@ int multi_lag_recvfrom(SOCKET s, char *buf, int len, int /*flags*/, struct socka
 	// stuff the data
 	Assert(item->data_len <= len);
 	memcpy(buf, item->data, static_cast<size_t>(item->data_len));
-	Assertion(Tcp_active, "multi_lag_recvfrom(): TCP/IP is not active!");
+	Assertion(psnet_is_active(), "multi_lag_recvfrom(): TCP/IP is not active!");
 
 	switch (item->ip_addr.ss_family) {
 		case AF_INET: {
