@@ -36,6 +36,7 @@
 #include "network/multi_respawn.h"
 #include "network/multi_pmsg.h"
 #include "network/multi_endgame.h"
+#include "network/multi_obj.h"
 #include "missionui/missiondebrief.h"
 #include "network/multi_pause.h"
 #include "mission/missiongoals.h"
@@ -1255,6 +1256,20 @@ void multi_do_frame()
 			// sending new objects from here is dependent on having objects only created after
 			// the game is done moving the objects.  I think that I can enforce this.				
 			multi_oo_process();			
+			mprintf(("OO frame complete. Here are the results:  \n"));
+			mprintf(("Number of position errors: %d, %d, %d  \n", blarg_posx, blarg_posy, blarg_posz));
+			mprintf(("Number of velocity errors: %d, %d, %d  \n", blarg_velx, blarg_vely, blarg_velz));
+			mprintf(("Number of dot product errors: %d, %d, %d  \n", blarg_dotr, blarg_dotu, blarg_dotf));
+			mprintf(("Number of Orientation errors (x): %d, %d, %d  \n", blarg_orix1, blarg_orix2, blarg_orix3));
+			mprintf(("Number of Orientation errors (y): %d, %d, %d  \n", blarg_oriy1, blarg_oriy2, blarg_oriy3));
+			mprintf(("Number of Orientation errors (z): %d, %d, %d  \n", blarg_oriz1, blarg_oriz2, blarg_oriz3));
+
+			blarg_posx = blarg_posy = blarg_posz = 0;
+			blarg_velx = blarg_vely = blarg_velz = 0;
+			blarg_dotr = blarg_dotu = blarg_dotf = 0;
+			blarg_orix1 = blarg_orix2 = blarg_orix3 = 0;
+			blarg_oriy1 = blarg_oriy2 = blarg_oriy3 = 0;
+			blarg_oriz1 = blarg_oriz2 = blarg_oriz3 = 0;
 
 			// evaluate whether the time limit has been reached or max kills has been reached
 			// Commented out by Sandeep 4/12/98, was causing problems with testing.

@@ -34,6 +34,14 @@ struct net_player;
 #define OOC_AFTERBURNER_ON			(1<<7)
 // NOTE: no additional flags here unless it's sent in an extra data byte
 
+// Globals for debugging compression code
+static int blarg_posx = 0, blarg_posy = 0, blarg_posz = 0;
+static int blarg_velx = 0, blarg_vely = 0, blarg_velz = 0;
+static int blarg_dotr = 0, blarg_dotu = 0, blarg_dotf = 0;
+static int blarg_orix1 = 0, blarg_orix2 = 0, blarg_orix3 = 0;
+static int blarg_oriy1 = 0, blarg_oriy2 = 0, blarg_oriy3 = 0;
+static int blarg_oriz1 = 0, blarg_oriz2 = 0, blarg_oriz3 = 0;
+
 // update info
 typedef struct np_update {	
 	ubyte		seq;							// sequence #

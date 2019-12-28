@@ -429,13 +429,22 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		y = original_position.xyz.y - new_position.xyz.y;
 		z = original_position.xyz.z - new_position.xyz.z;
 		
-		if (x > 0.05f || x < -0.05f || y > 0.05f || y < -0.05f || z > 0.05f || z < -0.05f ) {
+		if (x > 0.001f || x < -0.001f || y > 0.001f || y < -0.001f || z > 0.001f || z < -0.001f ) {
 			mprintf(("Irregularity found in position packing for object instance number: %d\n", objp->instance));
-			mprintf(("X   original: %f Y   original:%f Z   original: %f\n", original_position.xyz.x, original_position.xyz.y, original_position.xyz.z));
-			mprintf(("X        new: %f Y        new:%f Z        new: %f\n", new_position.xyz.x, new_position.xyz.y, new_position.xyz.z));
-			mprintf(("X difference: %f Y difference:%f Z difference: %f\n", x, y, z));
+			if (x > 0.001f || x < -0.05f) {
+				mprintf(("X original: %f	X new: %f    X difference: %f\n", original_position.xyz.x, new_position.xyz.x, x));
+				blarg_posx++;
+			}
+			if (y > 0.05f || y < -0.05f) {
+				mprintf(("Y original: %f	Y new: %f    Y difference: %f\n", original_position.xyz.y, new_position.xyz.y, y));
+				blarg_posy++;
+			}	
+			if (z > 0.05f || z < -0.05f) {
+				mprintf(("Z original: %f	Z new: %f    Z difference: %f\n", original_position.xyz.z, new_position.xyz.z, z));
+				blarg_posz++;
+			}
 		} else {
-			mprintf(("Successful unit test for object Position. No irregularities beyond absolute value of 0.05f.\n"));
+			mprintf(("Successful unit test for object Position. No irregularities beyond absolute value of 0.001f.\n"));
 		}
 
 		// global records
@@ -469,11 +478,20 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 
 		if (x > 0.001f || x < -0.001f || y > 0.001f || y < -0.001f || z > 0.001f || z < -0.001f ) {
 			mprintf(("Irregularity found in velocity calc packing, DOT PRODUCT PORTION for object instance number: %d\n", objp->instance));
-			mprintf(("X   original: %f Y   original:%f Z   original: %f\n", r, u, f));
-			mprintf(("X        new: %f Y        new:%f Z        new: %f\n", new_r, new_u, new_f));
-			mprintf(("X difference: %f Y difference:%f Z difference: %f\n", x, y, z));
+			if (x > 0.001f || x < -0.05f) {
+				mprintf(("R original: %f	R new: %f    R difference: %f\n", r, new_r, x));
+				blarg_dotr++;
+			}
+			if (y > 0.05f || y < -0.05f) {
+				mprintf(("U original: %f	U new: %f    U difference: %f\n", u, new_u, y));
+				blarg_dotu++;
+			}	
+			if (z > 0.05f || z < -0.05f) {
+				mprintf(("F original: %f	F new: %f    F difference: %f\n", f, new_f, z));
+				blarg_dotf++;
+			}
 		} else {
-			mprintf(("Successful unit test for object velocity's DOT PRODUCT PORTION. No irregularities beyond absolute value of 0.05f.\n"));
+			mprintf(("Successful unit test for object velocity's DOT PRODUCT PORTION. No irregularities beyond absolute value of 0.001f.\n"));
 		}
 
 		//unit test velocity
@@ -481,12 +499,22 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		y = original_pi.vel.xyz.y - new_pi.vel.xyz.y;
 		z = original_pi.vel.xyz.z - new_pi.vel.xyz.z;
 		if (x > 0.001f || x < -0.001f || y > 0.001f || y < -0.001f || z > 0.001f || z < -0.001f ) {
-			mprintf(("Irregularity found in velocity packing for object instance number: %d\n", objp->instance));
-			mprintf(("X   original: %f Y   original:%f Z   original: %f\n", original_pi.vel.xyz.x, original_pi.vel.xyz.y, original_pi.vel.xyz.z));
-			mprintf(("X        new: %f Y        new:%f Z        new: %f\n", new_pi.xyz.x, new_pi.xyz.y, new_pi.xyz.z));
-			mprintf(("X difference: %f Y difference:%f Z difference: %f\n", x, y, z));
+			mprintf(("Irregularity found in velocity for object instance number: %d\n",
+			     objp->instance));
+			if (x > 0.001f || x < -0.05f) {
+				mprintf(("X original: %f	X new: %f    X difference: %f\n", original_pi.vel.xyz.x, new_pi.vel.xyz.x, x));
+				blarg_velx++;
+			}
+			if (y > 0.05f || y < -0.05f) {
+				mprintf(("Y original: %f	Y new: %f    Y difference: %f\n", original_pi.vel.xyz.y, new_pi.vel.xyz.y, y));
+				blarg_vely++;
+			}
+			if (z > 0.05f || z < -0.05f) {
+				mprintf(("Z original: %f	Z new: %f    Z difference: %f\n", original_pi.vel.xyz.z, new_pi.vel.xyz.z, z));
+				blarg_velz++;
+			}
 		} else {
-			mprintf(("Successful unit test for object Velocity. No irregularities beyond absolute value of 0.05f.\n"));
+			mprintf(("Successful unit test for object Velocity. No irregularities beyond absolute value of 0.001f.\n"));
 		}
 
 		// global records		
@@ -522,24 +550,44 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		    x2 < -0.001f || y2 > 0.001f || y2 < -0.001f || z2 > 0.001f || z2 < -0.001f || x3 > 0.001f || x3 < -0.001f ||
 		    y3 > 0.001f || y3 < -0.001f || z3 > 0.001f || z3 < -0.001f) {
 			mprintf(("Irregularity found in orient packing for object instance number: %d\n", objp->instance));
-			mprintf(("X1   original: %f X2   original:%f X3   original: %f\n", old_orient.vec.fvec.xyz.x,
-			         old_orient.vec.rvec.xyz.x, old_orient.vec.uvec.xyz.x));
-			mprintf(("X1        new: %f X2        new:%f X3        new: %f\n", new_orient.vec.fvec.xyz.x,
-			         new_orient.vec.rvec.xyz.x, new_orient.vec.uvec.xyz.x));
-			mprintf(("X1 difference: %f X2 difference:%f X3 difference: %f\n", x1, x2, x3));
-			mprintf(("Y1   original: %f Y2   original:%f Y3   original: %f\n", old_orient.vec.fvec.xyz.y,
-			         old_orient.vec.rvec.xyz.y, old_orient.vec.uvec.xyz.y));
-			mprintf(("Y1        new: %f Y2        new:%f Y3        new: %f\n", new_orient.vec.fvec.xyz.y,
-			         new_orient.vec.rvec.xyz.y, new_orient.vec.uvec.xyz.y));
-			mprintf(("Y1 difference: %f Y2 difference:%f Y3 difference: %f\n", y1, y2, y3));
-			mprintf(("Z1   original: %f Z2   original:%f Z3   original: %f\n", old_orient.vec.fvec.xyz.z,
-			         old_orient.vec.rvec.xyz.z, old_orient.vec.uvec.xyz.z));
-			mprintf(("Z1        new: %f Z2        new:%f Z3        new: %f\n", new_orient.vec.fvec.xyz.z,
-			         new_orient.vec.rvec.xyz.z, new_orient.vec.uvec.xyz.z));
-			mprintf(("Z1 difference: %f Z2 difference:%f Z3 difference: %f\n", z1, z2, z3));
-
+			if (x1 > 0.001f || x1 < -0.05f) {
+				mprintf(("X1 original: %f	X1 new: %f    X1 difference: %f\n", old_orient.vec.fvec.xyz.x, new_orient.vec.fvec.xyz.x, x1));
+				blarg_orix1++;
+			}
+			if (y1 > 0.05f || y1 < -0.05f) {
+				mprintf(("Y1 original: %f	Y1 new: %f    Y1 difference: %f\n", old_orient.vec.fvec.xyz.y, new_orient.vec.fvec.xyz.y, y1));
+				blarg_oriy1++;
+			}
+			if (z1 > 0.05f || z1 < -0.05f) {
+				mprintf(("Z1 original: %f	Z1 new: %f    Z1 difference: %f\n", old_orient.vec.fvec.xyz.z, new_orient.vec.fvec.xyz.z, z1));
+				blarg_oriz1++;
+			}
+			if (x2 > 0.001f || x2 < -0.05f) {
+				mprintf(("X1 original: %f	X1 new: %f    X1 difference: %f\n", old_orient.vec.rvec.xyz.x, new_orient.vec.rvec.xyz.x, x2));
+				blarg_orix2++;
+			}
+			if (y2 > 0.05f || y2 < -0.05f) {
+				mprintf(("Y1 original: %f	Y1 new: %f    Y1 difference: %f\n", old_orient.vec.rvec.xyz.y, new_orient.vec.rvec.xyz.y, y2));
+				blarg_oriy2++;
+			}
+			if (z2 > 0.05f || z2 < -0.05f) {
+				mprintf(("Z1 original: %f	Z1 new: %f    Z1 difference: %f\n", old_orient.vec.rvec.xyz.z, new_orient.vec.rvec.xyz.z, z2));
+				blarg_oriz2++;
+			}
+			if (x3 > 0.001f || x3 < -0.05f) {
+				mprintf(("X1 original: %f	X1 new: %f    X1 difference: %f\n", old_orient.vec.uvec.xyz.x, new_orient.vec.uvec.xyz.x, x3));
+				blarg_orix3++;
+			}
+			if (y3 > 0.05f || y3 < -0.05f) {
+				mprintf(("Y1 original: %f	Y1 new: %f    Y1 difference: %f\n", old_orient.vec.uvec.xyz.y, new_orient.vec.uvec.xyz.y, y3));
+				blarg_oriy3++;
+			}
+			if (z3 > 0.05f || z3 < -0.05f) {
+				mprintf(("Z1 original: %f	Z1 new: %f    Z1 difference: %f\n", old_orient.vec.uvec.xyz.z, new_orient.vec.uvec.xyz.z, z3));
+				blarg_oriz3++;
+			}
 		} else {
-			mprintf(("Successful unit test for object Orientation. No irregularities beyond absolute value of 0.05f.\n"));
+			mprintf(("Successful unit test for object Orientation. No irregularities beyond absolute value of 0.001f.\n"));
 		}		
 
 		// Assert(ret == OO_ORIENT_RET_SIZE);
