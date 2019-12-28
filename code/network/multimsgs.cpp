@@ -4202,6 +4202,7 @@ void send_ship_status_packet(net_player *pl, button_info *bi, int id)
 	int idx, temp;
 	ubyte data[MAX_PACKET_SIZE];
 	int packet_size = 0;
+	uint8_t num_fields = 0;
 
 	if(pl == NULL){
 		return;
@@ -4209,7 +4210,16 @@ void send_ship_status_packet(net_player *pl, button_info *bi, int id)
 
 	BUILD_HEADER(SHIP_STATUS_CHANGE);
 	ADD_INT(id);
-	for(idx=0;idx<NUM_BUTTON_FIELDS;idx++){
+
+	for (num_fields = NUM_BUTTON_FIELDS; num_fields > 0; num_fields--) {
+		if (bi->status[num_fields-1]) {
+			break;
+		}
+	}
+
+	ADD_DATA(num_fields);
+
+	for (idx = 0; idx < num_fields; idx++) {
 		temp = bi->status[idx];
 		ADD_INT(temp);
 	}
@@ -4229,6 +4239,7 @@ void process_ship_status_packet(ubyte *data, header *hinfo)
 	int player_num,unique_id;
 	button_info bi;
 	int i_tmp;
+	uint8_t num_fields = 0;
 	
 	offset = HEADER_LENGTH;
 
@@ -4237,10 +4248,15 @@ void process_ship_status_packet(ubyte *data, header *hinfo)
 	
 	// read the button-info
 	GET_INT(unique_id);	
-		
-	for(idx=0;idx<NUM_BUTTON_FIELDS;idx++){
+
+	GET_DATA(num_fields);
+
+	for (idx = 0; idx < num_fields; idx++) {
 		GET_INT(i_tmp);
-		bi.status[idx] = i_tmp;
+
+		if (idx < NUM_BUTTON_FIELDS) {
+			bi.status[idx] = i_tmp;
+		}
 	}
 
 	PACKET_SET_SIZE();
