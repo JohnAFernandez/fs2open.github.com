@@ -342,13 +342,13 @@ void sexp_network_packet::send_string(char * string)
         return;
     }
 
-    ensure_space_remains(strlen(string) + 4);
+	ensure_space_remains(strlen(string) + sizeof(uint16_t));
 
     int start_size = packet_size;
     //write into the Type buffer.
     type[packet_size] = packet_data_type::STRING;
     //write the into the data buffer
-    ADD_STRING(string);
+	ADD_STRING_16(string);
     current_argument_count += packet_size - start_size;
 }
 
@@ -358,13 +358,13 @@ void sexp_network_packet::send_string(const SCP_string & string)
         return;
     }
 
-    ensure_space_remains(string.length() + 4);
+	ensure_space_remains(string.length() + sizeof(uint16_t));
 
     int start_size = packet_size;
     //write into the Type buffer.
     type[packet_size] = packet_data_type::STRING;
     //write the into the data buffer
-    ADD_STRING(string.c_str());
+	ADD_STRING_16(string.c_str());
     current_argument_count += packet_size - start_size;
 }
 
@@ -568,7 +568,7 @@ bool sexp_network_packet::get_string(char * buffer)
         return false;
     }
 
-    GET_STRING(buffer);
+	GET_STRING_16(buffer);
     reduce_counts(offset - starting_offset);
 
     return true;
@@ -583,7 +583,7 @@ bool sexp_network_packet::get_string(SCP_string & buffer)
         return false;
     }
 
-    GET_STRING(tempstring);
+	GET_STRING_16(tempstring);
     buffer = tempstring;
     reduce_counts(offset - starting_offset);
 
