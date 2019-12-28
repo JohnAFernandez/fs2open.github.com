@@ -2170,7 +2170,7 @@ void process_netgame_update_packet( ubyte *data, header *hinfo )
 void send_netgame_descript_packet(net_addr *addr, int code)
 {
 	ubyte data[MAX_PACKET_SIZE],val;
-	int desc_len;
+	uint16_t desc_len;
 	int packet_size = 0;
 
 	// build the header
@@ -2181,14 +2181,14 @@ void send_netgame_descript_packet(net_addr *addr, int code)
 
 	if(code == 1){
 		// add as much of the description as we dare
-		desc_len = (int)strlen(The_mission.mission_desc);
+		desc_len = static_cast<uint16_t>(strlen(The_mission.mission_desc));
 		if(desc_len > MAX_PACKET_SIZE - 10){
 			desc_len = MAX_PACKET_SIZE - 10;
-			ADD_INT(desc_len);
+			ADD_USHORT(desc_len);
 			memcpy(data+packet_size, The_mission.mission_desc, desc_len);
 			packet_size += desc_len;
 		} else {
-			ADD_STRING(The_mission.mission_desc);
+			ADD_STRING_16(The_mission.mission_desc);
 		}
 	} 
 	
@@ -2223,7 +2223,7 @@ void process_netgame_descript_packet( ubyte *data, header *hinfo )
 		send_netgame_descript_packet(&addr, 1);
 	} else {	
 		memset(mission_desc,0,MISSION_DESC_LENGTH+2);		
-		GET_STRING(mission_desc);
+		GET_STRING_16(mission_desc);
 
 		// only display if we're in the proper state
 		state = gameseq_get_state();
