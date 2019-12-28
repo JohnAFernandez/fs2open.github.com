@@ -364,6 +364,10 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 	int header_bytes;
 	int packet_size = 0;
 
+	ubyte semidata[255] = {};
+	int semioffset      = 0;
+
+
 	// make sure we have a valid ship
 	Assert(objp->type == OBJ_SHIP);
 	if((objp->instance >= 0) && (Ships[objp->instance].ship_info_index >= 0)){
@@ -404,18 +408,73 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 	if((Net_player != NULL) && !(Net_player->flags & NETINFO_FLAG_AM_MASTER)){
 		packet_size += multi_oo_pack_client_data(data + packet_size + header_bytes);		
 	}		
-		
+
 	// position, velocity
-	if ( oo_flags & OO_POS_NEW ) {		
+	if ( oo_flags & OO_POS_NEW ) {
+		
+		vec3d original_position = {};
+		vec3d new_position      = {};
+
+		original_position = objp->pos;
 		ret = (ubyte)multi_pack_unpack_position( 1, data + packet_size + header_bytes, &objp->pos );
 		packet_size += ret;
+
+		semioffset += multi_pack_unpack_position(1, semidata, &objp->pos);
 		
+		multi_pack_unpack_position(0, semidata, &new_position);
+
+		//unit test position
+		int x = 0, y = 0, z = 0;
+		x = original_position.xyz.x - new_position.xyz.x;
+		y = original_position.xyz.y - new_position.xyz.y;
+		z = original_position.xyz.z - new_position.xyz.z;
+		
+		if (x > 0.05f || x < -0.05f || y > 0.05f || y < -0.05f || z > 0.05f || z < -0.05f ) {
+			mprintf(("Irregularity found in position packing for object instance number: %d\n", objp->instance));
+			mprintf(("X   original: %d Y   original:%d Z   original: %d\n", original_position.xyz.x, original_position.xyz.y, original_position.xyz.z));
+			mprintf(("X        new: %d Y        new:%d Z        new: %d\n", new_position.xyz.x, new_position.xyz.y, new_position,xyz.z));
+			mprintf(("X difference: %d Y difference:%d Z difference: %d\n", x, y, z));
+		} else {
+			mprintf(("Successful unit test for object Position. No irregularities beyond absolute value of 0.05f.\n"));
+		}
+
 		// global records
 		multi_rate_add(NET_PLAYER_NUM(pl), "pos", ret);		
-			
+		
+		matrix original_orient = objp->orient;
+		physics_info original_pi = objp->phys_info;
+		matrix new_orient        = {};
+		physics_info new_pi      = {};
+		int ret7                 = 0;
+
+		ret7 = multi_pack_unpack_vel(1, semidata + semioffset, &objp->orient, &objp->pos, &objp->phys_info);
 		ret = (ubyte)multi_pack_unpack_vel( 1, data + packet_size + header_bytes, &objp->orient, &objp->pos, &objp->phys_info );
 		packet_size += ret;		
-			
+		
+		multi_pack_unpack_vel(0, semidata + semioffset, &new_orient, &new_position, &new_pi);
+		semioffset += ret7;
+
+		//unit test velocity
+		x = original_pi.vel.xyz.x - new_pi.vel.xyz.x;
+		y = original_pi.vel.xyz.y - new_pi.vel.xyz.y;
+		z = original_pi.vel.xyz.z - new_pi.vel.xyz.z;
+		if (x > 0.05f || x < -0.05f || y > 0.05f || y < -0.05f || z > 0.05f || z < -0.05f ) {
+			mprintf(("Irregularity found in velocity packing for object instance number: %d\n", objp->instance));
+			mprintf(("X   original: %d Y   original:%d Z   original: %d\n", original_pi.vel.xyz.x, original_pi.vel.xyz.y, original_pi.vel.xyz.z));
+			mprintf(("X        new: %d Y        new:%d Z        new: %d\n", new_pi.xyz.x, new_pi.xyz.y, new_pi.xyz.z));
+			mprintf(("X difference: %d Y difference:%d Z difference: %d\n", x, y, z));
+		} else {
+			mprintf(("Successful unit test for object Velocity. No irregularities beyond absolute value of 0.05f.\n"));
+		}
+
+		float r = 0.0f, u = 0.0f, f = 0.0f;		
+		r = vm_vec_dot(&original_orient.vec.rvec, &original_pi.vel);
+		u = vm_vec_dot(&original_orient.vec.uvec, &original_pi.vel);
+		f = vm_vec_dot(&original_orient.vec.fvec, &original_pi.vel);
+
+
+
+
 		// global records		
 		multi_rate_add(NET_PLAYER_NUM(pl), "pos", ret);				
 	}	
