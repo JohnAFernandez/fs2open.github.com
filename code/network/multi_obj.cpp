@@ -438,7 +438,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 	percent = (char)(objp->phys_info.forward_thrust * 100.0f);
 	Assert( percent <= 100 );
 
-	PACK_BYTE( percent );
+	PACK_PERCENT( percent );
 
 	// global records	
 	multi_rate_add(NET_PLAYER_NUM(pl), "fth", 1);	
@@ -696,7 +696,7 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 	ushort net_sig = 0;
 	ubyte data_size, oo_flags;
 	ushort seq_num;
-	ubyte percent = 0;	
+	float percent;	
 	float fpct;
 	ship *shipp;
 	ship_info *sip;
@@ -712,7 +712,7 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 		oo_flags = (OO_POS_NEW | OO_ORIENT_NEW);
 	}
 	GET_DATA( data_size );	
-	GET_DATA( seq_num );
+	GET_USHORT( seq_num );
 
 	// try and find the object
 	if(!(Net_player->flags & NETINFO_FLAG_AM_MASTER)){
