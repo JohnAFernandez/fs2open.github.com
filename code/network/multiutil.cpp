@@ -3626,7 +3626,6 @@ int multi_pack_vel(ubyte *data, matrix *orient, physics_info *pi)
 
 	// cap the values to only the values that will be transmitted, compression part 1
 	// Cyborg17 - note, this is a quasi-cap on *ship* velocity in multi. 
-	// I didn't test it, but I imagine no ship can really go faster than 511 m/s without at least *looking* somewhat awkward.
 	CAP(a,-512,511);
 	CAP(b,-512,511);
 	CAP(c,-512,511);

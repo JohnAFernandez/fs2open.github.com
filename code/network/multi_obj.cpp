@@ -506,10 +506,6 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		PACK_USHORT( target_signature );	
 
 		multi_rate_add(NET_PLAYER_NUM(pl), "aim", 5);
-
-		// primary weapon energy
-		temp = shipp->weapon_energy / sip->max_weapon_reserve;
-		PACK_PERCENT(temp);
 	}		
 
 	// afterburner info
@@ -545,7 +541,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 	// make sure we have a valid chunk of data
 	// Clients: must be able to accomodate the data_size and shipp->np_updates[NET_PLAYER_NUM(pl)].seq before the data itself
 	// Server: TODO
-	Assert(packet_size < 255-1);
+	Verify((packet_size < 255-1));
 	if(packet_size >= 255-1){
 		return 0;
 	}
@@ -930,12 +926,7 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 			} else {
 				Ai_info[shipp->ai_index].target_objnum = OBJ_INDEX(target_objp);
 			}
-		}		
-
-		// primary weapon energy		
-		float weapon_energy_pct;
-		UNPACK_PERCENT(weapon_energy_pct);
-		shipp->weapon_energy = sip->max_weapon_reserve * weapon_energy_pct;		
+		}			
 	}	
 
 	// support ship extra info
