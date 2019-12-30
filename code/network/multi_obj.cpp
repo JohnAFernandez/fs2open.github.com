@@ -429,17 +429,17 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		y = original_position.xyz.y - new_position.xyz.y;
 		z = original_position.xyz.z - new_position.xyz.z;
 		
-		if (x > 0.001f || x < -0.001f || y > 0.001f || y < -0.001f || z > 0.001f || z < -0.001f ) {
+		if (x > 0.005f || x < -0.005f || y > 0.005f || y < -0.005f || z > 0.005f || z < -0.005f ) {
 			mprintf(("Irregularity found in position packing for object instance number: %d\n", objp->instance));
-			if (x > 0.001f || x < -0.05f) {
+			if (x > 0.005f || x < -0.005f) {
 				mprintf(("X original: %f	X new: %f    X difference: %f\n", original_position.xyz.x, new_position.xyz.x, x));
 				blarg_posx++;
 			}
-			if (y > 0.05f || y < -0.05f) {
+			if (y > 0.005f || y < -0.005f) {
 				mprintf(("Y original: %f	Y new: %f    Y difference: %f\n", original_position.xyz.y, new_position.xyz.y, y));
 				blarg_posy++;
 			}	
-			if (z > 0.05f || z < -0.05f) {
+			if (z > 0.005f || z < -0.005f) {
 				mprintf(("Z original: %f	Z new: %f    Z difference: %f\n", original_position.xyz.z, new_position.xyz.z, z));
 				blarg_posz++;
 			}
@@ -451,16 +451,37 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		multi_rate_add(NET_PLAYER_NUM(pl), "pos", ret);		
 		
 		matrix original_orient = objp->orient;
+		matrix original_orient2  = objp->orient;
 		physics_info original_pi = objp->phys_info;
 		matrix new_orient        = {};
 		physics_info new_pi      = {};
+		physics_info new_pi2     = {};
 		int ret7                 = 0;
 
-		ret7 = multi_pack_unpack_vel(1, semidata + semioffset, &objp->orient, &objp->pos, &objp->phys_info);
+		static bool doublecheck = false;
+		if (!doublecheck) {
+			mprintf(("double checking that orient is not changed when put through the pack function. %f %f %f %f %f %f %f %f %f \n",
+			         objp->orient.vec.fvec.xyz.x, objp->orient.vec.fvec.xyz.y, objp->orient.vec.fvec.xyz.z, objp->orient.vec.rvec.xyz.x, objp->orient.vec.rvec.xyz.y,
+			         objp->orient.vec.rvec.xyz.z, objp->orient.vec.uvec.xyz.x, objp->orient.vec.uvec.xyz.y,
+			         objp->orient.vec.uvec.xyz.z));
+		}
+		
+
+		ret7 = multi_pack_unpack_vel(1, semidata + semioffset, &original_orient, &objp->pos, &original_pi);
 		ret = (ubyte)multi_pack_unpack_vel( 1, data + packet_size + header_bytes, &objp->orient, &objp->pos, &objp->phys_info );
 		packet_size += ret;		
 		
-		multi_pack_unpack_vel(0, semidata + semioffset, &new_orient, &new_position, &new_pi);
+				if (!doublecheck) {
+			mprintf(("double checking that orient is not changed when put through the pack function. %f %f %f %f %f %f "
+			         "%f %f %f \n",
+			         objp->orient.vec.fvec.xyz.x, objp->orient.vec.fvec.xyz.y, objp->orient.vec.fvec.xyz.z,
+			         objp->orient.vec.rvec.xyz.x, objp->orient.vec.rvec.xyz.y, objp->orient.vec.rvec.xyz.z,
+			         objp->orient.vec.uvec.xyz.x, objp->orient.vec.uvec.xyz.y, objp->orient.vec.uvec.xyz.z));
+			        doublecheck = true;
+				}
+
+
+		multi_pack_unpack_vel(0, semidata + semioffset, &original_orient, &new_position, &new_pi);
 		semioffset += ret7;
 
 		float r = 0.0f, u = 0.0f, f = 0.0f, new_r = 0.0f, new_u = 0.0f, new_f = 0.0f;
@@ -468,25 +489,25 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		u = vm_vec_dot(&original_orient.vec.uvec, &original_pi.vel);
 		f = vm_vec_dot(&original_orient.vec.fvec, &original_pi.vel);
 
-		new_r = vm_vec_dot(&new_orient.vec.rvec, &new_pi.vel);
-		new_u = vm_vec_dot(&new_orient.vec.uvec, &new_pi.vel);
-		new_f = vm_vec_dot(&new_orient.vec.fvec, &new_pi.vel);
+		new_r = vm_vec_dot(&original_orient2.vec.rvec, &new_pi.vel);
+		new_u = vm_vec_dot(&original_orient2.vec.uvec, &new_pi.vel);
+		new_f = vm_vec_dot(&original_orient2.vec.fvec, &new_pi.vel);
 
 		x = r - new_r;
 		y = u - new_u;
 		z = f - new_f;
 
-		if (x > 0.001f || x < -0.001f || y > 0.001f || y < -0.001f || z > 0.001f || z < -0.001f ) {
+		if (x > 2.0f || x < -2.0f || y > 2.0f || y < -2.0f || z > 2.0f || z < -2.0f ) {
 			mprintf(("Irregularity found in velocity calc packing, DOT PRODUCT PORTION for object instance number: %d\n", objp->instance));
-			if (x > 0.001f || x < -0.05f) {
+			if (x > 0.005f || x < -0.005f) {
 				mprintf(("R original: %f	R new: %f    R difference: %f\n", r, new_r, x));
 				blarg_dotr++;
 			}
-			if (y > 0.05f || y < -0.05f) {
+			if (y > 0.005f || y < -0.005f) {
 				mprintf(("U original: %f	U new: %f    U difference: %f\n", u, new_u, y));
 				blarg_dotu++;
 			}	
-			if (z > 0.05f || z < -0.05f) {
+			if (z > 0.005f || z < -0.005f) {
 				mprintf(("F original: %f	F new: %f    F difference: %f\n", f, new_f, z));
 				blarg_dotf++;
 			}
@@ -501,15 +522,15 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		if (x > 0.001f || x < -0.001f || y > 0.001f || y < -0.001f || z > 0.001f || z < -0.001f ) {
 			mprintf(("Irregularity found in velocity for object instance number: %d\n",
 			     objp->instance));
-			if (x > 0.001f || x < -0.05f) {
+			if (x > 0.001f || x < -0.001f) {
 				mprintf(("X original: %f	X new: %f    X difference: %f\n", original_pi.vel.xyz.x, new_pi.vel.xyz.x, x));
 				blarg_velx++;
 			}
-			if (y > 0.05f || y < -0.05f) {
+			if (y > 0.001f || y < -0.001f) {
 				mprintf(("Y original: %f	Y new: %f    Y difference: %f\n", original_pi.vel.xyz.y, new_pi.vel.xyz.y, y));
 				blarg_vely++;
 			}
-			if (z > 0.05f || z < -0.05f) {
+			if (z > 0.001f || z < -0.001f) {
 				mprintf(("Z original: %f	Z new: %f    Z difference: %f\n", original_pi.vel.xyz.z, new_pi.vel.xyz.z, z));
 				blarg_velz++;
 			}
@@ -550,40 +571,40 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		    x2 < -0.001f || y2 > 0.001f || y2 < -0.001f || z2 > 0.001f || z2 < -0.001f || x3 > 0.001f || x3 < -0.001f ||
 		    y3 > 0.001f || y3 < -0.001f || z3 > 0.001f || z3 < -0.001f) {
 			mprintf(("Irregularity found in orient packing for object instance number: %d\n", objp->instance));
-			if (x1 > 0.001f || x1 < -0.05f) {
+			if (x1 > 0.001f || x1 < -0.001f) {
 				mprintf(("X1 original: %f	X1 new: %f    X1 difference: %f\n", old_orient.vec.fvec.xyz.x, new_orient.vec.fvec.xyz.x, x1));
 				blarg_orix1++;
 			}
-			if (y1 > 0.05f || y1 < -0.05f) {
+			if (y1 > 0.001f || y1 < -0.001f) {
 				mprintf(("Y1 original: %f	Y1 new: %f    Y1 difference: %f\n", old_orient.vec.fvec.xyz.y, new_orient.vec.fvec.xyz.y, y1));
 				blarg_oriy1++;
 			}
-			if (z1 > 0.05f || z1 < -0.05f) {
+			if (z1 > 0.001f || z1 < -0.001f) {
 				mprintf(("Z1 original: %f	Z1 new: %f    Z1 difference: %f\n", old_orient.vec.fvec.xyz.z, new_orient.vec.fvec.xyz.z, z1));
 				blarg_oriz1++;
 			}
-			if (x2 > 0.001f || x2 < -0.05f) {
-				mprintf(("X1 original: %f	X1 new: %f    X1 difference: %f\n", old_orient.vec.rvec.xyz.x, new_orient.vec.rvec.xyz.x, x2));
+			if (x2 > 0.001f || x2 < -0.001f) {
+				mprintf(("X2 original: %f	X2 new: %f    X2 difference: %f\n", old_orient.vec.rvec.xyz.x, new_orient.vec.rvec.xyz.x, x2));
 				blarg_orix2++;
 			}
-			if (y2 > 0.05f || y2 < -0.05f) {
-				mprintf(("Y1 original: %f	Y1 new: %f    Y1 difference: %f\n", old_orient.vec.rvec.xyz.y, new_orient.vec.rvec.xyz.y, y2));
+			if (y2 > 0.001f || y2 < -0.001f) {
+				mprintf(("Y2 original: %f	Y2 new: %f    Y2 difference: %f\n", old_orient.vec.rvec.xyz.y, new_orient.vec.rvec.xyz.y, y2));
 				blarg_oriy2++;
 			}
-			if (z2 > 0.05f || z2 < -0.05f) {
-				mprintf(("Z1 original: %f	Z1 new: %f    Z1 difference: %f\n", old_orient.vec.rvec.xyz.z, new_orient.vec.rvec.xyz.z, z2));
+			if (z2 > 0.001f || z2 < -0.001f) {
+				mprintf(("Z2 original: %f	Z2 new: %f    Z2 difference: %f\n", old_orient.vec.rvec.xyz.z, new_orient.vec.rvec.xyz.z, z2));
 				blarg_oriz2++;
 			}
-			if (x3 > 0.001f || x3 < -0.05f) {
-				mprintf(("X1 original: %f	X1 new: %f    X1 difference: %f\n", old_orient.vec.uvec.xyz.x, new_orient.vec.uvec.xyz.x, x3));
+			if (x3 > 0.001f || x3 < -0.001f) {
+				mprintf(("X3 original: %f	X3 new: %f    X3 difference: %f\n", old_orient.vec.uvec.xyz.x, new_orient.vec.uvec.xyz.x, x3));
 				blarg_orix3++;
 			}
-			if (y3 > 0.05f || y3 < -0.05f) {
-				mprintf(("Y1 original: %f	Y1 new: %f    Y1 difference: %f\n", old_orient.vec.uvec.xyz.y, new_orient.vec.uvec.xyz.y, y3));
+			if (y3 > 0.001f || y3 < -0.001f) {
+				mprintf(("Y3 original: %f	Y3 new: %f    Y3 difference: %f\n", old_orient.vec.uvec.xyz.y, new_orient.vec.uvec.xyz.y, y3));
 				blarg_oriy3++;
 			}
-			if (z3 > 0.05f || z3 < -0.05f) {
-				mprintf(("Z1 original: %f	Z1 new: %f    Z1 difference: %f\n", old_orient.vec.uvec.xyz.z, new_orient.vec.uvec.xyz.z, z3));
+			if (z3 > 0.001f || z3 < -0.001f) {
+				mprintf(("Z3 original: %f	Z3 new: %f    Z3 difference: %f\n", old_orient.vec.uvec.xyz.z, new_orient.vec.uvec.xyz.z, z3));
 				blarg_oriz3++;
 			}
 		} else {
