@@ -356,7 +356,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 {	
 	ubyte data[255];
 	ubyte data_size = 0;	
-	char percent;
+	float percent;
 	ship *shipp;	
 	ship_info *sip;
 	ubyte ret;
@@ -433,13 +433,13 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		// global records		
 		multi_rate_add(NET_PLAYER_NUM(pl), "ori", ret);		
 	}
-			
-	// forward thrust	
-	percent = (char)(objp->phys_info.forward_thrust * 100.0f);
-	Assert( percent <= 100 );
 
+	if (oo_flags & OO_POS_NEW) {
+
+		// forward thrust	
+	percent = objp->phys_info.forward_thrust;	
 	PACK_PERCENT( percent );
-
+	}
 	// global records	
 	multi_rate_add(NET_PLAYER_NUM(pl), "fth", 1);	
 
@@ -812,12 +812,11 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 	if (oo_flags & OO_POS_NEW) {
 		// now that we have the correct orientation, calculating the velocity will be more accurate
 		multi_bash_vel(&new_phys_info, &new_orient, &dot_product_vec);
+		// forward thrust
+		UNPACK_PERCENT(percent);
+		new_phys_info.forward_thrust = (float)percent;
 	}
 	
-	// forward thrust	
-	UNPACK_PERCENT(percent);		
-	new_phys_info.forward_thrust = (float)percent;
-
 	// now stuff all this new info
 	if(oo_flags & OO_POS_NEW){
 		// if we're past the position update tolerance, bash.
