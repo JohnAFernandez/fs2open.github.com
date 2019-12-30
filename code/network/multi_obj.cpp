@@ -413,7 +413,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		// global records
 		multi_rate_add(NET_PLAYER_NUM(pl), "pos", ret);		
 			
-		ret = (ubyte)multi_pack_unpack_vel( 1, data + packet_size + header_bytes, &objp->orient, &objp->pos, &objp->phys_info );
+		ret = (ubyte)multi_pack_vel( data + packet_size + header_bytes, &objp->orient, &objp->phys_info );
 		packet_size += ret;		
 			
 		// global records		
@@ -699,11 +699,12 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 	object *pobjp;
 	ushort net_sig = 0;
 	ubyte data_size, oo_flags;
-	ubyte seq_num;
-	char percent;	
+	ushort seq_num;
+	ubyte percent = 0;	
 	float fpct;
 	ship *shipp;
 	ship_info *sip;
+	vec3d dot_product_vec;
 
 	// add the object's net signature, type and oo_flags
 	if(!(Net_player->flags & NETINFO_FLAG_AM_MASTER)){
@@ -745,11 +746,9 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 	
 	// if the packet is out of order
 	if(seq_num < shipp->np_updates[NET_PLAYER_NUM(pl)].seq){
-		// non-wraparound case
-		if((shipp->np_updates[NET_PLAYER_NUM(pl)].seq - seq_num) <= 100){
-			offset += data_size;
-			return offset;
-		}
+		offset += data_size;
+		return offset;
+	
 	}	
 
 	// make sure the ab hack is reset before we read in new info
@@ -792,7 +791,7 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 		offset += r1;				
 
 		// int r3 = multi_pack_unpack_vel( 0, data + offset, &pobjp->orient, &pobjp->pos, &pobjp->phys_info );
-		int r3 = multi_pack_unpack_vel( 0, data + offset, &pobjp->orient, &new_pos, &new_phys_info );
+		int r3 = multi_unpack_vel(data + offset, &dot_product_vec);
 		offset += r3;
 		
 		// bash desired vel to be velocity
@@ -811,12 +810,17 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 
 		// bash desired rotvel to be 0
 		// pobjp->phys_info.desired_rotvel = vmd_zero_vector;
+
+	}
+
+	if (oo_flags & OO_POS_NEW) {
+		// now that we have the correct orientation, calculating the velocity will be more accurate
+		multi_bash_vel(&new_phys_info, &new_orient, &dot_product_vec);
 	}
 	
 	// forward thrust	
-	percent = (char)(pobjp->phys_info.forward_thrust * 100.0f);
-	Assert( percent <= 100 );
-	GET_DATA(percent);		
+	UNPACK_PERCENT(percent);		
+	new_phys_info.forward_thrust = (float)percent;
 
 	// now stuff all this new info
 	if(oo_flags & OO_POS_NEW){

@@ -193,10 +193,17 @@ int multi_pack_unpack_position(int write, ubyte *data, vec3d *pos);
 #define OO_ORIENT_RET_SIZE						6
 int multi_pack_unpack_orient(int write, ubyte *data, matrix *orient);
 
-// Packs/unpacks velocity
-// Returns number of bytes read or written.
+// Packs velocity
+// Returns number of bytes written.
 #define OO_VEL_RET_SIZE							4
-int multi_pack_unpack_vel(int write, ubyte *data, matrix *orient, vec3d *pos, physics_info *pi);
+int multi_pack_vel(ubyte *data, matrix *orient, physics_info *pi);
+
+// Unpacks velocity
+// Returns number of bytes read 
+int multi_unpack_vel(ubyte *data, vec3d *dot_prod_vec);
+
+// Cyborg17 Calculates new velocity based on information from server
+void multi_bash_vel(physics_info *pi, matrix *orient, vec3d *dot_prod_vec);
 
 // Packs/unpacks desired_velocity
 // Returns number of bytes read or written.

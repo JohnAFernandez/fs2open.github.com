@@ -36,7 +36,7 @@ struct net_player;
 
 // update info
 typedef struct np_update {	
-	ubyte		seq;							// sequence #
+	ushort		seq;							// sequence #
 	int		update_stamp;				// global update stamp
 	int		status_update_stamp;
 	int		subsys_update_stamp;

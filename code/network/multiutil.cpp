@@ -3602,9 +3602,10 @@ int multi_pack_unpack_orient( int write, ubyte *data, matrix *orient)
 	}
 }
 
-// Packs/unpacks velocity
-// Returns number of bytes read or written.
-int multi_pack_unpack_vel( int write, ubyte *data, matrix *orient, vec3d * /*pos*/, physics_info *pi)
+// Packs velocity
+// Returns number of bytes written.
+// Heavily edited by - Cyborg17
+int multi_pack_vel(ubyte *data, matrix *orient, physics_info *pi)
 {
 	bitbuffer buf;
 
@@ -3613,40 +3614,75 @@ int multi_pack_unpack_vel( int write, ubyte *data, matrix *orient, vec3d * /*pos
 	int a, b, c;
 	float r, u, f;
 
-	if ( write )	{
-		// output velocity
-		r = vm_vec_dot( &orient->vec.rvec, &pi->vel );
-		u = vm_vec_dot( &orient->vec.uvec, &pi->vel );
-		f = vm_vec_dot( &orient->vec.fvec, &pi->vel );
+	// calculate the dot product to send to the client
+	r = vm_vec_dot( &orient->vec.rvec, &pi->vel );
+	u = vm_vec_dot( &orient->vec.uvec, &pi->vel );
+	f = vm_vec_dot( &orient->vec.fvec, &pi->vel );
 
-		a = fl2i(r * 0.5f); 
-		b = fl2i(u * 0.5f);
-		c = fl2i(f * 0.5f);
-		CAP(a,-512,511);
-		CAP(b,-512,511);
-		CAP(c,-512,511);
-		bitbuffer_put( &buf, (uint)a, 10 );
-		bitbuffer_put( &buf, (uint)b, 10 );
-		bitbuffer_put( &buf, (uint)c, 10 );
+	// multiply the float to get it ready to be compressed, since we can only send unsigned numbers
+	a = fl2i(r * 0.5f); 
+	b = fl2i(u * 0.5f);
+	c = fl2i(f * 0.5f);
 
-		return bitbuffer_write_flush(&buf);
-	} else {
-		// unpack velocity
-		a = bitbuffer_get_signed(&buf,10);
-		b = bitbuffer_get_signed(&buf,10);
-		c = bitbuffer_get_signed(&buf,10);
-		r = i2fl(a)/0.5f;
-		u = i2fl(b)/0.5f;
-		f = i2fl(c)/0.5f;
+	// cap the values to only the values that will be transmitted, compression part 1
+	// Cyborg17 - note, this is a quasi-cap on *ship* velocity in multi. 
+	// I didn't test it, but I imagine no ship can really go faster than 511 m/s without at least *looking* somewhat awkward.
+	CAP(a,-512,511);
+	CAP(b,-512,511);
+	CAP(c,-512,511);
 
-		// Convert into world coordinates
-		vm_vec_zero(&pi->vel);
-		vm_vec_scale_add2( &pi->vel, &orient->vec.rvec, r );
-		vm_vec_scale_add2( &pi->vel, &orient->vec.uvec, u );
-		vm_vec_scale_add2( &pi->vel, &orient->vec.fvec, f );
+	// place the capped values in the buffer, but only with the required number of bits, compression part 2
+	// converting to uint wraps the values so negative values are not lost.
+	bitbuffer_put( &buf, (uint)a, 10 );
+	bitbuffer_put( &buf, (uint)b, 10 );
+	bitbuffer_put( &buf, (uint)c, 10 );
 
-		return bitbuffer_read_flush(&buf);
-	}
+	return bitbuffer_write_flush(&buf);
+}
+
+// Undo the packing done to the velocity values on the server
+// Returns number of bytes read
+int multi_unpack_vel(ubyte *data, vec3d *dot_prod_vec){
+
+	bitbuffer buf;
+
+	bitbuffer_init(&buf, data);
+
+	int a, b, c;
+	
+	// actually retrieve the compressed values from the data stream (sign is retrieved by this function)
+	a = bitbuffer_get_signed(&buf,10);
+	b = bitbuffer_get_signed(&buf,10);
+	c = bitbuffer_get_signed(&buf,10);
+
+	// the previously combined function would do the following when in read mode:
+	//
+	// combine the dot products with the orientation matrix to undo the dot product and then place it
+	/* directly into the new physics_info struct.
+	   vm_vec_zero(&pi->vel);
+	   vm_vec_scale_add2( &pi->vel, &orient->vec.rvec, r );
+	   vm_vec_scale_add2( &pi->vel, &orient->vec.uvec, u );
+	   vm_vec_scale_add2( &pi->vel, &orient->vec.fvec, f );
+	*/
+	// this will now be done later in order to make sure that it can take part in interpolation calculations
+
+	// undo the multiplication from the packing function to get the approximate original value and then place 
+	// it in the passed vector for further calculation later. 
+	dot_prod_vec->xyz.x = i2fl(a)/0.5f;
+	dot_prod_vec->xyz.y = i2fl(b)/0.5f;
+	dot_prod_vec->xyz.z = i2fl(c)/0.5f;
+
+	return bitbuffer_read_flush(&buf);
+}
+
+// Cyborg17 - Calculates new velocity based on information from server
+// Basically, this has just been moved from pack/unpack velocity to account for orientation changes
+void multi_bash_vel(physics_info *pi, matrix *orient, vec3d *dot_product_vec){
+
+	vm_vec_zero(&pi->vel);
+	vm_vec_scale_add2(&pi->vel, &orient->vec.rvec, dot_product_vec->xyz.x);
+	vm_vec_scale_add2(&pi->vel, &orient->vec.uvec, dot_product_vec->xyz.y);
+	vm_vec_scale_add2(&pi->vel, &orient->vec.fvec, dot_product_vec->xyz.z);
 }
 
 // Packs/unpacks desired_velocity
