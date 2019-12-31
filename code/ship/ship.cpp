@@ -6384,6 +6384,7 @@ void ship_subsys::clear()
 
 	sub_name[0] = 0;
 	current_hits = max_hits = 0.0f;
+	multi_subsytem_is_damaged = false;
 
     flags.reset();
 

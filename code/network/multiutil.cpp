@@ -3602,6 +3602,53 @@ int multi_pack_unpack_orient( int write, ubyte *data, matrix *orient)
 	}
 }
 
+// Cyborg 17 - Packs subsystem health.
+// Returns number of bytes written.
+int multi_pack_subsytem_health(ubyte *data, ubyte count, float *hitpoint_array)
+{
+	// Create and initialize the buffer for packing.
+	bitbuffer buf;
+	bitbuffer_init(&buf, data);
+
+	int a = 0;
+
+	for (int i = 0; i < count; i++) {
+	
+		// multiply the float to get it ready to be compressed
+		// .63 is 63/100, which is the most exact we can be at 6 bits per subsystem.
+		a = fl2i(hitpoint_array[i] * 0.63f) - 32;  
+
+		// cap the values to only the values that should ever be transmitted, compression part 1
+		// (we could try to use 0 to 63 as a range with the unsigned version of the read function, but that is untested
+		// and not yet used in the codebase.
+		CAP(a, -32, 31);
+
+		// place the capped values in the buffer, but only with the required number of bits, compression part 2
+		bitbuffer_put(&buf, (uint)a, 6);
+	}
+	return bitbuffer_write_flush(&buf);
+}
+
+// Cyborg 17 - Unpack subsystem health.
+// Returns number of bytes written.
+int multi_unpack_subsytem_health(ubyte *data, ubyte count, float *current_hits_percentage) 
+{
+	// Create and initialize the buffer for unpacking.
+	bitbuffer buf;
+	bitbuffer_init(&buf, data);
+
+	int a = 0;
+
+	for (int i = 0; i < count; i++) {
+		// Retrieve the compressed information
+		a = bitbuffer_get_signed(&buf, 6);
+
+		// uncompress and place in the array (the constant here is the inverse of 63/100)
+		current_hits_percentage[i] = i2fl((a + 32) * 1.587301612f);
+	}
+	return bitbuffer_read_flush(&buf);
+}
+
 // Packs velocity
 // Returns number of bytes written.
 // Heavily edited by - Cyborg17

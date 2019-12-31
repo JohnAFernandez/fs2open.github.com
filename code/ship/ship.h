@@ -297,6 +297,7 @@ public:
 	char		sub_name[NAME_LENGTH];					//WMC - Name that overrides name of original
 	float		current_hits;							// current number of hits this subsystem has left.
 	float		max_hits;
+	bool		multi_subsytem_is_damaged;		// Allows us to mark which subsystems are damaged so that we can just send periodic damage updates instead
 
 	flagset<Ship::Subsystem_Flags> flags;						// Goober5000
 

@@ -395,7 +395,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 
 	// header sizes
 	if(MULTIPLAYER_MASTER){
-		header_bytes = 5;
+		header_bytes = 6;
 	} else {
 		header_bytes = 2;
 	}	
@@ -466,8 +466,9 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 	// subsystem info
 	if( oo_flags & OO_SUBSYSTEMS_AND_AI_NEW ){
 		ubyte ns;		
+		ubyte subsystem_list[MAX_MODEL_SUBSYSTEMS];
 		ship_subsys *subsysp;
-				
+		
 		// just in case we have some kind of invalid data (should've been taken care of earlier in this function)
 		if(shipp->ship_info_index < 0){
 			ns = 0;
@@ -475,20 +476,11 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 
 			multi_rate_add(NET_PLAYER_NUM(pl), "sub", 1);	
 		}
-		// add the # of subsystems, and their data
+		// add the # of subsystems, and their data - Cyborg17 Using a helper function
 		else {
-			ns = (ubyte)Ship_info[shipp->ship_info_index].n_subsystems;
-			PACK_BYTE( ns );
-
-			multi_rate_add(NET_PLAYER_NUM(pl), "sub", 1);	
-
-			// now the subsystems.
-			for ( subsysp = GET_FIRST(&shipp->subsys_list); subsysp != END_OF_LIST(&shipp->subsys_list); subsysp = GET_NEXT(subsysp) ) {
-				temp = (float)subsysp->current_hits / (float)subsysp->max_hits;
-				PACK_PERCENT(temp);
-				
-				multi_rate_add(NET_PLAYER_NUM(pl), "sub", 1);
-			}
+			ns = (ubyte)multi_pack_required_subsytems(shipp, data, packet_size, header_bytes);
+			multi_rate_add(NET_PLAYER_NUM(pl), "sub", ns);
+			packet_size += ns;
 		}
 
 		// ai mode info
@@ -562,7 +554,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 	ADD_DATA( data_size );	
 	
 	multi_rate_add(NET_PLAYER_NUM(pl), "seq", 1);
-	ADD_DATA( shipp->np_updates[NET_PLAYER_NUM(pl)].seq );
+	ADD_USHORT( shipp->np_updates[NET_PLAYER_NUM(pl)].seq );
 
 	packet_size += data_size;
 
@@ -867,39 +859,44 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 	}	
 
 	if ( oo_flags & OO_SUBSYSTEMS_AND_AI_NEW ) {
-		ubyte n_subsystems, subsys_count;
-		float subsystem_percent[MAX_MODEL_SUBSYSTEMS];		
-		ship_subsys *subsysp;		
+		ubyte n_subsystems, subsys_count;		
+		ship_subsys *subsysp, *firstsubsys = GET_FIRST(&shipp->subsys_list);		
 		float val;		
-		int i;		
+		int64_t distance = 0;
+		ubyte current_subsystem = 0;
 
 		// get the data for the subsystems
 		GET_DATA( n_subsystems );
-		for ( i = 0; i < n_subsystems; i++ ){
-			UNPACK_PERCENT( subsystem_percent[i] );
-		}		
-		
-		// fill in the subsystem data
-		subsys_count = 0;
-		for ( subsysp = GET_FIRST(&shipp->subsys_list); subsysp != END_OF_LIST(&shipp->subsys_list); subsysp = GET_NEXT(subsysp) ) {
-			int subsys_type;
+		GET_DATA(current_subsystem);
 
-			val = subsystem_percent[subsys_count] * subsysp->max_hits;
-			subsysp->current_hits = val;
+		float subsystem_percentages[MAX_MODEL_SUBSYSTEMS];
+		ubyte ret_unpack = multi_unpack_subsytem_health(data + n_subsystems, n_subsystems, subsystem_percentages);
 
-			// add the value just generated (it was zero'ed above) into the array of generic system types
-			subsys_type = subsysp->system_info->type;					// this is the generic type of subsystem
-			Assert ( subsys_type < SUBSYSTEM_MAX );
-			if (!(subsysp->flags[Ship::Subsystem_Flags::No_aggregate])) {
-				shipp->subsys_info[subsys_type].aggregate_current_hits += val;
-			}
+		// this iterates through the packet and subsytem list simultaneously, changing values only when it finds a hit.
+		for (subsysp = firstsubsys; subsysp != END_OF_LIST(&shipp->subsys_list); subsysp = GET_NEXT(subsysp)) {
+			distance = std::distance(firstsubsys, subsysp);
+
+			if (distance != current_subsystem) {
+				// we didn't find what we were looking for, so try the next subsystem.
+				continue;
+			} 
+
+			// we found a match
+			subsysp->current_hits = subsystem_percentages[distance] * subsysp->max_hits;
+
 			subsys_count++;
-
-			// if we've reached max subsystems for some reason, bail out
-			if(subsys_count >= n_subsystems){
+			
+			if (!(subsysp->flags[Ship::Subsystem_Flags::No_aggregate])) {
+				shipp->subsys_info[subsysp->system_info->type].aggregate_current_hits += val;
+			}
+			
+			if (subsys_count == n_subsystems) {
 				break;
 			}
-		}
+
+			// retrieve the next subsystem 
+			GET_DATA( current_subsystem );
+		}		
 		
 		// recalculate all ship subsystems
 		ship_recalc_subsys_strength( shipp );			
@@ -2046,4 +2043,41 @@ void oo_display()
 		}
 	}
 	*/
+}
+
+// Cyborg17 - Creates the list of subsystems and then uses a helper compresser function to store the hitpoints.
+//		Will at times make subsystem health displayed 1% different on server vs. on client. That's intentional.
+//		The server is still tracking whether the subsystem is destroyed.
+int multi_pack_required_subsytems(ship *shipp, ubyte *data, int packet_size, int header_bytes){
+
+	int starting_packet_size = packet_size;
+	ship_subsys* subsystem;
+	ubyte count = 0;
+	ubyte flagged_subsystem_list[MAX_MODEL_SUBSYSTEMS]; 
+	float subsystem_list_health[MAX_MODEL_SUBSYSTEMS];
+
+	for (subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list); subsystem = GET_NEXT(subsystem)) {
+		if (subsystem->multi_subsytem_is_damaged == true) {
+			
+			// store the values for use later.
+			flagged_subsystem_list[count] = (ubyte)std::distance(GET_FIRST(&shipp->subsys_list), subsystem);
+			subsystem_list_health[count]  = subsystem->current_hits / subsystem->max_hits; // this should be safe because the bool only sets when damage is done
+			// and also track the list of subsystems that we packed by index
+			count++;
+			// unmark the "send me!" flag
+			subsystem->multi_subsytem_is_damaged = false;
+		}
+	}
+	VerifyEx(count <= MAX_MODEL_SUBSYSTEMS, "Object Update packet exceeded limit for number of subsystems. This is a fatal error in the code, please report!");
+	// pack the count of subsystems first.
+	PACK_BYTE(count);
+	// we'll pack the subsystem indeces first
+	for (int i = 0; i < count; i++) {
+	PACK_BYTE(flagged_subsystem_list[i]);
+	}
+
+	// then do the heavy hitting compression with this function.
+	int return_size = multi_pack_subsytem_health(data, count, subsystem_list_health);	
+	return_size += count;
+	return return_size;
 }

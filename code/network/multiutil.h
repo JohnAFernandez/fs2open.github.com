@@ -193,6 +193,12 @@ int multi_pack_unpack_position(int write, ubyte *data, vec3d *pos);
 #define OO_ORIENT_RET_SIZE						6
 int multi_pack_unpack_orient(int write, ubyte *data, matrix *orient);
 
+// Packs subsystem hitpoints, will lose up to about two percent accuracy.
+int multi_pack_subsytem_health(ubyte *data, ubyte count, float *hitpoint_array);
+
+// Unpack subsystem hitpoints
+int multi_unpack_subsytem_health(ubyte *data, ubyte count, float *current_hits);
+
 // Packs velocity
 // Returns number of bytes written.
 #define OO_VEL_RET_SIZE							4
