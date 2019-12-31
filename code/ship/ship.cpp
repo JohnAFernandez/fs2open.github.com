@@ -6384,6 +6384,7 @@ void ship_subsys::clear()
 
 	sub_name[0] = 0;
 	current_hits = max_hits = 0.0f;
+	multi_subsytem_is_changed = false;
 
     flags.reset();
 
@@ -8444,6 +8445,9 @@ static void ship_auto_repair_frame(int shipnum, float frametime)
 				ssp->current_hits = ssp->max_hits;
 			}
 
+			// if multi, make sure server knows to update clients on the change
+			maybe_mark_subsystem_for_multi(ssp);
+
 			// aggregate repair
 			if (!(ssp->flags[Ship::Subsystem_Flags::No_aggregate])) {
 				ssip->aggregate_current_hits += ssip->aggregate_max_hits * real_repair_rate * frametime;
@@ -9931,6 +9935,9 @@ void change_ship_type(int n, int ship_type, int by_sexp)
 			if (!subsystem_stricmp(ss->system_info->subobj_name, subsys_names[i]))
 			{
 				ss->current_hits = ss->max_hits * subsys_pcts[i];
+
+				// Make sure client knows what the new percentage should be
+				maybe_mark_subsystem_for_multi(ss);
 
 				// MageKing17 - Every AI doing something with this subsystem must transfer to the new one.
 				{
@@ -13334,6 +13341,9 @@ void ship_set_subsystem_strength( ship *shipp, int type, float strength )
 			// maybe blow up subsys
 			if (ssp->current_hits <= 0) {
 				do_subobj_destroyed_stuff(shipp, ssp, nullptr);
+			} else {
+				// In multi, need to update clients via object update packet if subsystems are not destroyed
+				maybe_mark_subsystem_for_multi(ssp);
 			}
 		}
 		ssp = GET_NEXT( ssp );
@@ -13593,6 +13603,9 @@ int ship_do_rearm_frame( object *objp, float frametime )
 			if ( ssp->current_hits > max_subsys_repair ) {
 				ssp->current_hits = max_subsys_repair;
 			}
+
+			// In multi, need to update clients via object update packet if subsystems are not destroyed
+			maybe_mark_subsystem_for_multi(ssp);
 
 			// add repair to aggregate strength of subsystems of that type
 			if (!(ssp->flags[Ship::Subsystem_Flags::No_aggregate])) {
@@ -18422,6 +18435,16 @@ void init_path_metadata(path_metadata& metadata)
 	vm_vec_zero(&metadata.departure_rvec);
 	metadata.arrive_speed_mult = FLT_MIN;
 	metadata.depart_speed_mult = FLT_MIN;
+}
+
+// Cyborg17 - For marking a subsystem's health as changed so that we don't have to add the MULTIPLAYER_MASTER macro everywhere
+void maybe_mark_subsystem_for_multi(ship_subsys *subsys, bool mark)
+{
+	Assertion (subsys != nullptr, "Nullptr passed to maybe_mark_subsystem_for_multi(), meaning there is a faulty code path. Please report!");
+
+	if (MULTIPLAYER_MASTER) {
+		subsys->multi_subsytem_is_changed = mark;
+	}
 }
 
 gamesnd_id ship_get_sound(object *objp, GameSounds id)

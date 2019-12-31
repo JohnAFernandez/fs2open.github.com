@@ -209,6 +209,9 @@ void do_subobj_destroyed_stuff( ship *ship_p, ship_subsys *subsys, vec3d* hitpos
 			hit = g_subobj_pos;
 		}
 		send_subsystem_destroyed_packet( ship_p, index, hit );
+
+		// Cyborg17 - no reason to send subsystem info in the object update, if the destroyed subsystem packet will already take care of it.
+		maybe_mark_subsystem_for_multi(subsys, false);
 	}
 
 	// next do a quick sanity check on the current hits that we are keeping for the generic subsystems
@@ -775,6 +778,11 @@ float do_subobj_hit_stuff(object *ship_objp, object *other_obj, vec3d *hitpos, i
 				damage_to_apply *= ss_dif_scale;
 			}
 
+			// Cyborg17 - Server needs to send subsys strength via object update packet, if not destroyed.
+			if ((damage_to_apply > 0.0f) ){
+				maybe_mark_subsystem_for_multi(subsystem);
+			}
+				
 			subsystem->current_hits -= damage_to_apply;
 			if (!(subsystem->flags[Ship::Subsystem_Flags::No_aggregate])) {
 				ship_p->subsys_info[subsystem->system_info->type].aggregate_current_hits -= damage_to_apply;

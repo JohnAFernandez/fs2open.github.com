@@ -21,6 +21,7 @@ struct interp_info;
 class object;
 struct header;
 struct net_player;
+class ship;
 
 
 // client button info flags
@@ -36,7 +37,7 @@ struct net_player;
 
 // update info
 typedef struct np_update {	
-	ubyte		seq;							// sequence #
+	ushort		seq;							// sequence #
 	int		update_stamp;				// global update stamp
 	int		status_update_stamp;
 	int		subsys_update_stamp;
@@ -69,6 +70,9 @@ int multi_oo_is_interp_object(object *objp);
 
 // interp
 void multi_oo_interp(object *objp);
+
+// Cyborg17 - sort through subsystems to make sure we only update the ones we need to update.
+//int multi_pack_required_subsytems(ship* shipp, ubyte* data, int packet_size, int header_bytes);
 
 
 // ---------------------------------------------------------------------------------------------------

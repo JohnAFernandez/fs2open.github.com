@@ -150,6 +150,11 @@ ADE_VIRTVAR(HitpointsLeft, l_Subsystem, "number", "Subsystem hitpoints left", "n
 		//Only go down to 0 hits
 		sso->ss->current_hits = MAX(0.0f, f);
 
+		if(sso->ss->current_hits > 0.0f) {
+			// In multi, need to update clients via object update packet if subsystems are not destroyed
+			maybe_mark_subsystem_for_multi(sso->ss);
+		}
+
 		ship *shipp = &Ships[sso->objp->instance];
 		if (f <= -1.0f && sso->ss->current_hits <= 0.0f) {
 			do_subobj_destroyed_stuff(shipp, sso->ss, NULL);
@@ -175,6 +180,9 @@ ADE_VIRTVAR(HitpointsMax, l_Subsystem, "number", "Subsystem hitpoints max", "num
 		sso->ss->max_hits = MIN(0.0f, f);
 
 		ship_recalc_subsys_strength(&Ships[sso->objp->instance]);
+
+		// Since the max is changing, the strength should be changing, too, so we have to may have to update a client
+		maybe_mark_subsystem_for_multi(sso->ss);
 	}
 
 	return ade_set_args(L, "f", sso->ss->max_hits);

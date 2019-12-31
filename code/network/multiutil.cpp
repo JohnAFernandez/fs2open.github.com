@@ -3626,25 +3626,25 @@ int multi_pack_unpack_vel( int write, ubyte *data, matrix *orient, vec3d * /*pos
 		u = vm_vec_dot( &orient->vec.uvec, &pi->vel );
 		f = vm_vec_dot( &orient->vec.fvec, &pi->vel );
 
-		a = fl2i(r * 0.5f); 
-		b = fl2i(u * 0.5f);
-		c = fl2i(f * 0.5f);
-		CAP(a,-512,511);
-		CAP(b,-512,511);
-		CAP(c,-512,511);
-		bitbuffer_put( &buf, (uint)a, 10 );
-		bitbuffer_put( &buf, (uint)b, 10 );
-		bitbuffer_put( &buf, (uint)c, 10 );
+		a = fl2i(r * 4.0f); 
+		b = fl2i(u * 4.0f);
+		c = fl2i(f * 4.0f);
+		CAP(a,-4096,4095);
+		CAP(b,-4096,4095);
+		CAP(c,-4096,4095);
+		bitbuffer_put( &buf, (uint)a, 13 );
+		bitbuffer_put( &buf, (uint)b, 13 );
+		bitbuffer_put( &buf, (uint)c, 13 );
 
 		return bitbuffer_write_flush(&buf);
 	} else {
 		// unpack velocity
-		a = bitbuffer_get_signed(&buf,10);
-		b = bitbuffer_get_signed(&buf,10);
-		c = bitbuffer_get_signed(&buf,10);
-		r = i2fl(a)/0.5f;
-		u = i2fl(b)/0.5f;
-		f = i2fl(c)/0.5f;
+		a = bitbuffer_get_signed(&buf,13);
+		b = bitbuffer_get_signed(&buf,13);
+		c = bitbuffer_get_signed(&buf,13);
+		r = i2fl(a)/4.0f;
+		u = i2fl(b)/4.0f;
+		f = i2fl(c)/4.0f;
 
 		// Convert into world coordinates
 		vm_vec_zero(&pi->vel);

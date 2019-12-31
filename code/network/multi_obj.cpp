@@ -355,7 +355,6 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 {	
 	ubyte data[255];
 	ubyte data_size = 0;	
-	char percent;
 	ship *shipp;	
 	ship_info *sip;
 	ubyte ret;
@@ -394,9 +393,9 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 
 	// header sizes
 	if(MULTIPLAYER_MASTER){
-		header_bytes = 5;
+		header_bytes = 6;
 	} else {
-		header_bytes = 2;
+		header_bytes = 3;
 	}	
 
 	// if we're a client (and therefore sending control info), pack client-specific info
@@ -404,20 +403,14 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		packet_size += multi_oo_pack_client_data(data + packet_size + header_bytes);		
 	}		
 		
-	// position, velocity
+	// position
 	if ( oo_flags & OO_POS_NEW ) {		
 		ret = (ubyte)multi_pack_unpack_position( 1, data + packet_size + header_bytes, &objp->pos );
 		packet_size += ret;
 		
 		// global records
-		multi_rate_add(NET_PLAYER_NUM(pl), "pos", ret);		
-			
-		ret = (ubyte)multi_pack_unpack_vel( 1, data + packet_size + header_bytes, &objp->orient, &objp->pos, &objp->phys_info );
-		packet_size += ret;		
-			
-		// global records		
-		multi_rate_add(NET_PLAYER_NUM(pl), "pos", ret);				
-	}	
+		multi_rate_add(NET_PLAYER_NUM(pl), "pos", ret);
+	}			
 
 	// orientation	
 	if(oo_flags & OO_ORIENT_NEW){
@@ -432,12 +425,21 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 		// global records		
 		multi_rate_add(NET_PLAYER_NUM(pl), "ori", ret);		
 	}
-			
-	// forward thrust	
-	percent = (char)(objp->phys_info.forward_thrust * 100.0f);
-	Assert( percent <= 100 );
 
-	PACK_BYTE( percent );
+	// velocity
+	if (oo_flags & OO_POS_NEW) {
+		ret = (ubyte)multi_pack_unpack_vel( 1, data + packet_size + header_bytes, &objp->orient, &objp->pos, &objp->phys_info );
+		packet_size += ret;		
+			
+		// global records		
+		multi_rate_add(NET_PLAYER_NUM(pl), "pos", ret);				
+	}	
+		
+	// forward and side thrust	
+	if (oo_flags & OO_POS_NEW) {
+		PACK_PERCENT(objp->phys_info.forward_thrust);
+		PACK_PERCENT(objp->phys_info.side_thrust);
+	}
 
 	// global records	
 	multi_rate_add(NET_PLAYER_NUM(pl), "fth", 1);	
@@ -465,8 +467,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 	// subsystem info
 	if( oo_flags & OO_SUBSYSTEMS_AND_AI_NEW ){
 		ubyte ns;		
-		ship_subsys *subsysp;
-				
+		
 		// just in case we have some kind of invalid data (should've been taken care of earlier in this function)
 		if(shipp->ship_info_index < 0){
 			ns = 0;
@@ -474,19 +475,35 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 
 			multi_rate_add(NET_PLAYER_NUM(pl), "sub", 1);	
 		}
-		// add the # of subsystems, and their data
+		// add the # of only the subsystems being changed, and their data
 		else {
-			ns = (ubyte)Ship_info[shipp->ship_info_index].n_subsystems;
-			PACK_BYTE( ns );
+			ship_subsys* subsystem;
+			ubyte count = 0;
+			ubyte flagged_subsystem_list[MAX_MODEL_SUBSYSTEMS];
+			float subsystem_list_health[MAX_MODEL_SUBSYSTEMS];
 
-			multi_rate_add(NET_PLAYER_NUM(pl), "sub", 1);	
+			for (subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list);
+			     subsystem = GET_NEXT(subsystem)) {
+				if (subsystem->multi_subsytem_is_changed == true) {
 
-			// now the subsystems.
-			for ( subsysp = GET_FIRST(&shipp->subsys_list); subsysp != END_OF_LIST(&shipp->subsys_list); subsysp = GET_NEXT(subsysp) ) {
-				temp = (float)subsysp->current_hits / (float)subsysp->max_hits;
-				PACK_PERCENT(temp);
-				
-				multi_rate_add(NET_PLAYER_NUM(pl), "sub", 1);
+					// store the values for use later.
+					flagged_subsystem_list[count] = (ubyte)std::distance(GET_FIRST(&shipp->subsys_list), subsystem);
+					// this should be safe because we only work with subsystems that have health, but assertion just in case.
+					Assertion(subsystem->max_hits != 0.0f, "A subsystem without health somehow got to the object update packet.  Please report!");
+					subsystem_list_health[count] = subsystem->current_hits / subsystem->max_hits; 
+					// and also track the list of subsystems that we packed by index
+					count++;
+					// unmark the "send me!" flag
+					subsystem->multi_subsytem_is_changed = false;
+				}
+			}
+			VerifyEx(count <= MAX_MODEL_SUBSYSTEMS, "Object Update packet exceeded limit for number of subsystems. This is a fatal error in the code, please report!");
+			// pack the count of subsystems first.
+			PACK_BYTE(count);
+			// now we'll pack the actual information
+			for (int i = 0; i < count; i++) {
+				PACK_BYTE(flagged_subsystem_list[i]);
+				PACK_PERCENT(subsystem_list_health[i]);
 			}
 		}
 
@@ -550,7 +567,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 	}
 	data_size = (ubyte)packet_size;
 
-	// add the object's net signature, type and oo_flags
+	// reset packet_size so that we add the header at the beginning of the packet where it belongs.
 	packet_size = 0;
 	// don't add for clients
 	if(Net_player->flags & NETINFO_FLAG_AM_MASTER){		
@@ -564,7 +581,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ubyte oo_flags, ubyte *data
 	multi_rate_add(NET_PLAYER_NUM(pl), "siz", 1);
 	ADD_DATA( data_size );	
 	
-	multi_rate_add(NET_PLAYER_NUM(pl), "seq", 1);
+	multi_rate_add(NET_PLAYER_NUM(pl), "seq", 2);
 	ADD_DATA( shipp->np_updates[NET_PLAYER_NUM(pl)].seq );
 
 	packet_size += data_size;
@@ -698,7 +715,7 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 	object *pobjp;
 	ushort net_sig = 0;
 	ubyte data_size, oo_flags;
-	ubyte seq_num;
+	ushort seq_num;
 	char percent;	
 	float fpct;
 	ship *shipp;
@@ -744,9 +761,9 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 	
 	// if the packet is out of order
 	if(seq_num < shipp->np_updates[NET_PLAYER_NUM(pl)].seq){
-		// non-wraparound case
-		if((shipp->np_updates[NET_PLAYER_NUM(pl)].seq - seq_num) <= 100){
 			offset += data_size;
+		// non-wraparound case
+		if((shipp->np_updates[NET_PLAYER_NUM(pl)].seq - seq_num) < 65000){
 			return offset;
 		}
 	}	
@@ -785,16 +802,9 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 		}
 
 		// int r1 = multi_pack_unpack_position( 0, data + offset, &pobjp->pos );
-		int r1 = multi_pack_unpack_position( 0, data + offset, &new_pos );
-		offset += r1;				
-
-		// int r3 = multi_pack_unpack_vel( 0, data + offset, &pobjp->orient, &pobjp->pos, &pobjp->phys_info );
-		int r3 = multi_pack_unpack_vel( 0, data + offset, &pobjp->orient, &new_pos, &new_phys_info );
-		offset += r3;
-		
-		// bash desired vel to be velocity
-		// pobjp->phys_info.desired_vel = pobjp->phys_info.vel;		
-	}	
+		int r1 = multi_pack_unpack_position(0, data + offset, &new_pos);
+		offset += r1;
+	}
 
 	// orientation	
 	if ( oo_flags & OO_ORIENT_NEW ) {		
@@ -809,11 +819,22 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 		// bash desired rotvel to be 0
 		// pobjp->phys_info.desired_rotvel = vmd_zero_vector;
 	}
-	
-	// forward thrust	
-	percent = (char)(pobjp->phys_info.forward_thrust * 100.0f);
-	Assert( percent <= 100 );
-	GET_DATA(percent);		
+
+	// Velocity
+	if (oo_flags & OO_POS_NEW) {
+		// int r3 = multi_pack_unpack_vel( 0, data + offset, &pobjp->orient, &pobjp->pos, &pobjp->phys_info );
+		int r3 = multi_pack_unpack_vel( 0, data + offset, &new_orient, &new_pos, &new_phys_info );
+		offset += r3;
+		
+		// bash desired vel to be velocity
+		// pobjp->phys_info.desired_vel = pobjp->phys_info.vel;		
+	}	
+
+	// forward and side thrust
+	if (oo_flags & OO_POS_NEW) {
+		UNPACK_PERCENT(new_phys_info.forward_thrust);
+		UNPACK_PERCENT(new_phys_info.side_thrust);
+	}
 
 	// now stuff all this new info
 	if(oo_flags & OO_POS_NEW){
@@ -865,43 +886,50 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 	}	
 
 	if ( oo_flags & OO_SUBSYSTEMS_AND_AI_NEW ) {
-		ubyte n_subsystems, subsys_count;
-		float subsystem_percent[MAX_MODEL_SUBSYSTEMS];		
-		ship_subsys *subsysp;		
-		float val;		
-		int i;		
+		ubyte n_subsystems, subsys_count = 0;		
+		ship_subsys *subsysp, *firstsubsys = GET_FIRST(&shipp->subsys_list);				
+		ubyte current_subsystem = 0;
+		float current_percent   = 0.0f;
 
-		// get the data for the subsystems
+		// get the number of subsystems
 		GET_DATA( n_subsystems );
-		for ( i = 0; i < n_subsystems; i++ ){
-			UNPACK_PERCENT( subsystem_percent[i] );
-		}		
 		
-		// fill in the subsystem data
-		subsys_count = 0;
-		for ( subsysp = GET_FIRST(&shipp->subsys_list); subsysp != END_OF_LIST(&shipp->subsys_list); subsysp = GET_NEXT(subsysp) ) {
-			int subsys_type;
+		// only do more work if there are any subsystems to deal with!
+		if (n_subsystems > 0) {
 
-			val = subsystem_percent[subsys_count] * subsysp->max_hits;
-			subsysp->current_hits = val;
+			// Before we start the loop, we need to get the first subsystem
+			GET_DATA(current_subsystem);
 
-			// add the value just generated (it was zero'ed above) into the array of generic system types
-			subsys_type = subsysp->system_info->type;					// this is the generic type of subsystem
-			Assert ( subsys_type < SUBSYSTEM_MAX );
-			if (!(subsysp->flags[Ship::Subsystem_Flags::No_aggregate])) {
-				shipp->subsys_info[subsys_type].aggregate_current_hits += val;
+			// this iterates through the packet and subsytem list simultaneously, changing values only when it finds a match.
+			for (subsysp = firstsubsys; subsysp != END_OF_LIST(&shipp->subsys_list); subsysp = GET_NEXT(subsysp)) {
+
+				if (current_subsystem != std::distance(firstsubsys, subsysp)) {
+					// the current subsystem was not sent by the server, so try the next subsystem.
+					continue;
+				}
+
+				// we found a match, so grab the next byte, so we can calculate the new hitpoints
+				UNPACK_PERCENT(current_percent);
+				subsysp->current_hits = current_percent * subsysp->max_hits;
+				subsys_count++;
+
+				// Aggregate if necessary.
+				if (!(subsysp->flags[Ship::Subsystem_Flags::No_aggregate])) {
+					shipp->subsys_info[subsysp->system_info->type].aggregate_current_hits += subsysp->current_hits;
+				}
+
+				// Stop the loop once we've found them all.
+				if (subsys_count == n_subsystems) {
+					break;
+				}
+
+				// retrieve the next subsystem
+				GET_DATA(current_subsystem);
 			}
-			subsys_count++;
 
-			// if we've reached max subsystems for some reason, bail out
-			if(subsys_count >= n_subsystems){
-				break;
-			}
+			// recalculate all ship subsystems
+			ship_recalc_subsys_strength(shipp);
 		}
-		
-		// recalculate all ship subsystems
-		ship_recalc_subsys_strength( shipp );			
-
 		// ai mode info
 		ubyte umode;
 		short submode;

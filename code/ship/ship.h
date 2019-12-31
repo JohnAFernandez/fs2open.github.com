@@ -297,6 +297,7 @@ public:
 	char		sub_name[NAME_LENGTH];					//WMC - Name that overrides name of original
 	float		current_hits;							// current number of hits this subsystem has left.
 	float		max_hits;
+	bool		multi_subsytem_is_changed;		// Allows us to mark which subsystems are damaged so that we can just send periodic damage updates instead
 
 	flagset<Ship::Subsystem_Flags> flags;						// Goober5000
 
@@ -1729,6 +1730,8 @@ void armor_init();
 // Sushi - Path metadata
 void init_path_metadata(path_metadata& metadata);
 
+// Cyborg17 - For marking a subsystem's health as changed so that we don't have to add the MULTIPLAYER_MASTER macro everywhere
+void maybe_mark_subsystem_for_multi(ship_subsys *subsys, bool mark = true);
 
 typedef struct ship_effect {
 	char name[NAME_LENGTH];

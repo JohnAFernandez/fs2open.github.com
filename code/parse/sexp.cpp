@@ -12404,8 +12404,12 @@ void set_subsys_strength_and_maybe_ancestors(ship *shipp, ship_subsys *ss, polym
 		Assertion(percentage >= 0 && percentage <= 100, "Percentage must be in range [0, 100]");
 
 		// maybe blow up subsys
-		if (ss->current_hits > 0 && percentage < 1)
+		if (ss->current_hits > 0 && percentage < 1) {
 			do_subobj_destroyed_stuff(shipp, ss, nullptr);
+		} else {
+		// In multi, we need to update clients via object update packet if subsystems are not destroyed 
+			maybe_mark_subsystem_for_multi(ss);
+		}
 
 		// assign the hitpoints
 		ss->current_hits = ss->max_hits * ((float)percentage / 100.0f);
@@ -12420,6 +12424,9 @@ void set_subsys_strength_and_maybe_ancestors(ship *shipp, ship_subsys *ss, polym
 		ss->current_hits += repair_hits;
 		if (ss->current_hits > ss->max_hits)
 			ss->current_hits = ss->max_hits;
+
+		// In multi, we need to update clients about this via object update packet
+		maybe_mark_subsystem_for_multi(ss);
 	}
 	else if (sabotage_percent != nullptr)
 	{
@@ -12433,8 +12440,12 @@ void set_subsys_strength_and_maybe_ancestors(ship *shipp, ship_subsys *ss, polym
 			ss->current_hits = 0.0f;
 
 		// maybe blow up subsys
-		if (ss->current_hits <= 0 && !originally_zero)
+		if (ss->current_hits <= 0 && !originally_zero) {
 			do_subobj_destroyed_stuff(shipp, ss, nullptr);
+		} else {
+			// In multi, we need to update clients via object update packet if subsystems are not destroyed
+			maybe_mark_subsystem_for_multi(ss);
+		}
 	}
 	else
 		return;
@@ -17785,6 +17796,9 @@ void ship_copy_damage(ship *target_shipp, ship *source_shipp)
 		target_ss->current_hits = source_ss->current_hits;
 		target_ss->submodel_info_1.blown_off = source_ss->submodel_info_1.blown_off;
 		target_ss->submodel_info_2.blown_off = source_ss->submodel_info_2.blown_off;
+
+		// also make sure multi server knows to update this subsystem to the clients
+		maybe_mark_subsystem_for_multi(target_ss);
 	}
 }
 
