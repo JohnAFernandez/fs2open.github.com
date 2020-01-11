@@ -77,7 +77,14 @@ static SOCKADDR_STORAGE Psnet_mcast_addr;
 // number, possibly a checksum).  We must include a 2 byte flags variable into both structure
 // since the receiving end of this packet must know whether or not to checksum the packet.
 
-#define MAX_TOP_LAYER_PACKET_SIZE			680
+// Psnet requires one byte for ident (based on MAX_PACKET_SIZE == 1231, this should be 4-byte aligned)
+#define MAX_TOP_LAYER_PACKET_SIZE			MAX_PACKET_SIZE+1
+
+// 1280 = min safe size required by IPv6 spec
+//  -40 = IPv6 header
+//   -8 = UDP header
+// (1232 & 3 == 4-byte alignment)
+static_assert(MAX_TOP_LAYER_PACKET_SIZE <= (1280-40-8), "Psnet packet size is larger network safe!");
 
 // use the pack pragma to pack these structures to 2 byte aligment.  Really only needed for
 // the naked packet.
@@ -334,8 +341,10 @@ int SELECT(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
  * Wrappers around sendto to sorting through different packet types
  */
 int SENDTO(SOCKET s, char * buf, int len, int flags, SOCKADDR *to, int tolen, int psnet_type)
-{	
-	char outbuf[MAX_TOP_LAYER_PACKET_SIZE + 150];
+{
+	char outbuf[MAX_TOP_LAYER_PACKET_SIZE];
+
+	Assert(len < MAX_TOP_LAYER_PACKET_SIZE);
 
 	// stuff type
 	outbuf[0] = static_cast<char>(psnet_type);
@@ -806,7 +815,7 @@ int psnet_broadcast(void *data, int len)
  */
 void psnet_flush()
 {
-	ubyte data[MAX_TOP_LAYER_PACKET_SIZE + 250];
+	ubyte data[MAX_TOP_LAYER_PACKET_SIZE];
 	net_addr from_addr;
 
 	while ( psnet_get(data, &from_addr) > 0 );
