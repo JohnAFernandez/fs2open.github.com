@@ -31,7 +31,7 @@
 #define NET_TCP		1
 #define NET_VMT		3
 
-#define MAX_PACKET_SIZE		1231
+#define MAX_PACKET_SIZE		1221
 
 #define DEFAULT_GAME_PORT 7808
 
