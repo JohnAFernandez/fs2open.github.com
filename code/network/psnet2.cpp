@@ -77,14 +77,10 @@ static SOCKADDR_STORAGE Psnet_mcast_addr;
 // number, possibly a checksum).  We must include a 2 byte flags variable into both structure
 // since the receiving end of this packet must know whether or not to checksum the packet.
 
-// Psnet requires one byte for ident (based on MAX_PACKET_SIZE == 1231, this should be 4-byte aligned)
-#define MAX_TOP_LAYER_PACKET_SIZE			MAX_PACKET_SIZE+1
-
 // 1280 = min safe size required by IPv6 spec
 //  -40 = IPv6 header
 //   -8 = UDP header
-// (1232 & 3 == 4-byte alignment)
-static_assert(MAX_TOP_LAYER_PACKET_SIZE <= (1280-40-8), "Psnet packet size is larger network safe!");
+#define MAX_TOP_LAYER_PACKET_SIZE			1232
 
 // use the pack pragma to pack these structures to 2 byte aligment.  Really only needed for
 // the naked packet.
@@ -153,6 +149,9 @@ typedef struct {
 	ubyte		data[MAX_PACKET_SIZE];	// Packet data
 } reliable_header;
 #pragma pack(pop)
+
+// Psnet adds 1 byte for type ident, so make sure we've got a little headroom
+static_assert(sizeof(reliable_header) < MAX_TOP_LAYER_PACKET_SIZE, "reliable_header is larger than max packet size!");
 
 #define RELIABLE_PACKET_HEADER_ONLY_SIZE (sizeof(reliable_header)-MAX_PACKET_SIZE)
 #define MAX_PING_HISTORY	10
