@@ -139,7 +139,6 @@ typedef struct network_packet_buffer_list {
 #define NETTIMEOUT				30			// Time after receiving the last packet before we drop that user
 #define NETHEARTBEATTIME		3			// How often to send a heartbeat
 #define MAXRELIABLESOCKETS		40			// Max reliable sockets to open at once...
-#define NETBUFFERSIZE			600		// Max size of a network packet
 
 #define RELIABLE_CONNECT_TIME		7		// how long we'll wait for a response when doing a reliable connect
 
@@ -161,15 +160,15 @@ typedef struct {
 	ushort		seq;					// sequence packet 0-65535 used for ACKing also
 	ushort		data_len;				// length of data
 	float		send_time;				// Time the packet was sent, if an ACK the time the packet being ACK'd was sent.
-	ubyte		data[NETBUFFERSIZE];	// Packet data
+	ubyte		data[MAX_PACKET_SIZE];	// Packet data
 } reliable_header;
 #pragma pack(pop)
 
-#define RELIABLE_PACKET_HEADER_ONLY_SIZE (sizeof(reliable_header)-NETBUFFERSIZE)
+#define RELIABLE_PACKET_HEADER_ONLY_SIZE (sizeof(reliable_header)-MAX_PACKET_SIZE)
 #define MAX_PING_HISTORY	10
 
 typedef struct {
-	ubyte buffer[NETBUFFERSIZE];
+	ubyte buffer[MAX_PACKET_SIZE];
 } reliable_net_buffer;
 
 #pragma pack(push, 1)
@@ -1171,7 +1170,7 @@ int psnet_rel_send(PSNET_SOCKET_RELIABLE socketid, ubyte *data, int length, int 
 		return -1;
 	}
 
-	Assert(length < static_cast<int>(sizeof(reliable_header)));
+	Assert(length <= MAX_PACKET_SIZE);
 
 	psnet_rel_work();
 
@@ -1289,7 +1288,6 @@ void psnet_rel_work()
 {
 	int i, j;
 	int rcode = -1;
-	int max_len = NETBUFFERSIZE;
 	fd_set read_fds;
 	struct timeval timeout;
 	reliable_header rcv_buff;
@@ -1561,7 +1559,7 @@ void psnet_rel_work()
 			}
 
 			if (savepacket) {
-				if (rcv_buff.data_len > max_len) {
+				if (rcv_buff.data_len > MAX_PACKET_SIZE) {
 					ml_string("Received oversized reliable packet!");
 
 					// don't ack it, which will mean we will get it again soon.
