@@ -93,16 +93,6 @@ static_assert(MAX_TOP_LAYER_PACKET_SIZE <= (1280-40-8), "Psnet packet size is la
 #pragma pack(push, 2)
 
 /**
- * Definition for a non-checksum packet
- */
-typedef struct network_packet
-{
-	int		sequence_number;
-	ushort	flags;
-	ubyte		data[MAX_TOP_LAYER_PACKET_SIZE];
-} network_naked_packet;
-
-/**
  * Structure definition for our packet buffers
  */
 typedef struct network_packet_buffer
@@ -364,7 +354,7 @@ void PSNET_TOP_LAYER_PROCESS()
 	ssize_t read_len;
 	socklen_t from_len;
 	SOCKADDR_IN6 from_addr;
-	network_naked_packet packet_read;
+	uint8_t packet_data[MAX_TOP_LAYER_PACKET_SIZE];
 
 	if ( !Psnet_active ) {
 		return;
@@ -397,7 +387,7 @@ void PSNET_TOP_LAYER_PROCESS()
 
 		// get data off the socket and process
 		from_len = sizeof(from_addr);
-		read_len = recvfrom(Psnet_socket, reinterpret_cast<char *>(packet_read.data), MAX_TOP_LAYER_PACKET_SIZE,
+		read_len = recvfrom(Psnet_socket, reinterpret_cast<char *>(packet_data), sizeof(packet_data),
 							0, reinterpret_cast<LPSOCKADDR>(&from_addr), &from_len);
 
 		if (read_len <= 0) {
@@ -409,12 +399,12 @@ void PSNET_TOP_LAYER_PROCESS()
 		}
 
 		// determine the packet type
-		int packet_type = packet_read.data[0];
+		int packet_type = packet_data[0];
 		Assertion(( (packet_type >= 0) && (packet_type < PSNET_NUM_TYPES) ), "Invalid packet_type found. Packet type %d does not exist", packet_type);
 
 		if ( (packet_type >= 0) && (packet_type < PSNET_NUM_TYPES) ) {
 			// buffer the packet
-			psnet_buffer_packet(&Psnet_top_buffers[packet_type], packet_read.data + 1, read_len - 1, &from_addr);
+			psnet_buffer_packet(&Psnet_top_buffers[packet_type], packet_data + 1, read_len - 1, &from_addr);
 		}
 	}
 }
@@ -2266,7 +2256,7 @@ void psnet_multicast_process()
 	SOCKADDR_IN6 from_addr6;
 	socklen_t from_len;
 	ssize_t read_len;
-	network_naked_packet packet_read;
+	uint8_t packet_data[MAX_TOP_LAYER_PACKET_SIZE];
 
 	if ( !Can_broadcast ) {
 		return;
@@ -2288,7 +2278,7 @@ void psnet_multicast_process()
 	}
 
 	from_len = sizeof(from_addr);
-	read_len = recvfrom(Psnet_mcast_socket, reinterpret_cast<char *>(packet_read.data), MAX_TOP_LAYER_PACKET_SIZE,
+	read_len = recvfrom(Psnet_mcast_socket, reinterpret_cast<char *>(packet_data), sizeof(packet_data),
 						0, reinterpret_cast<LPSOCKADDR>(&from_addr), &from_len);
 
 	if (read_len <= 0) {
@@ -2314,12 +2304,12 @@ void psnet_multicast_process()
 	}
 
 	// determine the packet_type
-	int packet_type = packet_read.data[0];
+	int packet_type = packet_data[0];
 	Assertion(( (packet_type >= 0) && (packet_type < PSNET_NUM_TYPES) ), "Invalid packet_type found. Packet type %d does not exist", packet_type);
 
 	if ( (packet_type >= 0) && (packet_type < PSNET_NUM_TYPES) ) {
 		// buffer the packet
-		psnet_buffer_packet(&Psnet_top_buffers[packet_type], packet_read.data + 1, read_len - 1, &from_addr6);
+		psnet_buffer_packet(&Psnet_top_buffers[packet_type], packet_data + 1, read_len - 1, &from_addr6);
 	}
 }
 
