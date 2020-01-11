@@ -1066,18 +1066,18 @@ bool psnet_get_addr(const char *host, const uint16_t port, SOCKADDR_STORAGE *add
 // PSNET 2 RELIABLE SOCKET FUNCTIONS
 //
 
-void psnet_rel_send_ack(SOCKADDR_IN6 *raddr, unsigned int sig, float time_sent)
+void psnet_rel_send_ack(SOCKADDR_IN6 *raddr, ushort sig, float time_sent)
 {
 	int ret;
-	unsigned int sig_tmp;
+	ushort sig_tmp;
 	reliable_header ack_header;
 
 	ack_header.type = RNT_ACK;
-	ack_header.data_len = sizeof(unsigned int);
+	ack_header.data_len = sizeof(ushort);
 	ack_header.send_time = INTEL_FLOAT(&time_sent);
 
-	sig_tmp = INTEL_INT(sig);
-	memcpy(&ack_header.data, &sig_tmp, sizeof(unsigned int));
+	sig_tmp = INTEL_SHORT(sig);
+	memcpy(&ack_header.data, &sig_tmp, sizeof(ushort));
 
 	ret = SENDTO(Psnet_socket, reinterpret_cast<char *>(&ack_header),
 				 RELIABLE_PACKET_HEADER_ONLY_SIZE + ack_header.data_len, 0,
@@ -1431,7 +1431,7 @@ void psnet_rel_work()
 					if (rcv_buff.type == RNT_ACK) {
 						auto *acknum = reinterpret_cast<ushort *>(&rcv_buff.data);
 
-						if (*acknum == (~CONNECTSEQ & 0xffff)) {
+						if (INTEL_SHORT(*acknum) == (~CONNECTSEQ & 0xffff)) {
 							rsocket->status = RNF_CONNECTED;
 							ml_string("Got ACK for IAMHERE!");
 						}
@@ -1487,15 +1487,13 @@ void psnet_rel_work()
 			}
 
 			// if this is an ack for a send buffer on the socket, kill the send buffer. its done
-			for (i = 0; i < MAXNETBUFFERS; i++) {
-				auto *acksig = reinterpret_cast<unsigned int *>(&rcv_buff.data);
+			auto *acksig = reinterpret_cast<ushort *>(&rcv_buff.data);
 
-				if (rsocket && rsocket->sbuffers[i]) {
-					if (rsocket->ssequence[i] == INTEL_INT(*acksig)) {
-						vm_free(rsocket->sbuffers[i]);
-						rsocket->sbuffers[i] = nullptr;
-						rsocket->ssequence[i] = 0;
-					}
+			for (i = 0; i < MAXNETBUFFERS; i++) {
+				if ( rsocket->sbuffers[i] && (rsocket->ssequence[i] == INTEL_SHORT(*acksig)) ) {
+					vm_free(rsocket->sbuffers[i]);
+					rsocket->sbuffers[i] = nullptr;
+					rsocket->ssequence[i] = 0;
 				}
 			}
 
