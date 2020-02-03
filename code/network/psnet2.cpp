@@ -1720,8 +1720,7 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 	int addrlen;
 	int rcode;
 	float first_sent_req = 0;
-	reliable_header conn_header;
-	reliable_header ack_header;
+	reliable_header rheader;
 	int bytesin;
 	struct timeval timeout;
 	fd_set read_fds;
@@ -1750,7 +1749,7 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 		}
 
 		addrlen = sizeof(rcv_addr);
-		bytesin = RECVFROM(Psnet_socket, reinterpret_cast<char *>(&ack_header), sizeof(reliable_header), 0,
+		bytesin = RECVFROM(Psnet_socket, reinterpret_cast<char *>(&rheader), sizeof(reliable_header), 0,
 						   reinterpret_cast<LPSOCKADDR>(&rcv_addr), &addrlen, PSNET_TYPE_RELIABLE);
 
 		if (bytesin < 0) {
@@ -1760,11 +1759,11 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 	} while (true);
 
 
-	conn_header.type = RNT_REQ_CONN;
-	conn_header.seq = CONNECTSEQ;
-	conn_header.data_len = 0;
+	rheader.type = RNT_REQ_CONN;
+	rheader.seq = CONNECTSEQ;
+	rheader.data_len = 0;
 
-	rcode = SENDTO(Psnet_socket, reinterpret_cast<char *>(&conn_header), RELIABLE_PACKET_HEADER_ONLY_SIZE, 0,
+	rcode = SENDTO(Psnet_socket, reinterpret_cast<char *>(&rheader), RELIABLE_PACKET_HEADER_ONLY_SIZE, 0,
 				   reinterpret_cast<LPSOCKADDR>(&srv_addr), sizeof(srv_addr), PSNET_TYPE_RELIABLE);
 
 	if (rcode == SOCKET_ERROR) {
@@ -1797,7 +1796,7 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 		ml_string("selected() in psnet_rel_connect_to_server()");
 
 		addrlen = sizeof(rcv_addr);
-		bytesin = RECVFROM(Psnet_socket, reinterpret_cast<char *>(&ack_header), sizeof(reliable_header), 0,
+		bytesin = RECVFROM(Psnet_socket, reinterpret_cast<char *>(&rheader), sizeof(reliable_header), 0,
 						   reinterpret_cast<LPSOCKADDR>(&rcv_addr) ,&addrlen, PSNET_TYPE_RELIABLE);
 
 		if (bytesin == 0) {
@@ -1815,14 +1814,14 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 
 		ml_string("about to check ack_header.type");
 
-		if (ack_header.type != RNT_ACK) {
+		if (rheader.type != RNT_ACK) {
 			ml_string("Received something that isn't an ACK in psnet_rel_connect_to_server().");
 			continue;
 		}
 
-		auto *acknum = reinterpret_cast<short *>(&ack_header.data);
+		auto *acknum = reinterpret_cast<ushort *>(&rheader.data);
 
-		if (*acknum != CONNECTSEQ) {
+		if (INTEL_SHORT(*acknum) != CONNECTSEQ) {
 			ml_string("Received out of sequence ACK in psnet_rel_connect_to_server().");
 			continue;
 		}
@@ -1845,11 +1844,11 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 				Last_sent_iamhere = psnet_get_time();
 
 				// Now send I_AM_HERE packet
-				conn_header.type = RNT_I_AM_HERE;
-				conn_header.seq = static_cast<ushort>(~CONNECTSEQ);
-				conn_header.data_len = 0;
+				rheader.type = RNT_I_AM_HERE;
+				rheader.seq = static_cast<ushort>(~CONNECTSEQ);
+				rheader.data_len = 0;
 
-				rcode = SENDTO(Psnet_socket, reinterpret_cast<char *>(&conn_header), RELIABLE_PACKET_HEADER_ONLY_SIZE, 0,
+				rcode = SENDTO(Psnet_socket, reinterpret_cast<char *>(&rheader), RELIABLE_PACKET_HEADER_ONLY_SIZE, 0,
 							   reinterpret_cast<LPSOCKADDR>(&srv_addr), sizeof(srv_addr), PSNET_TYPE_RELIABLE);
 
 				if (rcode == SOCKET_ERROR) {
