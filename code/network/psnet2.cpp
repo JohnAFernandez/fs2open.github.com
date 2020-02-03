@@ -1102,7 +1102,7 @@ void psnet_rel_close_socket(PSNET_SOCKET_RELIABLE socketid)
 	// if the socket is out of range
 	if (socketid >= MAXRELIABLESOCKETS) {
 		if (socketid != PSNET_INVALID_SOCKET) {
-			ml_printf("Invalid socket id passed to nw_NewCloseSocket() -- %d", socketid);
+			ml_printf("Invalid socket id passed to psnet_rel_close_socket() -- %d", socketid);
 		}
 
 		return;
@@ -1167,7 +1167,7 @@ int psnet_rel_send(PSNET_SOCKET_RELIABLE socketid, ubyte *data, int length, int 
 
 	if (rsocket->status != RNF_CONNECTED) {
 		// We can't send because this isn't a connected reliable socket.
-		ml_printf("Can't send packet because of status %d in nw_SendReliable(). socket = %d", rsocket->status, socketid);
+		ml_printf("Can't send packet because of status %d in psnet_rel_send(). socket = %d", rsocket->status, socketid);
 		return -1;
 	}
 	
@@ -1230,14 +1230,14 @@ int psnet_rel_get(PSNET_SOCKET socketid, ubyte *buffer, int max_length)
 	psnet_rel_work();
 
 	if (socketid >= MAXRELIABLESOCKETS) {
-		ml_printf("Invalid socket id passed to nw_NewReceiveReliable() -- %d", socketid);
+		ml_printf("Invalid socket id passed to psnet_rel_get() -- %d", socketid);
 		return -1;
 	}
 
 	rsocket = &Reliable_sockets[socketid];
 
 	if ( (rsocket->status != RNF_CONNECTED) && (rsocket->status != RNF_LIMBO) ) {
-		ml_printf("Can't receive packet because it isn't connected in nw_ReceiveReliable(). socket = %d", socketid);
+		ml_printf("Can't receive packet because it isn't connected in psnet_rel_get(). socket = %d", socketid);
 		return 0;
 	}
 
@@ -1578,7 +1578,7 @@ void psnet_rel_work()
 		if (Serverconn == 0xffffffff) {
 			if (rsocket->status == RNF_LIMBO) {
 				if ( fl_abs((psnet_get_time() - rsocket->last_packet_received)) > Nettimeout ) {
-					ml_printf("Reliable (but in limbo) socket (%d) timed out in nw_WorkReliable().", j);
+					ml_printf("Reliable (but in limbo) socket (%d) timed out in psnet_rel_work().", j);
 
 					for (auto a = 0; a < MAXNETBUFFERS; a++) {
 						if (rsocket->sbuffers[a] != nullptr) {
@@ -1597,7 +1597,7 @@ void psnet_rel_work()
 		} else {
 			if ( (rsocket->status == RNF_LIMBO) && (fl_abs((psnet_get_time() - First_sent_iamhere)) > Nettimeout) ) {
 				rsocket->status = RNF_BROKEN;
-				ml_printf("Reliable socket (%d) timed out in nw_WorkReliable().", j);
+				ml_printf("Reliable socket (%d) timed out in psnet_rel_work().", j);
 			}
 		}
 
@@ -1665,7 +1665,7 @@ void psnet_rel_work()
 
 			if ( (rsocket->status == RNF_CONNECTED) && (fl_abs((psnet_get_time() - rsocket->last_packet_received))>Nettimeout) ) {
 				// This socket is hosed.....inform someone?
-				ml_printf("Reliable Socket (%d) timed out in nw_WorkReliable().", j);
+				ml_printf("Reliable Socket (%d) timed out in psnet_rel_work().", j);
 
 				rsocket->status = RNF_BROKEN;
 			}
@@ -1697,7 +1697,7 @@ PSNET_SOCKET psnet_rel_check_for_listen(net_addr *from_addr)
 		if (Reliable_sockets[i].status == RNF_CONNECTING) {
 			Reliable_sockets[i].status = RNF_CONNECTED;
 
-			ml_string("New reliable connection in nw_CheckListenSocket().");
+			ml_string("New reliable connection in psnet_rel_check_for_listen().");
 
 			psnet_sockaddr_to_addr(&Reliable_sockets[i].addr, from_addr);
 
@@ -1768,7 +1768,7 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 				   reinterpret_cast<LPSOCKADDR>(&srv_addr), sizeof(srv_addr), PSNET_TYPE_RELIABLE);
 
 	if (rcode == SOCKET_ERROR) {
-		ml_printf("Unable to send UDP packet in nw_ConnectToServer()! -- %d", WSAGetLastError());
+		ml_printf("Unable to send UDP packet in psnet_rel_connect_to_server()! -- %d", WSAGetLastError());
 		return;
 	}
 
@@ -1801,7 +1801,7 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 						   reinterpret_cast<LPSOCKADDR>(&rcv_addr) ,&addrlen, PSNET_TYPE_RELIABLE);
 
 		if (bytesin == 0) {
-			ml_string("Received 0 bytes from recvfrom() in nw_ConnectToServer().");
+			ml_string("Received 0 bytes from recvfrom() in psnet_rel_connect_to_server().");
 			continue;
 		}
 
@@ -1816,14 +1816,14 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 		ml_string("about to check ack_header.type");
 
 		if (ack_header.type != RNT_ACK) {
-			ml_string("Received something that isn't an ACK in nw_ConnectToServer().");
+			ml_string("Received something that isn't an ACK in psnet_rel_connect_to_server().");
 			continue;
 		}
 
 		auto *acknum = reinterpret_cast<short *>(&ack_header.data);
 
 		if (*acknum != CONNECTSEQ) {
-			ml_string("Received out of sequence ACK in nw_ConnectToServer().");
+			ml_string("Received out of sequence ACK in psnet_rel_connect_to_server().");
 			continue;
 		}
 
@@ -1839,7 +1839,7 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 				memcpy(&rsocket->addr, &rcv_addr, sizeof(rcv_addr));
 				rsocket->status = RNF_LIMBO;
 
-				ml_string("Successfully connected to server in nw_ConnectToServer().");
+				ml_string("Successfully connected to server in psnet_rel_connect_to_server().");
 
 				First_sent_iamhere = psnet_get_time();
 				Last_sent_iamhere = psnet_get_time();
@@ -1858,7 +1858,7 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 					rsocket->status = RNF_UNUSED;
 					memset(rsocket, 0, sizeof(reliable_socket));
 
-					ml_string("Unable to send packet in nw_ConnectToServer()");
+					ml_string("Unable to send packet in psnet_rel_connect_to_server()");
 
 					return;
 				}
@@ -1878,7 +1878,7 @@ void psnet_rel_connect_to_server(PSNET_SOCKET *socket, net_addr *server_addr)
 			}
 		}
 
-		ml_string("Out of reliable socket space in nw_ConnectToServer().");
+		ml_string("Out of reliable socket space in psnet_rel_connect_to_server().");
 
 		return;
 	} while(fl_abs((psnet_get_time() - first_sent_req)) < RELIABLE_CONNECT_TIME);
