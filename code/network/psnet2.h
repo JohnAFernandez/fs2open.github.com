@@ -31,7 +31,17 @@
 #define NET_TCP		1
 #define NET_VMT		3
 
-#define MAX_PACKET_SIZE		1221
+// adjust this value to change max packet size
+//
+// 1280 = min safe size required by IPv6 spec
+//  -40 = IPv6 header
+//   -8 = UDP header
+#define MAX_TOP_LAYER_PACKET_SIZE			1232
+
+// MAX_PACKET_SIZE must be set to at least 11 bytes less than MAX_TOP_LAYER_PACKET_SIZE
+//   10 bytes required for reliable packet header
+//   1 byte added to every packet for psnet ident
+#define MAX_PACKET_SIZE		(MAX_TOP_LAYER_PACKET_SIZE-11)
 
 #define DEFAULT_GAME_PORT 7808
 
