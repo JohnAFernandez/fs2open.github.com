@@ -60,11 +60,6 @@ static SOCKADDR_STORAGE Psnet_mcast_addr;
 #define PSNET_MCAST_DEST		"224.1.2.3"
 #define PSNET_MCAST_DEST_IP6	"ff12::6673:325f:6f70:656e"
 
-// specified their internet connnection type
-#define NETWORK_CONNECTION_NONE			1
-#define NETWORK_CONNECTION_DIALUP		2
-#define NETWORK_CONNECTION_LAN			3
-
 // defines and variables to indicate network connection status
 #define NETWORK_STATUS_NOT_INITIALIZED	1
 #define NETWORK_STATUS_NO_WINSOCK		2			// winsock failed to initialize
