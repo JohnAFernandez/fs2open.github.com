@@ -77,11 +77,6 @@ static SOCKADDR_STORAGE Psnet_mcast_addr;
 // number, possibly a checksum).  We must include a 2 byte flags variable into both structure
 // since the receiving end of this packet must know whether or not to checksum the packet.
 
-// 1280 = min safe size required by IPv6 spec
-//  -40 = IPv6 header
-//   -8 = UDP header
-#define MAX_TOP_LAYER_PACKET_SIZE			1232
-
 // use the pack pragma to pack these structures to 2 byte aligment.  Really only needed for
 // the naked packet.
 #define MAX_PACKET_BUFFERS		75
