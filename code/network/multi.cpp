@@ -1304,7 +1304,7 @@ void multi_do_frame()
 	multi_fs_tracker_process();
 
 	// Cyborg17 update the new frame recording system for accurate client shots, can safely go after everything else in multi.
-	if (MULTIPLAYER_MASTER && (Game_mode & GM_IN_MISSION)) {
+	if (Game_mode & GM_IN_MISSION) {
 		multi_ship_record_increment_frame();
 	}
 

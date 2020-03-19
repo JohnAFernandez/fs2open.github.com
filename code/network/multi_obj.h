@@ -22,6 +22,7 @@ class object;
 struct header;
 struct net_player;
 class ship;
+struct physics_info;
 
 
 // client button info flags
@@ -129,7 +130,7 @@ void multi_oo_send_control_info();
 void multi_oo_send_changed_object(object *changedobj);
 
 // helper function that updates all interpolation info for a specific ship from a packet
-void multi_oo_maybe_update_interp_info(int idx, vec3d* pos, angles* ori_angles, bool adjust_pos, bool newest_pos, bool adjust_ori, bool newest_ori);
+void multi_oo_maybe_update_interp_info(object* objp, vec3d* new_pos, angles* new_ori_angles, matrix* new_ori_mat, physics_info* new_phys_info, bool adjust_pos, bool newest_pos);
 
 // reset all sequencing info
 void multi_oo_reset_sequencing();
@@ -140,7 +141,8 @@ int multi_oo_is_interp_object(object *objp);
 // interp position and orientation
 void multi_oo_interp(object *objp);
 
-int multi_oo_calc_pos_time_difference(int net_sig_idx);
+// recalculate how much time is between position packets
+float multi_oo_calc_pos_time_difference(int net_sig_idx);
 
 // Cyborg17 - sort through subsystems to make sure we only update the ones we need to update.
 //int multi_pack_required_subsytems(ship* shipp, ubyte* data, int packet_size, int header_bytes);

@@ -2886,7 +2886,7 @@ vec4 vm_vec3_to_ve4(const vec3d& vec, float w) {
 
 // Cyborg17 - Rotational interpolation between two angle structs in radians, given a rotational velocity, in radians.
 // src0 is the starting angle struct, src1 is the ending angle struct, interp_perc must be a float between 0.0f and 1.0f.
-// rot_vel is only used to determine the rotation direction. This functions assumes an angle <= 2PI rotation in any axis.  
+// rot_vel is only used to determine the rotation direction. This functions assumes a <= 2PI rotation in any axis.  
 // You will get inaccurate results otherwise.
 void vm_interpolate_angles_quick(angles *dest0, angles *src0, angles *src1, float interp_perc, vec3d *rot_vel) {
 	
