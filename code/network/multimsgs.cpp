@@ -5803,7 +5803,6 @@ void send_post_sync_data_packet(net_player *p, int std_request)
 	int idx, player_index;
 	int packet_size = 0;
 	int ship_count;
-	short val_short;
 
 	BUILD_HEADER(POST_SYNC_DATA);
 
