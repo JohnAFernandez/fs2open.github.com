@@ -10351,7 +10351,7 @@ void sexp_change_iff(int n)
 void multi_sexp_change_iff()
 {
 	int new_team;
-	char *name = nullptr;
+	char name[TOKEN_LENGTH];
 
 	Current_sexp_network_packet.get_int(new_team);
 	while (Current_sexp_network_packet.get_string(name)) {
@@ -10481,7 +10481,7 @@ void sexp_change_iff_color(int n)
 void multi_sexp_change_iff_color()
 {
 	int observer_team, observed_team, alternate_iff_color;
-	char *name = nullptr;
+	char name[TOKEN_LENGTH];
 
 	Current_sexp_network_packet.get_int(observer_team);
 	Current_sexp_network_packet.get_int(observed_team);
@@ -10666,9 +10666,9 @@ void sexp_change_ai_class(int n)
 
 void multi_sexp_change_ai_class()
 {
-	int new_ai_class;
 	ship *shipp;
-	char *subsystem = nullptr;
+	int new_ai_class;
+	char subsystem[TOKEN_LENGTH];
 
 	Current_sexp_network_packet.get_ship(shipp); 
 	Current_sexp_network_packet.get_int(new_ai_class);
