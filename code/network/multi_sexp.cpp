@@ -560,15 +560,17 @@ bool sexp_network_packet::get_parse_object(p_object *& pobjp)
     return false;
 }
 
-bool sexp_network_packet::get_string(char * buffer)
+bool sexp_network_packet::get_string(char * buffer, const size_t buf_len)
 {
+	char tempstring[MAX_PACKET_SIZE];
     int starting_offset = offset;
 
     if (!sexp_bytes_left || !current_argument_count) {
         return false;
     }
 
-	GET_STRING_16(buffer);
+	GET_STRING_16(tempstring);
+	strcpy_s(buffer, buf_len, tempstring);
     reduce_counts(offset - starting_offset);
 
     return true;
