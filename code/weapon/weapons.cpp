@@ -1023,6 +1023,11 @@ int parse_weapon(int subtype, bool replace, const char *filename)
 		}
 	}
 
+	// Print a warning to the log to help
+	if (wip->render_type == -1) {
+		mprintf(("WARNING: No bitmap or pof found for Weapon %s as of %s. If a valid entry is not specified in another table, this will cause a crash when firing it.\n", wip->name, filename));
+	}
+
 	// optional laser glow
 	if ( optional_string("@Laser Glow:") ) {
 		stuff_string(fname, F_NAME, NAME_LENGTH);
@@ -7520,7 +7525,7 @@ void weapon_render(object* obj, model_draw_list *scene)
 		}
 
 	default:
-		Warning(LOCATION, "Unknown weapon rendering type = %i for weapon %s\n", wip->render_type, wip->name);
+		Warning(LOCATION, "Unknown weapon rendering type = %i for weapon %s. If -1 either the specified filename was invalid or there is a mistake in the tables.\n", wip->render_type, wip->name);
 	}
 }
 
