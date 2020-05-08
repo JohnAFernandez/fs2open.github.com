@@ -14393,7 +14393,7 @@ static void ship_add_ship_type_kill_count( int ship_info_index )
 	}
 
 	//Add it if we are actually in gameplay
-	if (Ship_type_counts.size() > type)
+	if (Ship_type_counts.size() > static_cast<size_t>(type))
 		Ship_type_counts[type].killed++;
 }
 
