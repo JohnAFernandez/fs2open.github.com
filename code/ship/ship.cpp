@@ -19448,7 +19448,7 @@ bool ship_start_secondary_fire(object* objp)
 		return false;
 	}
 
-	Assert( (swp->secondary_bank_weapons[bank] >= 0) && (swp->secondary_bank_weapons[bank] < MAX_WEAPON_TYPES) );
+	Assert( (swp->secondary_bank_weapons[bank] >= 0) && (swp->secondary_bank_weapons[bank] < weapon_info_size()) );
 
 	weapon_info *wip = &Weapon_info[swp->secondary_bank_weapons[bank]];
 
@@ -19491,7 +19491,7 @@ bool ship_stop_secondary_fire(object* objp)
 		return false;
 	}
 
-	Assert( (swp->secondary_bank_weapons[bank] >= 0) && (swp->secondary_bank_weapons[bank] < MAX_WEAPON_TYPES) );
+	Assert( (swp->secondary_bank_weapons[bank] >= 0) && (swp->secondary_bank_weapons[bank] < weapon_info_size()) );
 
 	wip = &Weapon_info[swp->secondary_bank_weapons[bank]];
 
