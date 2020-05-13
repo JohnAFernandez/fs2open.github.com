@@ -2011,7 +2011,7 @@ int psnet_buffer_get_next(network_packet_buffer_list *l, ubyte *data, ssize_t *l
  */
 void psnet_set_socket_options()
 {
-	int cursize, bufsize; 
+	int cursize, bufsize, i_opt;
 	socklen_t cursizesize;
 
 	// try and increase the size of my receive buffer
@@ -2040,6 +2040,10 @@ void psnet_set_socket_options()
 	}
 
 	ml_printf("Send buffer set to %d", cursize);
+
+	// make sure we are in dual-stack mode (not the default on Windows)
+	i_opt = 0;
+	setsockopt(Psnet_socket, IPPROTO_IPV6, IPV6_V6ONLY, &i_opt, sizeof(i_opt));
 }
 
 /**
