@@ -1937,11 +1937,11 @@ void send_game_active_packet(net_addr* addr)
 // process information about an active game
 void process_game_active_packet(ubyte* data, header* hinfo)
 {
-	int offset;
+	int offset;	
 	ubyte val;
 	active_game ag;
 	int modes_compatible = 1;
-
+	
 	fill_net_addr(&ag.server_addr, hinfo->addr, hinfo->port);
 
 	// read this game into a temporary structure
@@ -1953,7 +1953,7 @@ void process_game_active_packet(ubyte* data, header* hinfo)
 
 	GET_STRING(ag.name);
 	GET_STRING(ag.mission_name);
-	GET_STRING(ag.title);
+	GET_STRING(ag.title);	
 	GET_DATA(val);
 	ag.num_players = val;
 	GET_USHORT(ag.flags);
@@ -3056,7 +3056,6 @@ void send_secondary_fired_packet( ship *shipp, ushort starting_sig, int  /*start
 /// process a packet indicating a secondary weapon was fired
 void process_secondary_fired_packet(ubyte* data, header* hinfo, int from_player)
 {
-	mprintf(("we got a secondary fired packet.\n"));
 	int offset, allow_swarm, target_objnum_save;
 	ushort net_signature, starting_sig, target_net_signature;
 	ubyte sinfo, current_bank;
@@ -7494,7 +7493,7 @@ void send_non_homing_fired_packet(ship* shipp, int banks_or_number_of_missiles_f
 {
 	int packet_size, objnum;
 	ubyte data[MAX_PACKET_SIZE], flags = 0; // ubanks_fired, current_bank;
-	object* objp;
+	object* objp;	
 	int np_index;
 	net_player* ignore = NULL;
 
@@ -7648,8 +7647,8 @@ void process_non_homing_fired_packet(ubyte *data, header *hinfo)
 	}
 	shipp = &Ships[objp->instance];
 
-	// if we're in client firing mode, ignore ones for myself
-	if ((Player_obj != NULL) && (Player_obj == objp)) {
+	// if we're in client firing mode, ignore ones for myself	
+	if((Player_obj != NULL) && (Player_obj == objp)){		
 		return;
 	}
 
@@ -7742,7 +7741,7 @@ void process_non_homing_fired_packet(ubyte *data, header *hinfo)
 
 		} else {
 		// if the new way fails for some reason, use the old way.
-			mprintf(("New primary shot system failed because frame was -1.\n"));
+			nprintf(("Network","Rollback was not performed because the frame sent by the client is either too old or invalid.. Using the old system.\n"));
 			if (secondary) {
 				// if this is a rollback shot from a dumbfire secondary, we have to mark this as a 
 				// rollback shot so the client doesn't get an extra shot.

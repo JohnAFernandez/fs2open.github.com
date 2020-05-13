@@ -117,7 +117,7 @@ ushort multi_assign_network_signature( int what_kind )
 		sig = Next_ship_signature++;
 
 		if ( Next_ship_signature == SHIP_SIG_MAX ) {
-			Int3();			// get Allender -- signature stuff wrapped.
+			Warning(LOCATION,"Ship multi_signatures have wrapped.  This should not be possible, unless you are adding way too many ships to a multi mission. Please report if this is not the case!");
 			Next_ship_signature = SHIP_SIG_MIN;
 		}
 
@@ -3499,10 +3499,9 @@ int multi_pack_unpack_orient( int write, ubyte *data, angles *angles)
 	const int n_max_range =  32767;
 
 	if ( write )	{			
-		// Subtract PI/2 because the output of vm_extract_angles_matrix is from -PI/2 to 3PI/2
-		a = fl2i(round((angles->b/* - PI/2*/) * n_scale)); 
-		b = fl2i(round((angles->h/* - PI/2*/) * n_scale));
-		c = fl2i(round((angles->p/* - PI/2*/) * n_scale));
+		a = fl2i(round(angles->b * n_scale)); 
+		b = fl2i(round(angles->h * n_scale));
+		c = fl2i(round(angles->p * n_scale));
 
 		CAP(a, n_min_range, n_max_range);
 		CAP(b, n_min_range, n_max_range);
@@ -3519,9 +3518,9 @@ int multi_pack_unpack_orient( int write, ubyte *data, angles *angles)
 		b = bitbuffer_get_signed(&buf,16);
 		c = bitbuffer_get_signed(&buf,16);
 
-		angles->b =/* PI/2 +*/ (i2fl(a)/n_scale);
-		angles->h =/* PI/2 +*/ (i2fl(b)/n_scale);
-		angles->p =/* PI/2 +*/ (i2fl(c)/n_scale);
+		angles->b = (i2fl(a)/n_scale);
+		angles->h = (i2fl(b)/n_scale);
+		angles->p = (i2fl(c)/n_scale);
 		
 		return bitbuffer_read_flush(&buf);
 	}

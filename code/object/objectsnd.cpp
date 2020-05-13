@@ -477,7 +477,6 @@ void obj_snd_do_frame()
 		gs = gamesnd_get_game_sound(osp->id);
 
 		obj_snd_source_pos(&source_pos, osp);
-
 		distance = vm_vec_dist_quick( &source_pos, &View_position );
 
 		// how much extra distance do we add before attentuation?
