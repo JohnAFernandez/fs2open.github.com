@@ -1075,8 +1075,8 @@ int multi_oo_pack_client_data(ubyte *data, ship* shipp)
 	char t_subsys, l_subsys;
 	int packet_size = 0;
 
-	// get our firing stuff Cyborg17 - This line is only for secondary fire, not other controls
-	// And we are not going to send dumbfire missiles here.  Much better to send via non homing weapons packet through ship_fire_secondary()
+	// get our firing stuff Cyborg17 - This line is only for secondary fire, not other controls, and we are not going 
+	// to send firing dumbfire missiles here.  Much better to send via non homing weapons packet through ship_fire_secondary()
 	if ( Weapon_info[shipp->weapons.secondary_bank_weapons[shipp->weapons.current_secondary_bank]].is_homing() ) {
 		out_flags = Net_player->s_info.accum_buttons;	
 	} else {
@@ -1087,8 +1087,8 @@ int multi_oo_pack_client_data(ubyte *data, ship* shipp)
 	Net_player->s_info.accum_buttons = 0;
 
 	// add any necessary targeting flags
-	if ( Player_ai->current_target_is_locked ){
-		out_flags |= OOC_TARGET_LOCKED;
+	if ( ship_lock_present(shipp) ){
+		out_flags |= OOC_ANY_LOCKED;
 	}
 	if ( Player_ai->ai_flags[AI::AI_Flags::Seek_lock] ){	
 		out_flags |= OOC_TARGET_SEEK_LOCK;
@@ -1147,6 +1147,41 @@ int multi_oo_pack_client_data(ubyte *data, ship* shipp)
 	ADD_USHORT( tnet_signature );
 	ADD_DATA( t_subsys );
 	ADD_DATA( l_subsys );
+	
+	// multilock object update patch
+	if (out_flags & OOC_ANY_LOCKED) {
+		ubyte count = 0;
+		bool found;
+		SCP_vector<ushort> lock_list;
+		SCP_vector<ubyte> number_of_locks;
+
+		for (auto& lock : shipp->missile_locks) {
+			found = false;
+			if (lock.locked) {
+				for (int i = 0; i < lock_list.size(); i++) {
+					if (lock_list[i] == lock.obj->net_signature) {
+						found = true;
+						number_of_locks[i]++;
+					}
+				}
+
+				if (!found) {
+					lock_list.push_back(lock.obj->net_signature);
+					number_of_locks.push_back(1);
+				}
+			}
+
+			// only send the first 150 because that is all the packet can fit anyway.
+			if (count == 150) {
+				break;
+			}
+		}
+		ADD_DATA(count);
+		for (int i = 0; i < lock_list.size(); i++) {
+			ADD_USHORT(lock_list[i]);
+			ADD_DATA(number_of_locks[i]);
+		}
+	}
 
 	return packet_size;
 }
@@ -1274,7 +1309,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 		multi_rate_add(NET_PLAYER_NUM(pl), "ori", ret);		
 		ret = 0;
 
-		// in order to send only the correct data we must rotate the global velocity into local coordinates
+		// in order to send data by axis we must rotate the global velocity into local coordinates
 		vec3d local_desired_vel;
 
 		vm_vec_rotate(&local_desired_vel, &objp->phys_info.desired_vel, &objp->orient);
@@ -1509,7 +1544,7 @@ int multi_oo_unpack_client_data(net_player *pl, ubyte *data)
 
 		// other locking information
 		if((shipp != nullptr) && (shipp->ai_index != -1)){			
-			Ai_info[shipp->ai_index].current_target_is_locked = ( in_flags & OOC_TARGET_LOCKED) ? 1 : 0;
+			Ai_info[shipp->ai_index].current_target_is_locked = ( in_flags & OOC_ANY_LOCKED) ? 1 : 0;
 			Ai_info[shipp->ai_index].ai_flags.set(AI::AI_Flags::Seek_lock, (in_flags & OOC_TARGET_SEEK_LOCK) != 0);
 		}
 
