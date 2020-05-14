@@ -1155,25 +1155,27 @@ int multi_oo_pack_client_data(ubyte *data, ship* shipp)
 		SCP_vector<ushort> lock_list;
 		SCP_vector<ubyte> number_of_locks;
 
-		for (auto& lock : shipp->missile_locks) {
+		for (auto & lock : shipp->missile_locks) {
 			found = false;
 			if (lock.locked) {
 				for (int i = 0; i < lock_list.size(); i++) {
 					if (lock_list[i] == lock.obj->net_signature) {
 						found = true;
 						number_of_locks[i]++;
+						break;
 					}
 				}
 
 				if (!found) {
 					lock_list.push_back(lock.obj->net_signature);
 					number_of_locks.push_back(1);
+					count++;
 				}
-			}
 
-			// only send the first 150 because that is all the packet can fit anyway.
-			if (count == 150) {
-				break;
+				// only send the first 150 because that is all the packet can fit anyway.
+				if (count == 150) {
+					break;
+				}
 			}
 		}
 		ADD_DATA(count);
