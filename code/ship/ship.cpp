@@ -9550,7 +9550,7 @@ int ship_create(matrix* orient, vec3d* pos, int ship_type, const char* ship_name
 	// Add this ship to Ship_obj_list
 	shipp->ship_list_index = ship_obj_list_add(objnum);
 
-	// Start up stracking for this ship in multi.
+	// Start up tracking for this ship in multi.
 	if (Game_mode & (GM_MULTIPLAYER)) {
 		multi_ship_record_add_ship(objnum);
 	}
@@ -11028,7 +11028,7 @@ int ship_fire_primary(object * obj, int stream_weapons, int force, bool rollback
 					dist_to_aim = sip->minimum_convergence_distance;
 				}
 			}
-
+			
 			if(winfo_p->wi_flags[Weapon::Info_Flags::Beam]){		// the big change I made for fighter beams, if there beams fill out the Fire_Info for a targeting laser then fire it, for each point in the weapon bank -Bobboau
 				float t;
 				if (winfo_p->burst_shots > swp->burst_counter[bank_to_fire]) {
@@ -11275,7 +11275,7 @@ int ship_fire_primary(object * obj, int stream_weapons, int force, bool rollback
 							} else if ((sip->aiming_flags[Ship::Aiming_Flags::Std_convergence]) || ((sip->aiming_flags[Ship::Aiming_Flags::Auto_convergence]) && (aip->target_objnum != -1))) {
 								// std & auto convergence
 								vec3d target_vec, firing_vec, convergence_offset;
-																
+								
 								// make sure vector is of the set length
 								vm_vec_copy_normalize(&target_vec, &player_forward_vec);
 								if ((sip->aiming_flags[Ship::Aiming_Flags::Auto_convergence]) && (aip->target_objnum != -1)) {

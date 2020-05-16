@@ -187,7 +187,13 @@ oo_general_info Oo_info;
 // HACK!!!
 bool Afterburn_hack = false;			
 
+// Function prototypes
+// returns the last frame's index.
+int multi_find_prev_frame_idx();
+
 void multi_oo_calc_interp_splines(object* objp, vec3d *new_pos, matrix *new_orient, physics_info *new_phys_info);
+
+
 
 // how much data we're willing to put into a given oo packet
 #define OO_MAX_SIZE					480

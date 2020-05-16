@@ -28,7 +28,7 @@ struct server_item;
 class ship_info;
 class p_object;
 
-// two types of signatures that we can request,  permanent signatures are all below 5000.  non-permanent are above 5000
+// two types of signatures that we can request,  permanent signatures are all below 8000.  non-permanent are above 8000
 #define MULTI_SIG_SHIP					1
 #define MULTI_SIG_ASTEROID				2
 #define MULTI_SIG_NON_PERMANENT		3

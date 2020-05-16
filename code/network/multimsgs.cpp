@@ -2545,7 +2545,7 @@ void send_ship_kill_packet( object *objp, object *other_objp, float percent_kill
 			temp2 = (short)Net_players[pnum].m_player->killer_weapon_index;
 			ADD_SHORT( temp2 );
 
-			//ADD_STRING( Net_players[pnum].m_player->killer_parent_name );
+			ADD_STRING( Net_players[pnum].m_player->killer_parent_name );
 			mprintf(("name of killer: %s", Net_players[pnum].m_player->killer_parent_name));
 		} else {
 			ADD_DATA( was_player );
@@ -2622,7 +2622,7 @@ void process_ship_kill_packet( ubyte *data, header *hinfo )
 			Net_players[pnum].m_player->killer_objtype = killer_objtype;
 			Net_players[pnum].m_player->killer_species = killer_species;
 			Net_players[pnum].m_player->killer_weapon_index = killer_weapon_index;
-		//	strcpy_s( Net_players[pnum].m_player->killer_parent_name, killer_name );
+			strcpy_s( Net_players[pnum].m_player->killer_parent_name, killer_name );
 		}
 	}	   
 
