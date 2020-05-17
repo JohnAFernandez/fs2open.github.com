@@ -2067,6 +2067,9 @@ bool psnet_init_socket()
 
 	inet_ntop(AF_INET6, &Psnet_my_ip, ip_string, sizeof(ip_string));
 
+	// set socket options
+	psnet_set_socket_options();
+
 	// bind the socket
 	psnet_get_addr(IN6_IS_ADDR_UNSPECIFIED(&Psnet_my_ip) ? nullptr : ip_string, Psnet_default_port, &sockaddr);
 
@@ -2081,9 +2084,6 @@ bool psnet_init_socket()
 
 		return false;
 	}
-
-	// set socket options
-	psnet_set_socket_options();
 
 	// success
 	return true;
