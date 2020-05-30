@@ -26,20 +26,31 @@ struct header;
 struct beam_info;
 class ship_subsys;
 
-
 // for sending information via LUA scripts
-struct lua_packet_data{
-	int lua_id_number;				// this is to help scipters track which packet is which
+class lua_multi_packet{
+	protected:
+		int lua_packet_id		= 0;	// this is to help scipters track which packet is which
 
-	SCP_vector<int>integers;		// the integers to be transmiited in the packet
-	SCP_vector<float>floats;		// the floats to be transmiited in the packet
-	SCP_vector<SCP_string>strings;	// the strings to be transmiited in the packet
+		ushort lua_type			= 0;
 
-	bool sent[MAX_PLAYERS];			// did we send it to this player (yet?)
+		SCP_vector<int>integers;		// the integers to be transmiited in the packet
+		SCP_vector<float>floats;		// the floats to be transmiited in the packet
+		SCP_vector<SCP_string>strings;	// the strings to be transmiited in the packet
+		SCP_vector<bool>bools;
 
-	int sender_player_ID;			// who sent this packet to us?
+		bool sent[MAX_PLAYERS];			// did we send it to this player (yet?)
+
 };
 
+class lua_received_packet : lua_multi_packet {	
+	public:
+
+
+};
+
+class lua_sending_packet : lua_multi_packet {
+	bool sent_to[MAX_PLAYERS];
+};
 
 
 
