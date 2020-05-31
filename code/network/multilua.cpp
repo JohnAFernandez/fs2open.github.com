@@ -20,7 +20,8 @@
 #include "cfile/cfile.h"
 
 const int MAX_LUA_PACKET_ID = INT_MAX;
-const ushort MINIMUM_LUA_PACKET_LEN = 8; //header ubyte, lua header ushort, packet size ushort, 4 length numbers (ubytes)
+const ushort MINIMUM_LUA_PACKET_LEN = 8;	//header ubyte, lua header ushort, packet size ushort, 4 length numbers (ubytes)
+const int BOOLS_PER_UBYTE = 8;				// used for calculating bool size.
 
 struct lua_packet_organizer{
 	int next_packet_id = -1;	// this will probably get switched out later.
@@ -59,9 +60,9 @@ bool multi_lua_send_packet(int packet_id, int mode, player* pl) {
 		return false;
 	}
 	
-	lua_sending_packet* sending_packet = &Lua_packets.packets_in[packet_in];
+	lua_sending_packet* packetp = &Lua_packets.packets_in[packet_in];
 
-	if (sending_packet == nullptr) {
+	if (packetp == nullptr) {
 		return false;
 	}
 
@@ -71,15 +72,36 @@ bool multi_lua_send_packet(int packet_id, int mode, player* pl) {
 
 	BUILD_HEADER(LUA_BASIC);
 
-	ADD_USHORT(sending_packet.lua_type);
+	ADD_USHORT(packetp->lua_type);
 
-	// calculate the packet length
-	ushort anticipated_packet_length = MINIMUM_LUA_PACKET_LEN;
+	// Begin calculating the packet length
+
+	ushort integer_size = (ushort)packetp->integers.size();
+	ushort float_size = (ushort)packetp->floats.size();
+
+	ushort bool_count = (ushort)packetp->bools.size();
+	ushort bool_size = 0;
+	if (bool_count > 0){
+		bool_size = 1 + ((bool_count -1) / BOOLS_PER_UBYTE); // 8 bools needs to return 1, not 2, same situation with multiples of 8.
+	}
+
+	ushort string_count = packetp->strings.size();
+	ushort string_size;
+	for (auto & string : packetp.strings) {
+		string_size += string.len();
+	}
 
 	// add the sizes of the number of ints and floats everything except the strings, since those we hae to add one at a time.
-	anticipated_packet_length += ( (ushort)sending_packet.integers.size() * sizeof(int) ) + ( (ushort)sending_packet.floats.size() * sizeof(float) )
+	int anticipated_packet_length = MINIMUM_LUA_PACKET_LEN + integer_size + float_size + bool_size + string_size;
+
+	
+
+	ADD_USHORT(anticipated_packet_length);
+	
 
 
+	anticipated_packet_length +=  ;
+	
 
 	
 	
