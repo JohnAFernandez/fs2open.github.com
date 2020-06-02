@@ -76,11 +76,11 @@ bool multi_lua_send_packet(int packet_id, int mode, player* pl) {
 
 	// Begin calculating the packet length
 
-	ushort integer_size = (ushort)packetp->integers.size();
-	ushort float_size = (ushort)packetp->floats.size();
+	ubyte integer_size = (ubyte)packetp->integers.size();
+	ubyte float_size = (ubyte)packetp->floats.size();
 
-	ushort bool_count = (ushort)packetp->bools.size();
-	ushort bool_size = 0;
+	ubyte bool_count = (ushort)packetp->bools.size();
+	ubyte bool_size = 0;
 	if (bool_count > 0){
 		bool_size = 1 + ((bool_count -1) / BOOLS_PER_UBYTE); // 8 bools needs to return 1, not 2, same situation with multiples of 8.
 	}
@@ -94,10 +94,15 @@ bool multi_lua_send_packet(int packet_id, int mode, player* pl) {
 	// add the sizes of the number of ints and floats everything except the strings, since those we hae to add one at a time.
 	int anticipated_packet_length = MINIMUM_LUA_PACKET_LEN + integer_size + float_size + bool_size + string_size;
 
-	
-
 	ADD_USHORT(anticipated_packet_length);
-	
+
+	ADD_DATA( );
+
+	ADD_
+		for (auto& integers : packetp.integers) {
+			ADDintegers
+		}
+
 
 
 	anticipated_packet_length +=  ;
