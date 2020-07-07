@@ -27,7 +27,7 @@ struct weapon;
 
 
 // client button info flags
-#define OOC_FIRE_SECONDARY			(1<<0)
+#define OOC_FIRE_CONTROL_PRESSED	(1<<0)
 #define OOC_TARGET_LOCKED			(1<<1)
 #define OOC_TARGET_SEEK_LOCK		(1<<2)
 #define OOC_LOCKING_ON_CENTER		(1<<3)
