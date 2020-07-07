@@ -89,7 +89,7 @@ ushort Next_ship_signature;										// next permanent network signature to assi
 ushort Next_asteroid_signature;									// next signature for an asteroid
 ushort Next_non_perm_signature;									// next non-permanent network signature to assign to an object
 ushort Next_debris_signature;										// next debris signature
-
+ushort Next_waypoint_signature;									// next waypoint signature
 
 // if a client doesn't receive an update for an object after this many seconds, query server
 // as to the objects status.
@@ -105,6 +105,8 @@ ushort Next_debris_signature;										// next debris signature
 ushort multi_assign_network_signature( int what_kind )
 {
 	ushort sig;	
+
+	Assertion(what_kind >= MULTI_SIG_SHIP && what_kind <= MULTI_SIG_WAYPOINT, "multi_assign_network_signature was passed an invalid index.");
 
 	// do limit checking on the permanent and non_permanent signatures.  Ships are considered "permanent"
 	// as are debris and asteroids since they don't die very often.  It would be vary rare for this
@@ -163,7 +165,6 @@ ushort multi_assign_network_signature( int what_kind )
 			Next_waypoint_signature = WAYPOINT_SIG_MIN;
 		}
 	} else {
-		Int3();		// get allender - Illegal signature type requested
 		sig = 0;
 	}
 

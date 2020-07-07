@@ -30,6 +30,7 @@
 #include "ship/afterburner.h"
 #include "cfile/cfile.h"
 #include "debugconsole/console.h"
+#include "object/waypoint.h"
 #include "weapon/weapon.h"
 
 
@@ -1135,16 +1136,19 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 
 	// Cyborg17 - only server should send this
 	if (oo_flags & OO_AI_NEW){
-		// ai mode info
 		ai_info *aip = &Ai_info[shipp->ai_index];
+
+		// ai mode info
 		auto umode = (ubyte)(aip->mode);
 		auto submode = (short)(aip->submode);
 		ushort target_signature = 0;
 
 		// either send out the waypoint they are trying to get to *or* their current target
 		if (umode == AIM_WAYPOINTS) {
-			// grab the waypoint's net_signature and send that instead.
-			target_signature = Objects[aip->wp_list->get_waypoints().at(aip->wp_index).get_objnum()].net_signature;
+			// if it's already started pointing to a waypoint, grab its net_signature and send that instead
+			if ((aip->wp_list != nullptr) && (aip->wp_list->get_waypoints().size() > aip->wp_index)) {
+				target_signature = Objects[aip->wp_list->get_waypoints().at(aip->wp_index).get_objnum()].net_signature;
+			}
 		} // send the target signature.
 		else if (aip->target_objnum != -1) {
 			target_signature = Objects[Ai_info[shipp->ai_index].target_objnum].net_signature;
@@ -1727,12 +1731,24 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 				}
 				Ai_info[shipp->ai_index].submode = submode;		
 
-				// set this guys target objnum
+				// set this guy's target objnum, and other info
 				target_objp = multi_get_network_object( target_signature );
+				// if the info was bogus, set the target to an invalid object
 				if ( target_objp == nullptr ){
 					Ai_info[shipp->ai_index].target_objnum = -1;
+					Ai_info[shipp->ai_index].goals[0].target_name = "";
+				// set their waypoints if in waypoint mode.
+				} else if (umode == AIM_WAYPOINTS) {
+					waypoint* destination = find_waypoint_with_instance(target_objp->instance);
+					if (destination != nullptr) {
+						Ai_info[shipp->ai_index].wp_list = destination->get_parent_list();
+						Ai_info[shipp->ai_index].wp_index = find_index_of_waypoint(Ai_info[shipp->ai_index].wp_list, destination);
+					} else {
+						Ai_info[shipp->ai_index].wp_list = nullptr;
+					}
 				} else {
 					Ai_info[shipp->ai_index].target_objnum = OBJ_INDEX(target_objp);
+					Ai_info[shipp->ai_index].goals[0].target_name = Ships[target_objp->instance].ship_name;
 				}
 			}
 
@@ -1751,7 +1767,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		GET_INT(ai_submode);
 		GET_USHORT(dock_sig);		
 
-		// valid ship?							
+		// verify that it's a valid ship							
 		if((shipp != nullptr) && (shipp->ai_index >= 0) && (shipp->ai_index < MAX_AI_INFO)){
 			// bash ai info, this info does not get rebashed, because it is not as vital.
 			Ai_info[shipp->ai_index].ai_flags.from_u64(ai_flags);
