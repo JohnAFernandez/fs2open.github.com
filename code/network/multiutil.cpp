@@ -89,7 +89,7 @@ ushort Next_ship_signature;										// next permanent network signature to assi
 ushort Next_asteroid_signature;									// next signature for an asteroid
 ushort Next_non_perm_signature;									// next non-permanent network signature to assign to an object
 ushort Next_debris_signature;										// next debris signature
-
+ushort Next_waypoint_signature;									// next waypoint signature
 
 // if a client doesn't receive an update for an object after this many seconds, query server
 // as to the objects status.
