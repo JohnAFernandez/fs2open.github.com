@@ -24,6 +24,7 @@
 #include "mission/missionparse.h" //For 2D Mode
 #include "network/multi.h"
 #include "network/multiutil.h"
+#include "network//multi_obj.h"
 #include "object/deadobjectdock.h"
 #include "object/objcollide.h"
 #include "object/object.h"
@@ -619,6 +620,7 @@ void obj_delete(int objnum)
 		} else {
 			// we need to be able to delete GHOST objects in multiplayer to allow for player respawns.
 			nprintf(("Network","Deleting GHOST object\n"));
+			objp->net_signature = 0;
 		}		
 		break;
 	case OBJ_OBSERVER:
@@ -764,7 +766,13 @@ void obj_player_fire_stuff( object *objp, control_info ci )
 			}
 
 			// fire non-streaming primaries here
-			ship_fire_primary( objp, 0 );
+			// Cyborg17, this is where the inaccurate multi shots are being shot... 
+			// so let's let the new system take over instead by excluding client player shots
+			// on the server.
+			if (!(MULTIPLAYER_MASTER) || (objp == Player_obj)) {
+				ship_fire_primary(objp, 0);
+			}
+			
 		} else {
 			// unflag the ship as having the trigger down
 			if(shipp != NULL){
@@ -779,13 +787,31 @@ void obj_player_fire_stuff( object *objp, control_info ci )
 	}
 
 	// single player and multiplayer masters do all of the following
-	if ( !MULTIPLAYER_CLIENT ) {		
+	if ( !MULTIPLAYER_CLIENT 
+		// Cyborg17 - except clients now fire dumbfires for rollback on the server
+		|| !(Weapon_info[shipp->weapons.secondary_bank_weapons[shipp->weapons.current_secondary_bank]].is_homing())) {		
 		if ( ci.fire_secondary_count ) {
-			ship_fire_secondary( objp );
+   			if ( !ship_start_secondary_fire(objp) ) {
+				ship_fire_secondary( objp );
+			}
 
 			// kill the secondary count
 			ci.fire_secondary_count = 0;
+		} else {
+			if ( ship_stop_secondary_fire(objp) ) {
+				ship_fire_secondary( objp );
+			}
 		}
+	}
+
+	if ( MULTIPLAYER_CLIENT && objp == Player_obj ) {
+		if (Weapon_info[shipp->weapons.secondary_bank_weapons[shipp->weapons.current_secondary_bank]].trigger_lock) {
+			if (ci.fire_secondary_count) {
+				ship_start_secondary_fire(objp);
+			} else {
+				ship_stop_secondary_fire(objp);
+			}
+		}	
 	}
 
 	// everyone does the following for their own ships.
@@ -1574,6 +1600,11 @@ void obj_move_all(float frametime)
 
 	// do post-collision stuff for beam weapons
 	beam_move_all_post();
+
+	// Cyborg17 - Update the multi record on multi with these new positions. Clients need to get updated, too.
+	if (MULTIPLAYER_MASTER) {
+		multi_ship_record_update_all();
+	}
 
 	// update artillery locking info now
 	ship_update_artillery_lock();
