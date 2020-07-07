@@ -5639,11 +5639,6 @@ void mouse_force_pos(int x, int y);
 			if ( (Game_mode & GM_MULTIPLAYER) && (old_state == GS_STATE_MULTI_PAUSED) ){
 				multi_reset_timestamps();
 			}
-
-			if ((Game_mode & GM_MULTIPLAYER) && (old_state != GS_STATE_DEATH_BLEW_UP) ) {
-				// initialize all object update details
-				multi_oo_gameplay_init();
-			}
 	
 			// under certain circumstances, the server should reset the object update rate limiting stuff
 			if( MULTIPLAYER_MASTER && ((old_state == GS_STATE_MULTI_PAUSED) || (old_state == GS_STATE_MULTI_MISSION_SYNC)) ){
