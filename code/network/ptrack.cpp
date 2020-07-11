@@ -40,7 +40,7 @@ SDL_COMPILE_TIME_ASSERT(pilot_request, sizeof(pilot_request) == 32);
 
 //Variables
 
-static SOCKADDR_STORAGE ptrackaddr;
+static struct sockaddr_in	ptrackaddr;
 
 
 static int		FSWriteState;
@@ -268,6 +268,9 @@ static void DeserializePilotPacket(const ubyte *data, const int data_size, udp_p
 
 int InitPilotTrackerClient()
 {
+	struct sockaddr_in sockaddr;
+	unsigned int iaddr;
+
 	FSWriteState = STATE_IDLE;
 	FSReadState = STATE_IDLE;	
 	SWWriteState = STATE_IDLE;
@@ -276,8 +279,38 @@ int InitPilotTrackerClient()
 
 	fs_pr = reinterpret_cast<pilot_request *>(&fs_pilot_req.data);
 
-	psnet_get_addr(Multi_options_g.user_tracker_ip, REGPORT, &ptrackaddr);
+	memset( &sockaddr, 0, sizeof(struct sockaddr_in) );
+	sockaddr.sin_family = AF_INET; 
+	sockaddr.sin_addr.s_addr = INADDR_ANY; 
+	sockaddr.sin_port = 0;//htons(REGPORT);
 
+	// iaddr = inet_addr ( Multi_user_tracker_ip_address ); 
+
+	// first try and resolve by name
+	iaddr = inet_addr( Multi_options_g.user_tracker_ip );
+	if ( iaddr == INADDR_NONE ) {
+		struct hostent *he;
+		he = gethostbyname( Multi_options_g.user_tracker_ip );
+		if(!he)
+			return 0;
+	/*
+		{		
+			// try and resolve by address
+			unsigned int n_order = inet_addr(Multi_user_tracker_ip_address);
+			he = gethostbyaddr((char*)&n_order,4,PF_INET);
+
+			if(!he){
+				return 0;
+			}
+		}
+	*/
+		iaddr = reinterpret_cast<in_addr *>(he->h_addr)->s_addr;
+	}
+	
+	ptrackaddr.sin_addr.s_addr = iaddr;
+	ptrackaddr.sin_family = AF_INET; 
+	ptrackaddr.sin_port = htons(REGPORT);
+	
 	return 1;
 }
 
@@ -555,8 +588,7 @@ void AckServer(unsigned int sig)
 
 	packet_length = SerializePilotPacket(&ack_pack, packet_data);
 	Assert(packet_length == PACKED_HEADER_ONLY_SIZE);
-	SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0,
-		   reinterpret_cast<LPSOCKADDR>(&ptrackaddr), sizeof(ptrackaddr), PSNET_TYPE_USER_TRACKER);
+	SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0, reinterpret_cast<struct sockaddr *>(&ptrackaddr), sizeof(struct sockaddr_in), PSNET_TYPE_USER_TRACKER);
 }
 
 void IdlePTrack()
@@ -573,9 +605,7 @@ void IdlePTrack()
 		} else if((timer_get_milliseconds()-FSLastSent)>=PILOT_REQ_RESEND_TIME){
 			//Send 'da packet
 			packet_length = SerializePilotPacket(&fs_pilot_req, packet_data);
-			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0,
-				   reinterpret_cast<LPSOCKADDR>(&ptrackaddr), sizeof(ptrackaddr), PSNET_TYPE_USER_TRACKER);
-
+			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0, reinterpret_cast<struct sockaddr *>(&ptrackaddr), sizeof(struct sockaddr_in), PSNET_TYPE_USER_TRACKER);
 			FSLastSent = timer_get_milliseconds();
 		}
 	}
@@ -588,9 +618,7 @@ void IdlePTrack()
 		} else if((timer_get_milliseconds()-FSLastSentWrite)>=PILOT_REQ_RESEND_TIME){
 			// Send 'da packet
 			packet_length = SerializePilotPacket(&fs_pilot_write, packet_data);
-			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0,
-				   reinterpret_cast<LPSOCKADDR>(&ptrackaddr), sizeof(ptrackaddr), PSNET_TYPE_USER_TRACKER);
-
+			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0, reinterpret_cast<struct sockaddr *>(&ptrackaddr), sizeof(struct sockaddr_in), PSNET_TYPE_USER_TRACKER);
 			FSLastSentWrite = timer_get_milliseconds();
 		}
 	}
@@ -602,9 +630,7 @@ void IdlePTrack()
 		} else if((timer_get_milliseconds()-SWLastSentWrite) >= PILOT_REQ_RESEND_TIME){
 			// Send 'da packet
 			packet_length = SerializePilotPacket(&sw_res_write, packet_data);
-			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0,
-				   reinterpret_cast<LPSOCKADDR>(&ptrackaddr), sizeof(ptrackaddr), PSNET_TYPE_USER_TRACKER);
-
+			SENDTO(Psnet_socket, reinterpret_cast<char *>(&packet_data), packet_length, 0, reinterpret_cast<struct sockaddr *>(&ptrackaddr), sizeof(struct sockaddr_in), PSNET_TYPE_USER_TRACKER);
 			SWLastSentWrite = timer_get_milliseconds();
 		}
 	}
@@ -627,15 +653,14 @@ void PollPTrackNet()
 	if(SELECT(static_cast<int>(Psnet_socket+1), &read_fds,nullptr,nullptr,&timeout, PSNET_TYPE_USER_TRACKER)){
 		int bytesin;
 		int addrsize;
-		SOCKADDR_STORAGE fromaddr;
+		struct sockaddr_in fromaddr;
 
 		udp_packet_header inpacket;
 
 		SDL_zero(inpacket);
-		addrsize = sizeof(fromaddr);
+		addrsize = sizeof(struct sockaddr_in);
 
-		bytesin = RECVFROM(Psnet_socket, reinterpret_cast<char *>(&packet_data), sizeof(udp_packet_header), 0,
-						   reinterpret_cast<LPSOCKADDR>(&fromaddr), &addrsize, PSNET_TYPE_USER_TRACKER);
+		bytesin = RECVFROM(Psnet_socket, reinterpret_cast<char *>(&packet_data), sizeof(udp_packet_header), 0, reinterpret_cast<struct sockaddr *>(&fromaddr), &addrsize, PSNET_TYPE_USER_TRACKER);
 
 		if (bytesin > 0) {
 			DeserializePilotPacket(packet_data, bytesin, &inpacket);
