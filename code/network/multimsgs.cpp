@@ -1869,9 +1869,11 @@ void send_game_active_packet(net_addr* addr)
 	val = MULTI_FS_SERVER_COMPATIBLE_VERSION;
 	ADD_DATA(val);
 
-	ADD_STRING(Netgame.name);
-	ADD_STRING(Netgame.mission_name);
-	ADD_STRING(Netgame.title);	
+	// use 4-byte version of *_STRING to remain compatible with older builds
+	ADD_STRING_32(Netgame.name);
+	ADD_STRING_32(Netgame.mission_name);
+	ADD_STRING_32(Netgame.title);
+
 	val = (ubyte)multi_num_players();
 	ADD_DATA(val);
 	
@@ -1958,9 +1960,11 @@ void process_game_active_packet(ubyte* data, header* hinfo)
 	GET_DATA(ag.version);
 	GET_DATA(ag.comp_version);
 
-	GET_STRING(ag.name);
-	GET_STRING(ag.mission_name);
-	GET_STRING(ag.title);	
+	// use 4-byte version of *_STRING to remain compatible with older builds
+	GET_STRING_32(ag.name);
+	GET_STRING_32(ag.mission_name);
+	GET_STRING_32(ag.title);
+
 	GET_DATA(val);
 	ag.num_players = val;
 	GET_USHORT(ag.flags);
