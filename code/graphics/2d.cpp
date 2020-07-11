@@ -1663,6 +1663,10 @@ void gr_activate(int active)
 		return;
 	}
 
+	if (os::getMainViewport() == nullptr) {
+		return;
+	}
+
 	if (active) {
 		if (Cmdline_fullscreen_window || Cmdline_window) {
 			os::getMainViewport()->restore();
