@@ -8212,6 +8212,7 @@ void weapon_spew_stats(WeaponSpewType type)
 		}
 	}
 #endif
+}
 
 // Given a weapon, figure out how many independent locks we can have with it.
 int weapon_get_max_missile_seekers(weapon_info *wip)
