@@ -1583,6 +1583,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		// client cannot send these types because the server is in charge of all of these things.
 		Assertion(!(oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUBSYSTEMS_NEW | OO_SUPPORT_SHIP)), "Invalid flag from client, please report! oo_flags value: %d\n", oo_flags);
 		if (oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUBSYSTEMS_NEW | OO_SUPPORT_SHIP)) {
+			mprintf(("early exit 1, offset... %d\n", offset));
 			offset += data_size;
 			return offset;
 		}
@@ -1605,6 +1606,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 	// if we can't find the object, skip the packet
 	if ( (pobjp == nullptr) || (pobjp->type != OBJ_SHIP) || (pobjp->instance < 0) || (pobjp->instance >= MAX_SHIPS) || (Ships[pobjp->instance].ship_info_index < 0) || (Ships[pobjp->instance].ship_info_index >= ship_info_size())) {
 		offset += data_size;
+		mprintf(("early exit 1, offset... %d\n", offset));
 		return offset;
 	}
 
@@ -1841,6 +1843,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 	if (shipp->is_arriving() || shipp->is_dying_or_departing() || shipp->flags[Ship::Ship_Flags::Exploded]) {
 		int header_bytes = (MULTIPLAYER_MASTER) ? 5 : 7;		
 		offset = header_bytes + data_size;
+		mprintf(("early exit 2, offset... %d\n", offset));
 		return offset;
 	}
 
@@ -1886,6 +1889,9 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		// get the number of subsystems
 		GET_DATA(n_subsystems);
 
+		// store the old offset in case of misaligned info.
+		int pre_sub_offset = offset;
+
 		// Before we start the loop, we need to get the first subsystem
 		GET_DATA(current_subsystem);
 
@@ -1901,11 +1907,11 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 
 			// we found a match, so grab the next byte, so we can calculate the new hitpoints
 			UNPACK_PERCENT(current_percent);
+			subsys_count++;
 
 			// update frame is *per* subsystem here
 			if (frame_comparison > interp_data->subsystems_comparison_frame[idx]) {
 				subsysp->current_hits = current_percent * subsysp->max_hits;
-				subsys_count++;
 
 				// Aggregate if necessary.
 				if (!(subsysp->flags[Ship::Subsystem_Flags::No_aggregate])) {
@@ -1923,12 +1929,8 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		}
 
 		// if not all were found in the loop because of mismatched tables or other bugs, unpack the rest and ignore them to ensure aligned packets
-		if (subsys_count < n_subsystems) {
-			do {
-				GET_DATA(current_subsystem);
-				UNPACK_PERCENT(current_percent);
-				subsys_count++;
-			} while (subsys_count < n_subsystems);
+		if (subsys_count != n_subsystems) {
+			offset = pre_sub_offset + (n_subsystems * 2);
 		}
 
 		// recalculate all ship subsystems
@@ -2050,7 +2052,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		pl->s_info.eye_pos = pobjp->pos;
 		pl->s_info.eye_orient = pobjp->orient;
 	} 		
-
+	mprintf(("Regular exit.\n", offset));
 	return offset;
 }
 
