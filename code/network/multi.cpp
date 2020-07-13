@@ -494,6 +494,7 @@ void multi_client_check_server()
 
 void process_packet_normal(ubyte* data, header *header_info)
 {
+	mprintf(("last packet ID: %d\n", data[0]));
 	switch ( data[0] ) {
 
 		case JOIN:
