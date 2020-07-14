@@ -61,6 +61,7 @@ struct oo_info_sent_to_players {
 	int target_signature;			// what target_signature was last sent (used for AI portion of OO packet)
 
 	SCP_vector<float> subsystems;	// We need a vector to keep track of all subsystems.
+	SCP_vector<angles> subsystem_angles; // and now their angles too!
 };
 
 struct oo_netplayer_records{
@@ -231,7 +232,18 @@ float multi_oo_calc_pos_time_difference(int net_sig_idx);
 #define OO_SUPPORT_SHIP				(1<<8)		// Send extra info for the support ship.
 #define OO_AI_NEW					(1<<9)		// Send updated AI Info
 
-#define OO_ODD_WRAP					(1<<12)		// Is the sent frame an odd wrap? Initially not wrapped (0), then odd wrap (1), etc.
+#define OO_ODD_WRAP					(1<<10)		// Is the sent frame an odd wrap? Initially not wrapped (0), then odd wrap (1), etc.
+
+#define OO_SUBSYS_HEALTH			(1<<0)		// Did this subsystem's health change
+#define OO_SUBSYS_ROTATION_1b		(1<<1)		// Did this subsystem's base rotation angles change
+#define OO_SUBSYS_ROTATION_1h		(1<<2)		// Did this subsystem's base rotation angles change
+#define OO_SUBSYS_ROTATION_1p		(1<<3)		// Did this subsystem's base rotation angles change
+#define OO_SUBSYS_ROTATION_2b		(1<<4)		// Did this subsystem's barrel rotation angles change
+#define OO_SUBSYS_ROTATION_2h		(1<<5)		// Did this subsystem's barrel rotation angles change
+#define OO_SUBSYS_ROTATION_2p		(1<<6)		// Did this subsystem's barrel rotation angles change
+#define OO_SUBSYS_TRANSLATION		(1<<7)		// Only for backwards compatibility of future builds.
+
+#define OO_SBUSYS_ROTATION_CUTOFF	0.1f		// if the squared difference between the old and new angles is less than this, don't send.
 
 #define OO_VIEW_CONE_DOT			(0.1f)
 #define OO_VIEW_DIFF_TOL			(0.15f)			// if the dotproducts differ this far between frames, he's coming into view
@@ -387,7 +399,8 @@ void multi_ship_record_add_ship(int obj_num)
 		Oo_info.interp[net_sig_idx].subsystems_comparison_frame.push_back(-1);
 
 		for (int i = 0; i < MAX_PLAYERS; i++) {
-			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystems.push_back(-1.0f) ;
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystems.push_back(-1.0f);
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_angles.push_back(vmd_zero_angles);
 		}
 	}
 
@@ -859,8 +872,12 @@ void multi_oo_respawn_reset_info(ushort net_sig)
 		player_record.last_sent[net_sig].ai_submode = -1;
 		player_record.last_sent[net_sig].target_signature = -1;
 		player_record.last_sent[net_sig].perfect_shields_sent = false;
-		for (auto subsys : player_record.last_sent[net_sig].subsystems)
+		for (auto subsys : player_record.last_sent[net_sig].subsystems) {
 			subsys = -1;
+		}
+		for (auto subsys : player_record.last_sent[net_sig].subsystem_angles) {
+			subsys = vmd_zero_angles;
+		}
 	}
 
 	oo_packet_and_interp_tracking* interp = &Oo_info.interp[net_sig];
@@ -1160,8 +1177,8 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 
 	// if i'm the client, make sure I only send certain things	
 	if (MULTIPLAYER_CLIENT) {
-		Assert(!(oo_flags & (OO_HULL_NEW | OO_SHIELDS_NEW | OO_SUBSYSTEMS_NEW)));
-		oo_flags &= ~(OO_HULL_NEW | OO_SHIELDS_NEW | OO_SUBSYSTEMS_NEW);
+		Assert(!(oo_flags & (OO_HULL_NEW | OO_SHIELDS_NEW )));
+		oo_flags &= ~(OO_HULL_NEW | OO_SHIELDS_NEW );
 	} 
 
 	// header sizes -- Cyborg17 - Note this is in place because the size of the packet is 
@@ -1260,44 +1277,155 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 		multi_rate_add(NET_PLAYER_NUM(pl), "shl", objp->n_quadrants);	
 	}	
 
-	// Cyborg17 - only server should send this
 	// just in case we have some kind of invalid data (should've been taken care of earlier in this function)
-	if (MULTIPLAYER_MASTER && shipp->ship_info_index >= 0) {	
+	if (shipp->ship_info_index >= 0) {	
 	// Cyborg17 - add the # of only the subsystems being changed, and their data
-		ship_subsys* subsystem;
-		ubyte count = 0;
-		ubyte flagged_subsystem_list[MAX_MODEL_SUBSYSTEMS];
-		float subsystem_list_health[MAX_MODEL_SUBSYSTEMS];
-		int i = 0;
-
-		for (subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list);
+		SCP_vector<ship_subsys*> subsystem_pointer_list;
+		ubyte subsys_index[MAX_MODEL_SUBSYSTEMS], flags[MAX_MODEL_SUBSYSTEMS];
+		memset(flags, 0, sizeof(ubyte) * MAX_MODEL_SUBSYSTEMS);
+		short total_size = 0;
+		ubyte i = 0, count = 0;
+		bool flagged = false;
+		vec3d temp = vmd_zero_vector;
+		mprintf(("new subsystem info seq_num: %d net_sig %d ", Oo_info.cur_frame_index, objp->net_signature));
+		for (ship_subsys* subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list);
 			subsystem = GET_NEXT(subsystem)) {
-				// Don't send destroyed subsystems, (another packet handles that), but check to see if the subsystem changed since the last update. 
-			if ((subsystem->current_hits != 0.0f) && (subsystem->current_hits != Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystems[i])) {
-				// store the values for use later.
-				flagged_subsystem_list[count] = i;
-				// this should be safe because we only work with subsystems that have health.
-				subsystem_list_health[count] = subsystem->current_hits / subsystem->max_hits;
-				// and also track the list of subsystems that we packed by index
-				count++;
+
+			if (subsystem == nullptr) {
+				i++;
+				continue;
 			}
+
+			// Don't send destroyed subsystems, (another packet handles that), but check to see if the subsystem changed since the last update. 
+			if (MULTIPLAYER_MASTER && (subsystem->current_hits != 0.0f) && (subsystem->current_hits != Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystems[i])) {
+				flagged = true;
+				flags[count] |= OO_SUBSYS_HEALTH;
+
+				// good thing this cheap because we have to calculate this twice to avoid iterating through the whole system list twice.
+				Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystems[i] = subsystem->current_hits;
+
+				// this should be safe because we only work with subsystems that have health.
+				// and also track the list of subsystems that we packed by index
+				total_size++;
+			}
+
+			// here we're checking to see if each axis of the subsystems are rotated enough to send. We're only sending player
+			// ship subsystem orientations for now.
+			if (MULTIPLAYER_MASTER || objp->flags[Object::Object_Flags::Player_ship]) {
+
+				if (subsystem->turret_animation_position && abs(subsystem->submodel_info_1.angs.b - subsystem->submodel_info_1.prev_angs.b) > OO_SBUSYS_ROTATION_CUTOFF) {
+					flagged = true;
+					flags[count] |= OO_SUBSYS_ROTATION_1b;
+					total_size++;
+				}
+
+				if (abs(subsystem->submodel_info_1.angs.h - subsystem->submodel_info_1.prev_angs.h) > OO_SBUSYS_ROTATION_CUTOFF) {
+					flagged = true;
+					flags[count] |= OO_SUBSYS_ROTATION_1h;
+					total_size++;
+				}
+
+				if (abs(subsystem->submodel_info_1.angs.p - subsystem->submodel_info_1.prev_angs.p) > OO_SBUSYS_ROTATION_CUTOFF) {
+					flagged = true;
+					flags[count] |= OO_SUBSYS_ROTATION_1p;
+					total_size++;
+				}
+
+				if (abs(subsystem->submodel_info_2.angs.b - subsystem->submodel_info_2.prev_angs.b) > OO_SBUSYS_ROTATION_CUTOFF) {
+					flagged = true;
+					flags[count] |= OO_SUBSYS_ROTATION_2b;
+					total_size++;
+				}
+
+				if (abs(subsystem->submodel_info_2.angs.h - subsystem->submodel_info_2.prev_angs.h) > OO_SBUSYS_ROTATION_CUTOFF) {
+					flagged = true;
+					flags[count] |= OO_SUBSYS_ROTATION_2h;
+					total_size++;
+				}
+
+				if (abs(subsystem->submodel_info_2.angs.p - subsystem->submodel_info_2.prev_angs.p) > OO_SBUSYS_ROTATION_CUTOFF) {
+					flagged = true;
+					flags[count] |= OO_SUBSYS_ROTATION_2p;
+					total_size++;
+				}
+			}
+			if (flagged) {
+				// add them to the list;
+				subsys_index[count] = i;
+				subsystem_pointer_list.push_back(subsystem);
+
+				// reset flag and increment count.
+				flagged = false;
+				count++;
+				// add 2 to the total_size here because we need to account for the subsystem index and flags.
+				total_size += 2;	
+			}
+
 			i++;
 		}
-		
-		// Only send info if the count is greater than zero and if we're *not* on the very first frame when everything is going to be 100%, anyway.
+
+		mprintf(("At the end of the subsystem section, we are sending.... %d packets with size %d flags are", count, total_size));
+		// Only send info if the count is greater than zero and if we're *not* on the very first frame when everything is already synced, anyway.
 		if (count > 0 && Oo_info.number_of_frames != 0){
+
 			Assertion(count <= MAX_MODEL_SUBSYSTEMS, "Object Update packet exceeded limit for number of subsystems. This is a coder error, please report!\n");
 			oo_flags |= OO_SUBSYSTEMS_NEW;
 
 			// pack the count of subsystems first.
-			PACK_BYTE(count);
+			PACK_SHORT(total_size);
+			float temp = 0.0f;
+			int i = 0;
 			// now we'll pack the actual information
-			for (int j = 0; j < count; j++) {
-				PACK_BYTE(flagged_subsystem_list[j]);
-				PACK_PERCENT(subsystem_list_health[j]);
-				Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystems[flagged_subsystem_list[j]] = subsystem_list_health[j];
+			for (auto subsys : subsystem_pointer_list) {
+				
+				PACK_BYTE(subsys_index[i]);
+				mprintf((" %d", flags[i]));
+				PACK_BYTE(flags);
+
+				if (flags[i] & OO_SUBSYS_HEALTH){
+					float health = subsys->current_hits / subsys->max_hits;
+					PACK_PERCENT(health);
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_1b) {
+					temp = subsys->submodel_info_1.angs.b / PI2;
+					PACK_PERCENT(temp);
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_1h) {
+					temp = subsys->submodel_info_1.angs.h / PI2;
+					PACK_PERCENT(temp);
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_1p) {
+					temp = subsys->submodel_info_1.angs.p / PI2;
+					PACK_PERCENT(temp);
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_2b) {
+					temp = subsys->submodel_info_2.angs.b / PI2;
+					PACK_PERCENT(temp);
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_2h) {
+					temp = subsys->submodel_info_2.angs.h / PI2;
+					PACK_PERCENT(temp);
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_2p) {
+					temp = subsys->submodel_info_2.angs.p / PI2;
+					PACK_PERCENT(temp);
+				}
+				i++;
 			}
+			mprintf(("\n"));
 		}
+		else {
+			mprintf(("\n"));
+		}
+	}
+	 else {
+	 mprintf(("No subsystem section for this packet. seqnum: %d netsig: %d \n", Oo_info.cur_frame_index, objp->net_signature));
 	}
 
 	// Cyborg17 - only server should send this
@@ -1581,10 +1709,10 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 	GET_USHORT(seq_num);
 	if (MULTIPLAYER_MASTER) {
 		// client cannot send these types because the server is in charge of all of these things.
-		Assertion(!(oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUBSYSTEMS_NEW | OO_SUPPORT_SHIP)), "Invalid flag from client, please report! oo_flags value: %d\n", oo_flags);
-		if (oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUBSYSTEMS_NEW | OO_SUPPORT_SHIP)) {
-			mprintf(("early exit 1, offset... %d\n", offset));
+		Assertion(!(oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUPPORT_SHIP)), "Invalid flag from client, please report! oo_flags value: %d\n", oo_flags);
+		if (oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW |  OO_SUPPORT_SHIP)) {
 			offset += data_size;
+			mprintf(("early exit 1a, offset... %d\n", offset));
 			return offset;
 		}
 	}
@@ -1606,7 +1734,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 	// if we can't find the object, skip the packet
 	if ( (pobjp == nullptr) || (pobjp->type != OBJ_SHIP) || (pobjp->instance < 0) || (pobjp->instance >= MAX_SHIPS) || (Ships[pobjp->instance].ship_info_index < 0) || (Ships[pobjp->instance].ship_info_index >= ship_info_size())) {
 		offset += data_size;
-		mprintf(("early exit 1, offset... %d\n", offset));
+		mprintf(("early exit 1b, offset... %d\n", offset));
 		return offset;
 	}
 
@@ -1742,7 +1870,6 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		
 		// new version of the orient packer sends angles instead to save on bandwidth, so we'll need the orienation from that.
 		vm_angles_2_matrix(&new_orient, &new_angles);
-//		vm_orthogonalize_matrix(&new_orient);
 
 		int r3 = multi_pack_unpack_vel(0, data + offset, &new_orient, &new_phys_info);
 		offset += r3;
@@ -1881,19 +2008,21 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 
 
 	if (oo_flags & OO_SUBSYSTEMS_NEW) {
-		ubyte n_subsystems, subsys_count = 0;
+		short total_size, received_size = 0;
 		ship_subsys* subsysp, * firstsubsys = GET_FIRST(&shipp->subsys_list);
-		ubyte current_subsystem = 0;
+		ubyte current_subsystem = 0, subsys_flags = 0;
 		float current_percent = 0.0f;
 
 		// get the number of subsystems
-		GET_DATA(n_subsystems);
+		GET_SHORT(total_size);
 
 		// store the old offset in case of misaligned info.
 		int pre_sub_offset = offset;
+		mprintf(("subsystem received... seqnum: %d net_sig: %d presuboffset %d, this subsys section data size: %d received these flags: ",seq_num, net_sig, pre_sub_offset, total_size));
 
 		// Before we start the loop, we need to get the first subsystem
 		GET_DATA(current_subsystem);
+		received_size++;
 
 		// this iterates through the packet and subsytem list simultaneously, changing values only when it finds a match.
 		for (subsysp = firstsubsys; subsysp != END_OF_LIST(&shipp->subsys_list); subsysp = GET_NEXT(subsysp)) {
@@ -1905,32 +2034,95 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 				continue;
 			}
 
-			// we found a match, so grab the next byte, so we can calculate the new hitpoints
-			UNPACK_PERCENT(current_percent);
-			subsys_count++;
+			GET_DATA(subsys_flags);
+			received_size++;
 
-			// update frame is *per* subsystem here
-			if (frame_comparison > interp_data->subsystems_comparison_frame[idx]) {
-				subsysp->current_hits = current_percent * subsysp->max_hits;
+			mprintf(("%d ", subsys_flags));
+			// update health
+			if (subsys_flags & OO_SUBSYS_HEALTH) {
+				UNPACK_PERCENT(current_percent);
+				received_size++;
+				if (frame_comparison > interp_data->subsystems_comparison_frame[idx]) {
+					subsysp->current_hits = current_percent * subsysp->max_hits;
+					interp_data->subsystems_comparison_frame[idx] = frame_comparison;
 
-				// Aggregate if necessary.
-				if (!(subsysp->flags[Ship::Subsystem_Flags::No_aggregate])) {
-					shipp->subsys_info[subsysp->system_info->type].aggregate_current_hits += subsysp->current_hits;
+					// Aggregate if necessary.
+					if (!(subsysp->flags[Ship::Subsystem_Flags::No_aggregate])) {
+						shipp->subsys_info[subsysp->system_info->type].aggregate_current_hits += subsysp->current_hits;
+					}
 				}
 			}
 
+			if (subsys_flags & OO_SUBSYS_ROTATION_1b) {
+				subsysp->submodel_info_1.prev_angs.b = subsysp->submodel_info_1.angs.b;
+				UNPACK_PERCENT(current_percent);
+				subsysp->submodel_info_1.angs.b = (current_percent * PI2);
+				received_size++;
+			}
+
+			if (subsys_flags & OO_SUBSYS_ROTATION_1h) {
+				subsysp->submodel_info_1.prev_angs.h = subsysp->submodel_info_1.angs.h;
+				UNPACK_PERCENT(current_percent);
+				subsysp->submodel_info_1.angs.h = (current_percent * PI2);
+				received_size++;
+			}
+
+			if (subsys_flags & OO_SUBSYS_ROTATION_1p) {
+				subsysp->submodel_info_1.prev_angs.p = subsysp->submodel_info_1.angs.p;
+				UNPACK_PERCENT(current_percent);
+				subsysp->submodel_info_1.angs.p = (current_percent * PI2);
+				received_size++;
+			}
+
+			if (subsys_flags & OO_SUBSYS_ROTATION_2b) {
+				subsysp->submodel_info_2.prev_angs.b = subsysp->submodel_info_2.angs.b;
+				UNPACK_PERCENT(current_percent);
+				subsysp->submodel_info_2.angs.b = (current_percent * PI2);
+				received_size++;
+			}
+
+			if (subsys_flags & OO_SUBSYS_ROTATION_2h) {
+				subsysp->submodel_info_2.prev_angs.h = subsysp->submodel_info_2.angs.h;
+				UNPACK_PERCENT(current_percent);
+				subsysp->submodel_info_2.angs.h = (current_percent * PI2);
+				received_size++;
+			}
+
+			if (subsys_flags & OO_SUBSYS_ROTATION_2p) {
+				subsysp->submodel_info_2.prev_angs.p = subsysp->submodel_info_2.angs.p;
+				UNPACK_PERCENT(current_percent);
+				subsysp->submodel_info_2.angs.p = (current_percent * PI2);
+				received_size++;
+			}
+
+			// break as soon as any translation is received. This is only here to avoid a future multi bump when translations are added.
+			// Newer builds should be able to use this flag to mark a translation, with older builds just skipping everything else in the section
+			// once this is hit. Future translation multi implementor, please put the translation portion at the end of each subsystem's data.
+			if (subsys_flags & OO_SUBSYS_TRANSLATION) {
+				mprintf(("-- I broke because translation --"));
+				break;
+			}
+
 			// Stop the loop once we've found them all.
-			if (subsys_count == n_subsystems) {
+			if (received_size >= total_size) {
+				mprintf(("-- I broke because I was toooooo big --"));
 				break;
 			}
 
 			// retrieve the next subsystem
 			GET_DATA(current_subsystem);
+			received_size++;
 		}
 
 		// if not all were found in the loop because of mismatched tables or other bugs, unpack the rest and ignore them to ensure aligned packets
-		if (subsys_count != n_subsystems) {
-			offset = pre_sub_offset + (n_subsystems * 2);
+		if (total_size != received_size) {
+			mprintf((" special skipping statment, too. ending offset: %d ", offset));
+
+			offset = pre_sub_offset + total_size;
+			mprintf((" adjusted offset: %d", offset));
+		}
+		else {
+			mprintf(("no skip stat ending offset: %d \n", offset));
 		}
 
 		// recalculate all ship subsystems
