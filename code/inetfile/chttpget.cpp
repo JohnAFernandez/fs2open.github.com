@@ -92,6 +92,10 @@ void ChttpGet::GetFile(const char *URL, const char *localfile)
 		return;
 	}
 
+	// make sure we are in dual-stack mode (not the default on Windows)
+	int i_opt = 0;
+	setsockopt(m_DataSock, IPPROTO_IPV6, IPV6_V6ONLY, &i_opt, sizeof(i_opt));
+
 	unsigned long arg = 1;
 	ioctlsocket( m_DataSock, FIONBIO, &arg );
 
