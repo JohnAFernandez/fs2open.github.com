@@ -61,7 +61,8 @@ struct oo_info_sent_to_players {
 	int target_signature;			// what target_signature was last sent (used for AI portion of OO packet)
 
 	SCP_vector<float> subsystems;	// We need a vector to keep track of all subsystems.
-	SCP_vector<angles> subsystem_angles; // and now their angles too!
+	SCP_vector<angles> subsystem_angles1; // and now their angles too!
+	SCP_vector<angles> subsystem_angles2; // second set of angles.
 };
 
 struct oo_netplayer_records{
@@ -400,7 +401,8 @@ void multi_ship_record_add_ship(int obj_num)
 
 		for (int i = 0; i < MAX_PLAYERS; i++) {
 			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystems.push_back(-1.0f);
-			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_angles.push_back(vmd_zero_angles);
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_angles1.push_back(vmd_zero_angles);
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_angles2.push_back(vmd_zero_angles);
 		}
 	}
 
@@ -875,9 +877,13 @@ void multi_oo_respawn_reset_info(ushort net_sig)
 		for (auto subsys : player_record.last_sent[net_sig].subsystems) {
 			subsys = -1;
 		}
-		for (auto subsys : player_record.last_sent[net_sig].subsystem_angles) {
+		for (auto subsys : player_record.last_sent[net_sig].subsystem_angles1) {
 			subsys = vmd_zero_angles;
 		}
+		for (auto subsys : player_record.last_sent[net_sig].subsystem_angles2) {
+			subsys = vmd_zero_angles;
+		}
+
 	}
 
 	oo_packet_and_interp_tracking* interp = &Oo_info.interp[net_sig];
@@ -1309,44 +1315,49 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 				total_size++;
 			}
 
-			// here we're checking to see if each axis of the subsystems are rotated enough to send. We're only sending player
-			// ship subsystem orientations for now.
-			if (MULTIPLAYER_MASTER || objp->flags[Object::Object_Flags::Player_ship]) {
+			// here we're checking to see if each axis of the subsystems are rotated enough to send.
+			if ((MULTIPLAYER_MASTER || objp->flags[Object::Object_Flags::Player_ship]) && subsystem->turret_animation_position) {
 
-				if (subsystem->turret_animation_position && abs(subsystem->submodel_info_1.angs.b - subsystem->submodel_info_1.prev_angs.b) > OO_SBUSYS_ROTATION_CUTOFF) {
+				if (abs(Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles1[i].b - subsystem->submodel_info_1.angs.b) > OO_SBUSYS_ROTATION_CUTOFF) {
 					flagged = true;
 					flags[count] |= OO_SUBSYS_ROTATION_1b;
 					total_size++;
+					Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles1[i].b = subsystem->submodel_info_1.angs.b;
 				}
 
-				if (abs(subsystem->submodel_info_1.angs.h - subsystem->submodel_info_1.prev_angs.h) > OO_SBUSYS_ROTATION_CUTOFF) {
+				if (abs(Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles1[i].h - subsystem->submodel_info_1.angs.h) > OO_SBUSYS_ROTATION_CUTOFF) {
 					flagged = true;
 					flags[count] |= OO_SUBSYS_ROTATION_1h;
 					total_size++;
+					Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles1[i].h = subsystem->submodel_info_1.angs.h;
 				}
 
-				if (abs(subsystem->submodel_info_1.angs.p - subsystem->submodel_info_1.prev_angs.p) > OO_SBUSYS_ROTATION_CUTOFF) {
+				if (abs(Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles1[i].p - subsystem->submodel_info_1.angs.p) > OO_SBUSYS_ROTATION_CUTOFF) {
 					flagged = true;
 					flags[count] |= OO_SUBSYS_ROTATION_1p;
 					total_size++;
+					Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles1[i].p = subsystem->submodel_info_1.angs.p;
 				}
 
-				if (abs(subsystem->submodel_info_2.angs.b - subsystem->submodel_info_2.prev_angs.b) > OO_SBUSYS_ROTATION_CUTOFF) {
+				if (abs(Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles2[i].b - subsystem->submodel_info_2.angs.b) > OO_SBUSYS_ROTATION_CUTOFF) {
 					flagged = true;
 					flags[count] |= OO_SUBSYS_ROTATION_2b;
 					total_size++;
+					Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles2[i].b = subsystem->submodel_info_2.angs.b;
 				}
 
-				if (abs(subsystem->submodel_info_2.angs.h - subsystem->submodel_info_2.prev_angs.h) > OO_SBUSYS_ROTATION_CUTOFF) {
+				if (abs(Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles2[i].h - subsystem->submodel_info_2.angs.h) > OO_SBUSYS_ROTATION_CUTOFF) {
 					flagged = true;
 					flags[count] |= OO_SUBSYS_ROTATION_2h;
 					total_size++;
+					Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles2[i].h = subsystem->submodel_info_2.angs.h;
 				}
 
-				if (abs(subsystem->submodel_info_2.angs.p - subsystem->submodel_info_2.prev_angs.p) > OO_SBUSYS_ROTATION_CUTOFF) {
+				if (abs(Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles2[i].p - subsystem->submodel_info_2.angs.p) > OO_SBUSYS_ROTATION_CUTOFF) {
 					flagged = true;
 					flags[count] |= OO_SUBSYS_ROTATION_2p;
 					total_size++;
+					Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_angles2[i].p = subsystem->submodel_info_2.angs.p;
 				}
 			}
 			if (flagged) {
