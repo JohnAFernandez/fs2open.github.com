@@ -956,6 +956,23 @@ void multi_join_clear_game_list()
 
 void multi_join_game_do_frame()
 {
+
+	// Because we can get to here through the options screen, we may have PXO games enabled when we're not connected.
+	// So we should go back and connect if that's true.
+	if ((Multi_options_g.pxo == 1) && !multi_fs_tracker_inited()) {
+		gameseq_post_event(GS_EVENT_PXO);
+		return;
+	}
+
+	// check the status of our reliable socket.  If not valid, popup error and return to main menu
+	// I put this code here to avoid nasty gameseq issues with states.  Also, we will have nice
+	// background for the popup
+	if ( !psnet_rel_check() ) {
+		popup(PF_USE_AFFIRMATIVE_ICON,1,POPUP_OK,XSTR("Network Error.  Try exiting and restarting FreeSpace to clear the error.  Otherwise, please reboot your machine.",756));
+		gameseq_post_event(GS_EVENT_MAIN_MENU);
+		return;
+	}	
+
 	// return here since we will be moving to the next stage anyway -- I don't want to see the backgrounds of
 	// all the screens for < 1 second for every screen we automatically move to.
 	if ( Cmdline_start_netgame ) {
