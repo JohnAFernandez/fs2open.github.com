@@ -2652,7 +2652,15 @@ void multi_init_oo_and_ship_tracker()
 	}
 
 	// Part 2: Init/Reset the repeating parts of the struct. 
-	Oo_info.frame_info.clear();		
+	Oo_info.frame_info.clear();
+	for (auto current_player_frame_info : Oo_info.player_frame_info) {
+		for (auto current_last_sent : current_player_frame_info.last_sent) {
+			current_last_sent.subsystem_angles1.clear();
+			current_last_sent.subsystem_angles2.clear();
+		}
+		current_player_frame_info.last_sent.clear();
+	}
+
 	Oo_info.player_frame_info.clear();
 	Oo_info.interp.clear();
 
