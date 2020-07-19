@@ -144,7 +144,7 @@ int ConnectToChatServer(char *serveraddr, char *nickname, char *trackerid)
 
 		// make sure we are in dual-stack mode (not the default on Windows)
 		int i_opt = 0;
-		setsockopt(Chatsock, IPPROTO_IPV6, IPV6_V6ONLY, &i_opt, sizeof(i_opt));
+		setsockopt(Chatsock, IPPROTO_IPV6, IPV6_V6ONLY, reinterpret_cast<const char *>(&i_opt), sizeof(i_opt));
 
 		if ( !psnet_get_addr(nullptr, static_cast<uint16_t>(0), &Chataddr) )
 		{
