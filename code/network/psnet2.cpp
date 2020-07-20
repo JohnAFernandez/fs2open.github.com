@@ -537,7 +537,7 @@ bool psnet_init_my_addr()
 	//
 
 	// IPv4 & IPv6 -> Cloudflare, Google Public DNS, Quad9
-	const SCP_vector<SCP_string> remote_hosts = { "1.1.1.1", "2606:4700:4700::1111", "8.8.8.8", "2001:4860:4860::8888", "9.9.9.9", "2620:fe::fe" };
+	const SCP_vector<SCP_string> remote_hosts = { "2606:4700:4700::1111", "8.8.8.8", "2001:4860:4860::8888", "9.9.9.9", "2620:fe::fe" };
 
 	tsock = socket(AF_INET6, SOCK_DGRAM, 0);
 
