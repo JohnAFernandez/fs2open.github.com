@@ -1292,7 +1292,6 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 		short total_size = 0;
 		ubyte i = 0, count = 0;
 		bool flagged = false;
-		vec3d temp = vmd_zero_vector;
 		mprintf(("new subsystem info seq_num: %d net_sig %d ", Oo_info.cur_frame_index, objp->net_signature));
 		for (ship_subsys* subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list);
 			subsystem = GET_NEXT(subsystem)) {
@@ -1384,7 +1383,6 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 
 			// pack the count of subsystems first.
 			PACK_SHORT(total_size);
-			float temp = 0.0f;
 			int i = 0;
 			// now we'll pack the actual information
 			for (auto subsys : subsystem_pointer_list) {
