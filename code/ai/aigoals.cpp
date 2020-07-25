@@ -156,7 +156,7 @@ void ai_maybe_add_form_goal(wing* wingp)
 
 		aip = &Ai_info[Ships[wingp->ship_index[j]].ai_index];
 		// don't process Player_ship
-		if (aip == Player_ai || ((Game_mode & GM_MULTIPLAYER) && Objects[Ships[aip->shipnum].objnum].flags[Object::Object_Flags::Player_ship])) {
+		if (Objects[Ships[aip->shipnum].objnum].flags[Object::Object_Flags::Player_ship]) {
 			continue;
 		}
 
