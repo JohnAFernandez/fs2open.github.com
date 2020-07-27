@@ -1799,11 +1799,20 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		
 		bool full_physics = (oo_flags & OO_FULL_PHYSICS);
 
-		ubyte r5 = multi_pack_unpack_desired_vel_and_desired_rotvel(0, full_physics, data + offset, &pobjp->phys_info, &local_desired_vel);
-		mprintf((" local_desired_rotvel %f %f %f", pobjp->phys_info.desired_rotvel.xyz.x, pobjp->phys_info.desired_rotvel.xyz.y, pobjp->phys_info.desired_rotvel.xyz.z));
-		mprintf((" local_desired_vel %f %f %f", local_desired_vel.xyz.x, local_desired_vel.xyz.y, local_desired_vel.xyz.z));
-
+		// unpack desired velocities. some ships (like retail ai) do not use des rotvel but just set it to rotvel.
+		ubyte r5;
+		if (oo_flags & OO_FULL_PHYSICS) {
+			r5 = multi_pack_unpack_desired_vel_and_desired_rotvel(0, true, data + offset, &pobjp->phys_info, &local_desired_vel);
+			mprintf((" local_desired_rotvel %f %f %f", pobjp->phys_info.desired_rotvel.xyz.x, pobjp->phys_info.desired_rotvel.xyz.y, pobjp->phys_info.desired_rotvel.xyz.z));
+			mprintf((" local_desired_vel %f %f %f", local_desired_vel.xyz.x, local_desired_vel.xyz.y, local_desired_vel.xyz.z));
+		}
+		else {
+			r5 = multi_pack_unpack_desired_vel_and_desired_rotvel(0, false, data + offset, &pobjp->phys_info, &local_desired_vel);
+			new_phys_info.desired_rotvel = new_phys_info.rotvel;
+			mprintf((" local_desired_vel %f %f %f", local_desired_vel.xyz.x, local_desired_vel.xyz.y, local_desired_vel.xyz.z));
+		}
 		offset += r5;
+
 		// change it back to global coordinates.
 		vm_vec_unrotate(&new_phys_info.desired_vel, &local_desired_vel, &new_orient);
 
