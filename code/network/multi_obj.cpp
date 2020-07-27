@@ -32,10 +32,7 @@
 #include "cfile/cfile.h"
 #include "debugconsole/console.h"
 #include "weapon/weapon.h"
-<<<<<<< HEAD
 
-=======
->>>>>>> 71a8250a8... Multiplayer Dumbfire Rollback
 
 // ---------------------------------------------------------------------------------------------------
 // OBJECT UPDATE STRUCTS
@@ -1226,8 +1223,15 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 		vec3d local_desired_vel;
 
 		vm_vec_rotate(&local_desired_vel, &objp->phys_info.desired_vel, &objp->orient);
-		
-		ret = multi_pack_unpack_desired_vel_and_desired_rotvel(1, data + packet_size + header_bytes, &objp->phys_info, &local_desired_vel);
+
+		// is this a ship with full phyiscs? (just player-controled for now)
+		bool full_physics = false;
+		if (objp->flags[Object::Object_Flags::Player_ship]) {
+			full_physics = true;
+			oo_flags |= OO_FULL_PHYSICS;
+		}
+
+		ret = multi_pack_unpack_desired_vel_and_desired_rotvel(1, full_physics, data + packet_size + header_bytes, &objp->phys_info, &local_desired_vel);
 
 		packet_size += ret;
 	}
@@ -1644,7 +1648,6 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 			}
 		} // if this a pre-wrap out-of-order packet, we have to mark it as so, so that we adjust seq_num for the individual checks
 		else {
-
 			pre_wrap_packet = true;
 		}
 	}
@@ -1742,8 +1745,17 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 
 		vec3d local_desired_vel = vmd_zero_vector;
 
-		ubyte r5 = multi_pack_unpack_desired_vel_and_desired_rotvel(0, data + offset, &pobjp->phys_info, &local_desired_vel);
+		// unpack desired velocities. some ships (like retail ai) do not use des rotvel but just set it to rotvel.
+		ubyte r5;
+		if (oo_flags & OO_FULL_PHYSICS) {
+			r5 = multi_pack_unpack_desired_vel_and_desired_rotvel(0, true, data + offset, &pobjp->phys_info, &local_desired_vel);
+		}
+		else {
+			r5 = multi_pack_unpack_desired_vel_and_desired_rotvel(0, false, data + offset, &pobjp->phys_info, &local_desired_vel);
+			new_phys_info.desired_rotvel = new_phys_info.rotvel;
+		}
 		offset += r5;
+
 		// change it back to global coordinates.
 		vm_vec_unrotate(&new_phys_info.desired_vel, &local_desired_vel, &new_orient);
 		pos_and_time_data_size += r5;
