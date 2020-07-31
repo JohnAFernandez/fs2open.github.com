@@ -3849,6 +3849,13 @@ int multi_pack_unpack_desired_rotvel( int write, ubyte *data, matrix * /*orient*
 	}
 }
 
+ubyte multi_pack_unpack_subsystem_list(bool write, ubyte* data, SCP_vector<ubyte> list)
+{
+	if (write) {
+
+	}
+}
+
 // Karajorma - sends the player to the correct debrief for this game type
 // Currently supports the dogfight kill matrix and normal debriefing stages but if new types are created they should be added here
 void send_debrief_event() {	
