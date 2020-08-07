@@ -179,10 +179,6 @@ oo_general_info Oo_info;
 // flags
 bool Afterburn_hack = false;			// HACK!!!
 
-// for multilock
-#define OOC_INDEX_NULLPTR_SUBSYSEM			255			// If a lock has a nullptr subsystem, send this as the invalid index.
-#define OOC_MAX_LOCKS							375			// Because of limited packet size, this is approximately the safe maximum of locks. 
-
 // returns the last frame's index.
 int multi_find_prev_frame_idx();
 
@@ -1691,19 +1687,14 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 	// if this is from a player, read his button info
 	if(MULTIPLAYER_MASTER){
 		int r0 = multi_oo_unpack_client_data(pl, data + offset);		
-<<<<<<< HEAD
 		offset += r0;
-	}
-=======
 		pos_and_time_data_size += r0;
-		offset += r0;
 	}
 
 	// ---------------------------------------------------------------------------------------------------------------
 	// CRITICAL OBJECT UPDATE SHIZ
 	// ---------------------------------------------------------------------------------------------------------------
 	// (Positon, Orientation, and the related velocities and desired velocities)
->>>>>>> d5e4b6939... Object Update Refactor
 
 	// Have "new info" default to the old info before reading
 	vec3d new_pos = pobjp->pos;
