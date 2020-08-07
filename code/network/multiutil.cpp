@@ -2793,7 +2793,7 @@ void multi_flush_mission_stuff()
 			Net_players[idx].s_info.wing_index_backup = 0;
 			Net_players[idx].s_info.wing_index = 0;
 			Net_players[idx].p_info.ship_class = -1;
-			Net_players[idx].p_info.ship_index = -1;
+			Net_players[idx].p_info.multi_ts_player_array_index = -1;
 			Net_players[idx].s_info.xfer_handle = -1;
 
 			// ack handles

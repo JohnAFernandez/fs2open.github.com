@@ -1518,7 +1518,7 @@ void multi_ingame_validate_players()
 				Int3();
 			}
 
-			multi_ts_get_shipname( ship_name, Net_players[i].p_info.team, Net_players[i].p_info.ship_index );
+			multi_ts_get_shipname( ship_name, Net_players[i].p_info.team, Net_players[i].p_info.multi_ts_player_array_index );
 			Assert( ship_name != NULL );
 			shipnum = ship_name_lookup( ship_name );
 			if ( shipnum == -1 ) {

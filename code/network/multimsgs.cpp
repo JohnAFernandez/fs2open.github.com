@@ -4031,7 +4031,7 @@ void send_netplayer_slot_packet()
 			ADD_SHORT(Net_players[idx].player_id);  
 			ADD_USHORT(Objects[Net_players[idx].m_player->objnum].net_signature);
 			ADD_INT(Net_players[idx].p_info.ship_class);
-			ADD_INT(Net_players[idx].p_info.ship_index);			
+			ADD_INT(Net_players[idx].p_info.multi_ts_player_array_index);			
 		}
 	}
 	stop = 0x0;
@@ -4048,7 +4048,7 @@ void send_netplayer_slot_packet()
 void process_netplayer_slot_packet(ubyte *data, header *hinfo)
 {
 	int offset;
-	int player_num,ship_class,ship_index;
+	int player_num,ship_class,multi_ts_player_array_index;
 	ushort net_sig;
 	object *objp;	
 	ubyte stop;
@@ -4064,7 +4064,7 @@ void process_netplayer_slot_packet(ubyte *data, header *hinfo)
 		GET_SHORT(player_id);
 		GET_USHORT(net_sig);
 		GET_INT(ship_class);
-		GET_INT(ship_index);
+		GET_INT(multi_ts_player_array_index);
 		player_num = find_player_id(player_id);
 		if(player_num < 0){
 			nprintf(("Network","Error looking up player for object/slot assignment!!\n"));
@@ -4077,7 +4077,7 @@ void process_netplayer_slot_packet(ubyte *data, header *hinfo)
 					Error(LOCATION, "Could not retrieve net object for signature %d!\n", net_sig);
 				}
 				multi_assign_player_ship( player_num, objp, ship_class );
-				Net_players[player_num].p_info.ship_index = ship_index;
+				Net_players[player_num].p_info.multi_ts_player_array_index = multi_ts_player_array_index;
                 objp->flags.remove(Object::Object_Flags::Could_be_player);
                 objp->flags.set(Object::Object_Flags::Player_ship);
 			}
@@ -5612,7 +5612,7 @@ void send_player_settings_packet(net_player *p)
 			// break the p_info structure by member, so we don't overwrite any absolute pointers
 			// ADD_DATA(Net_players[idx].p_info);
 			ADD_INT(Net_players[idx].p_info.team);
-			ADD_INT(Net_players[idx].p_info.ship_index);
+			ADD_INT(Net_players[idx].p_info.multi_ts_player_array_index);
 			ADD_INT(Net_players[idx].p_info.ship_class);
 		}
 	}
@@ -5652,7 +5652,7 @@ void process_player_settings_packet(ubyte *data, header *hinfo)
 		}
 		
 		GET_INT(ptr->team);
-		GET_INT(ptr->ship_index);
+		GET_INT(ptr->multi_ts_player_array_index);
 		GET_INT(ptr->ship_class);
 		
 		// next stop byte

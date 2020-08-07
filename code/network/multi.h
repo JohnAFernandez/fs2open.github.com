@@ -441,7 +441,7 @@ typedef struct net_player_server_info {
 typedef struct net_player_info {
 	p_object			*p_objp;								// pointer to parse object for my ship -- used with respawns
 	int				team;									// valid for team v. team games -- which team is this guy on
-	int				ship_index;							// index into the ship choices in team select/ship select (out of 12 choices)
+	int				multi_ts_player_array_index;							// index into the ship choices in team select/ship select (out of 12 choices)
 	int				ship_class;							// the ship class of the players ship
 	multi_local_options options;						// players options settings	
 	net_addr			addr;

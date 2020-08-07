@@ -652,7 +652,7 @@ void ship_select_init()
 	// if in multiplayer -- set my state to be ship select
 	if ( Game_mode & GM_MULTIPLAYER ){		
 		// also set the ship which is mine as the default
-		maybe_change_selected_wing_ship(Net_player->p_info.ship_index/MAX_WING_SLOTS,Net_player->p_info.ship_index%MAX_WING_SLOTS);
+		maybe_change_selected_wing_ship(Net_player->p_info.multi_ts_player_array_index/MAX_WING_SLOTS,Net_player->p_info.multi_ts_player_array_index%MAX_WING_SLOTS);
 	}
 
 	set_active_ui(&Ship_select_ui_window);

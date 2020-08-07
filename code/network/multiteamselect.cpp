@@ -518,7 +518,7 @@ void multi_ts_common_init()
 	// selected slot information (should be default player ship)
 	if(!MULTI_PERM_OBSERVER(Net_players[MY_NET_PLAYER_NUM])){
 		Multi_ts_select_type = MULTI_TS_SLOT_LIST;
-		Multi_ts_select_index = Net_player->p_info.ship_index;
+		Multi_ts_select_index = Net_player->p_info.multi_ts_player_array_index;
 		
 		// select this ship and setup his info
 		Multi_ts_select_ship_class = Wss_slots[Multi_ts_select_index].ship_class;
@@ -728,7 +728,7 @@ int multi_ts_disabled_slot(int slot_num, int player_index)
 		if(Netgame.type_flags & NG_TYPE_TEAM){
 			// if i'm the team captain I can mess with my own ships as well as those of the ai ships on my team
 			if(pl->flags & NETINFO_FLAG_TEAM_CAPTAIN){
-				if((Multi_ts_team[pl->p_info.team].multi_ts_player[slot_num] != NULL) && (Objects[Multi_ts_team[pl->p_info.team].multi_ts_objnum[slot_num]].flags[Object::Object_Flags::Player_ship]) && (slot_num != pl->p_info.ship_index)){
+				if((Multi_ts_team[pl->p_info.team].multi_ts_player[slot_num] != NULL) && (Objects[Multi_ts_team[pl->p_info.team].multi_ts_objnum[slot_num]].flags[Object::Object_Flags::Player_ship]) && (slot_num != pl->p_info.multi_ts_player_array_index)){
 					return 1;
 				}
 
@@ -740,7 +740,7 @@ int multi_ts_disabled_slot(int slot_num, int player_index)
 			// if we're the host, we can our own ship and ai ships
 			if(pl->flags & NETINFO_FLAG_GAME_HOST){
 				// can't grab player ships
-				if((Multi_ts_team[pl->p_info.team].multi_ts_player[slot_num] != NULL) && (Objects[Multi_ts_team[pl->p_info.team].multi_ts_objnum[slot_num]].flags[Object::Object_Flags::Player_ship]) && (slot_num != pl->p_info.ship_index)){
+				if((Multi_ts_team[pl->p_info.team].multi_ts_player[slot_num] != NULL) && (Objects[Multi_ts_team[pl->p_info.team].multi_ts_objnum[slot_num]].flags[Object::Object_Flags::Player_ship]) && (slot_num != pl->p_info.multi_ts_player_array_index)){
 					return 1;
 				}
 
@@ -749,7 +749,7 @@ int multi_ts_disabled_slot(int slot_num, int player_index)
 		}
 
 		// if this is our slot, then we can grab it
-		if(slot_num == pl->p_info.ship_index){
+		if(slot_num == pl->p_info.multi_ts_player_array_index){
 			return 0;
 		}
 	}
@@ -770,7 +770,7 @@ int multi_ts_disabled_high_slot(int slot_index,int player_index)
 	}
 
 	// if this is disabled for him and its also _his_ slot
-	if(multi_ts_disabled_slot(slot_index,player_index) && !Multi_ts_team[pl->p_info.team].multi_players_locked && (slot_index == pl->p_info.ship_index)){
+	if(multi_ts_disabled_slot(slot_index,player_index) && !Multi_ts_team[pl->p_info.team].multi_players_locked && (slot_index == pl->p_info.multi_ts_player_array_index)){
 		return 1;
 	}
 
@@ -820,7 +820,7 @@ void multi_ts_assign_players_all()
 	// set all player ship indices to -1
 	for(idx=0;idx<MAX_PLAYERS;idx++){
 		if(MULTI_CONNECTED(Net_players[idx]) && !MULTI_STANDALONE(Net_players[idx])){
-			Net_players[idx].p_info.ship_index = -1;
+			Net_players[idx].p_info.multi_ts_player_array_index = -1;
 		}
 	}
 
@@ -858,8 +858,8 @@ void multi_ts_assign_players_all()
 
 	multi_ts_get_team_and_slot(Ships[shipnum].ship_name,&team_index,&slot_index);
 	multi_assign_player_ship(NET_PLAYER_INDEX(Netgame.host),&Objects[Ships[shipnum].objnum],Ships[shipnum].ship_info_index);
-	Netgame.host->p_info.ship_index = slot_index;
-	Assert(Netgame.host->p_info.ship_index >= 0);
+	Netgame.host->p_info.multi_ts_player_array_index = slot_index;
+	Assert(Netgame.host->p_info.multi_ts_player_array_index >= 0);
 	Netgame.host->p_info.ship_class = Ships[shipnum].ship_info_index;
 	Netgame.host->m_player->objnum = Ships[shipnum].objnum;						
 
@@ -877,7 +877,7 @@ void multi_ts_assign_players_all()
 				// find a player on this team who needs a ship
 				found = 0;
 				for(idx=0;idx<MAX_PLAYERS;idx++){
-					if(MULTI_CONNECTED(Net_players[idx]) && !MULTI_STANDALONE(Net_players[idx]) && !MULTI_OBSERVER(Net_players[idx]) && (Net_players[idx].p_info.ship_index == -1) && (Net_players[idx].p_info.team == team_index)){
+					if(MULTI_CONNECTED(Net_players[idx]) && !MULTI_STANDALONE(Net_players[idx]) && !MULTI_OBSERVER(Net_players[idx]) && (Net_players[idx].p_info.multi_ts_player_array_index == -1) && (Net_players[idx].p_info.team == team_index)){
 						found = 1;
 						break;
 					}
@@ -888,7 +888,7 @@ void multi_ts_assign_players_all()
 				// find any player on this who needs a ship
 				found = 0;
 				for(idx=0;idx<MAX_PLAYERS;idx++){
-					if(MULTI_CONNECTED(Net_players[idx]) && !MULTI_STANDALONE(Net_players[idx]) && !MULTI_OBSERVER(Net_players[idx]) && (Net_players[idx].p_info.ship_index == -1)){					
+					if(MULTI_CONNECTED(Net_players[idx]) && !MULTI_STANDALONE(Net_players[idx]) && !MULTI_OBSERVER(Net_players[idx]) && (Net_players[idx].p_info.multi_ts_player_array_index == -1)){					
 						found = 1;
 						break;
 					}
@@ -898,8 +898,8 @@ void multi_ts_assign_players_all()
 			// if we found a player
 			if(found){
 				multi_assign_player_ship(idx,objp,Ships[objp->instance].ship_info_index);
-				Net_players[idx].p_info.ship_index = slot_index;
-				Assert(Net_players[idx].p_info.ship_index >= 0);
+				Net_players[idx].p_info.multi_ts_player_array_index = slot_index;
+				Assert(Net_players[idx].p_info.multi_ts_player_array_index >= 0);
 				Net_players[idx].p_info.ship_class = Ships[objp->instance].ship_info_index;
 				Net_players[idx].m_player->objnum = OBJ_INDEX(objp);					
 				
@@ -939,7 +939,7 @@ void multi_ts_assign_players_all()
 	for(idx=0;idx<MAX_PLAYERS;idx++){
 		if(MULTI_CONNECTED(Net_players[idx]) && !MULTI_STANDALONE(Net_players[idx]) && !MULTI_OBSERVER(Net_players[idx])){
 			// if this guy never got assigned a player ship, there's a mission problem
-			if(Net_players[idx].p_info.ship_index == -1){
+			if(Net_players[idx].p_info.multi_ts_player_array_index == -1){
 				// Netgame.flags |= NG_FLAG_QUITTING;
 				multi_quit_game(PROMPT_NONE, MULTI_END_NOTIFY_NONE, MULTI_END_ERROR_SHIP_ASSIGN);
 				return;
@@ -1627,16 +1627,16 @@ void multi_ts_init_players()
 
 	// if i'm an observer, i have no ship
 	if(Net_player->flags & NETINFO_FLAG_OBSERVER){
-		Net_player->p_info.ship_index = -1;
+		Net_player->p_info.multi_ts_player_array_index = -1;
 	}
 
 	// initialize all players and observer
 	for(idx=0;idx<MAX_PLAYERS;idx++){
 		if(MULTI_CONNECTED(Net_players[idx]) && !MULTI_STANDALONE(Net_players[idx])){
 			if(MULTI_OBSERVER(Net_players[idx])){
-				Net_players[idx].p_info.ship_index = -1;
+				Net_players[idx].p_info.multi_ts_player_array_index = -1;
 			} else {
-				Multi_ts_team[Net_players[idx].p_info.team].multi_ts_player[Net_players[idx].p_info.ship_index] = &Net_players[idx];
+				Multi_ts_team[Net_players[idx].p_info.team].multi_ts_player[Net_players[idx].p_info.multi_ts_player_array_index] = &Net_players[idx];
 			}
 		}
 	}
@@ -2276,13 +2276,13 @@ int multi_ts_swap_player_player(int from_index,int to_index,interface_snd_id *so
 
 	// update netplayer information if necessary
 	if(Multi_ts_team[pl->p_info.team].multi_ts_player[from_index] != NULL){
-		Multi_ts_team[pl->p_info.team].multi_ts_player[from_index]->p_info.ship_index = from_index;
+		Multi_ts_team[pl->p_info.team].multi_ts_player[from_index]->p_info.multi_ts_player_array_index = from_index;
 		Multi_ts_team[pl->p_info.team].multi_ts_player[from_index]->p_info.ship_class = Wss_slots_teams[pl->p_info.team][from_index].ship_class;
 
 		multi_assign_player_ship(NET_PLAYER_INDEX(Multi_ts_team[pl->p_info.team].multi_ts_player[from_index]),&Objects[Multi_ts_team[pl->p_info.team].multi_ts_objnum[from_index]],Wss_slots_teams[pl->p_info.team][from_index].ship_class);
 	}
 	if(Multi_ts_team[pl->p_info.team].multi_ts_player[to_index] != NULL){
-		Multi_ts_team[pl->p_info.team].multi_ts_player[to_index]->p_info.ship_index = to_index;
+		Multi_ts_team[pl->p_info.team].multi_ts_player[to_index]->p_info.multi_ts_player_array_index = to_index;
 		Multi_ts_team[pl->p_info.team].multi_ts_player[to_index]->p_info.ship_class = Wss_slots_teams[pl->p_info.team][to_index].ship_class;
 
 		multi_assign_player_ship(NET_PLAYER_INDEX(Multi_ts_team[pl->p_info.team].multi_ts_player[to_index]),&Objects[Multi_ts_team[pl->p_info.team].multi_ts_objnum[to_index]],Wss_slots_teams[pl->p_info.team][to_index].ship_class);
@@ -2332,13 +2332,13 @@ int multi_ts_move_player(int from_index,int to_index,interface_snd_id *sound,int
 
 	// update netplayer information if necessary
 	if(Multi_ts_team[pl->p_info.team].multi_ts_player[from_index] != NULL){
-		Multi_ts_team[pl->p_info.team].multi_ts_player[from_index]->p_info.ship_index = from_index;
+		Multi_ts_team[pl->p_info.team].multi_ts_player[from_index]->p_info.multi_ts_player_array_index = from_index;
 		Multi_ts_team[pl->p_info.team].multi_ts_player[from_index]->p_info.ship_class = Wss_slots_teams[pl->p_info.team][from_index].ship_class;
 
 		multi_assign_player_ship(NET_PLAYER_INDEX(Multi_ts_team[pl->p_info.team].multi_ts_player[from_index]),&Objects[Multi_ts_team[pl->p_info.team].multi_ts_objnum[from_index]],Wss_slots_teams[pl->p_info.team][from_index].ship_class);
 	}
 	if(Multi_ts_team[pl->p_info.team].multi_ts_player[to_index] != NULL){
-		Multi_ts_team[pl->p_info.team].multi_ts_player[to_index]->p_info.ship_index = to_index;
+		Multi_ts_team[pl->p_info.team].multi_ts_player[to_index]->p_info.multi_ts_player_array_index = to_index;
 		Multi_ts_team[pl->p_info.team].multi_ts_player[to_index]->p_info.ship_class = Wss_slots_teams[pl->p_info.team][to_index].ship_class;
 
 		multi_assign_player_ship(NET_PLAYER_INDEX(Multi_ts_team[pl->p_info.team].multi_ts_player[to_index]),&Objects[Multi_ts_team[pl->p_info.team].multi_ts_objnum[to_index]],Wss_slots_teams[pl->p_info.team][to_index].ship_class);
@@ -2532,7 +2532,7 @@ int multi_ts_slot_bmap_num(int slot_index)
 	}
 
 	// if this is our ship, then highlight it as so
-	if(Net_player->p_info.ship_index == slot_index){
+	if(Net_player->p_info.multi_ts_player_array_index == slot_index){
 		return ICON_FRAME_PLAYER;
 	}
 
@@ -2821,7 +2821,7 @@ void send_pslot_update_packet(int team,int code, interface_snd_id sound)
 
 					// should also update his p_info settings locally
 					Multi_ts_team[team].multi_ts_player[idx]->p_info.ship_class = Wss_slots_teams[team][idx].ship_class;
-					Multi_ts_team[team].multi_ts_player[idx]->p_info.ship_index = idx;
+					Multi_ts_team[team].multi_ts_player[idx]->p_info.multi_ts_player_array_index = idx;
 				}
 				
 				// add a byte indicating what object flag should be set (0 == ~(OF_COULD_BE_PLAYER | OF_PLAYER_SHIP), 1 == player ship, 2 == could be player ship)				
@@ -2862,7 +2862,7 @@ void process_pslot_update_packet(ubyte *data, header *hinfo)
 	short player_id;
 	ubyte stop,val,slot_num,ship_class;
 
-	my_index = Net_player->p_info.ship_index;
+	my_index = Net_player->p_info.multi_ts_player_array_index;
 
 	// if we're the standalone, then we should be routing this data to all the other clients
 	player_index = -1;
@@ -2944,17 +2944,17 @@ void process_pslot_update_packet(ubyte *data, header *hinfo)
 				// if we found him, assign him to this ship
 				else {
 					Net_players[player_index].p_info.ship_class = (int)ship_class;
-					Net_players[player_index].p_info.ship_index = (int)slot_num;
+					Net_players[player_index].p_info.multi_ts_player_array_index = (int)slot_num;
 					multi_assign_player_ship(player_index,&Objects[objnum],(int)ship_class);				
 
 					// ui stuff
 					Multi_ts_team[team].multi_ts_player[slot_num] = &Net_players[player_index];
 
 					// if this was me and my ship index changed, update the weapon select screen
-					if(my_index != Net_player->p_info.ship_index){
+					if(my_index != Net_player->p_info.multi_ts_player_array_index){
 						wl_reset_selected_slot();
 
-						my_index = Net_player->p_info.ship_index;
+						my_index = Net_player->p_info.multi_ts_player_array_index;
 					}
 				}
 			} else {

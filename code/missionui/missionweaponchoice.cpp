@@ -1401,8 +1401,8 @@ void wl_reset_selected_slot()
 	Assert( Wss_slots != NULL );
 
 	// in multiplayer, select the slot of the player's ship by default
-	if((Game_mode & GM_MULTIPLAYER) && !MULTI_PERM_OBSERVER(Net_players[MY_NET_PLAYER_NUM]) && (Wss_slots[Net_player->p_info.ship_index].ship_class >= 0)){
-		wl_set_selected_slot(Net_player->p_info.ship_index);
+	if((Game_mode & GM_MULTIPLAYER) && !MULTI_PERM_OBSERVER(Net_players[MY_NET_PLAYER_NUM]) && (Wss_slots[Net_player->p_info.multi_ts_player_array_index].ship_class >= 0)){
+		wl_set_selected_slot(Net_player->p_info.multi_ts_player_array_index);
 		return;
 	}
 
