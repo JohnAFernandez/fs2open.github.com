@@ -1703,8 +1703,8 @@ void multi_ts_get_team_and_slot(char* ship_name, int* team_index, int* slot_inde
 	else {
 		// get the wing index first.
 		int wing_index = ship_regp->p_objp->wing_status_wing_index;
-		// sanity check. This is based on the assumption that there can only be 3 player wings per team.
-		if (wing_index < 0 || wing_index >= MAX_WING_BLOCKS) {
+		// check for invalid index
+		if (wing_index < 0 ) {
 			*slot_index = -1;
 		}
 		else {
