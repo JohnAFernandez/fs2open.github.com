@@ -1687,6 +1687,11 @@ void multi_ts_get_team_and_slot(char* ship_name, int* team_index, int* slot_inde
 		return;
 	}
 
+	// if this is not player, their slots should be invalid.
+	if (!ship_regp->p_objp->flags[Mission::Parse_Object_Flags::OF_Player_start]) {
+		return;
+	}
+
 	*team_index = ship_regp->p_objp->team;
 
 	// if we're in team vs. team mode
@@ -1698,7 +1703,12 @@ void multi_ts_get_team_and_slot(char* ship_name, int* team_index, int* slot_inde
 	else {
 		// get the wing index first.
 		int wing_index = ship_regp->p_objp->wing_status_wing_index;
-		*slot_index = wing_index * MULTI_TS_NUM_SHIP_SLOTS_TEAM + ship_regp->p_objp->pos_in_wing; 
+		// check for an invalid index
+		if (wing_index < 0) {
+			*slot_index = -1;
+		} else {
+			*slot_index = wing_index * MULTI_TS_NUM_SHIP_SLOTS_TEAM + ship_regp->p_objp->pos_in_wing; 
+		}
 	}
 }
 

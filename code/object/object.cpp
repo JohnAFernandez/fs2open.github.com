@@ -1088,11 +1088,6 @@ void obj_set_flags( object *obj, const flagset<Object::Object_Flags>& new_flags 
 		ship *shipp;
 		int team, slot;
 
-		// this flag sometimes gets set for observers.
-		if ( obj->type == OBJ_OBSERVER ) {
-			return;
-		}
-
 		// sanity checks
 		if ( (obj->type != OBJ_SHIP) || (obj->instance < 0) ) {
 			return;				// return because we really don't want to set the flag
@@ -1103,7 +1098,7 @@ void obj_set_flags( object *obj, const flagset<Object::Object_Flags>& new_flags 
 		extern void multi_ts_get_team_and_slot(char *, int *, int *);
 		multi_ts_get_team_and_slot(shipp->ship_name,&team,&slot);
 		if ( (shipp->wingnum == -1) || (team == -1) || (slot==-1) ) {
-			Int3();
+			Warning(LOCATION, "FSO is trying to mark ship %s as a player ship in obj_set_flags, but it somehow is not marked correctly. \nCheck the mission file then, go tell a coder if everything in it seems fine.",shipp->ship_name);
 			return;
 		}
 
