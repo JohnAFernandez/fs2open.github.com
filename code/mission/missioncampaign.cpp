@@ -1823,7 +1823,7 @@ void mission_campaign_save_on_close_variables()
 		return;
 
 	// make sure this is a single-player campaign
-	if (Game_mode & GM_MULTIPLAYER)
+	if (!(Campaign.type == CAMPAIGN_TYPE_SINGLE))
 		return;
 
 	// now save variables
