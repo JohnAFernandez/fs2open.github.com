@@ -1379,6 +1379,13 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 	ADD_USHORT( seq );
 	packet_size += data_size;
 
+	mprintf(("Sending out net_sig seq_num data_size flags %d %d %d %d\ncontents: ", objp->net_signature, seq, data_size, oo_flags));
+	
+	for (int i = 0; i < packet_size; i++) {
+		mprintf(("%d ", (int)data[i]));
+	}
+	mprintf(("\n"));
+
 	// copy to the outgoing data
 	memcpy(data_out, data, packet_size);	
 	
@@ -1574,6 +1581,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		Assertion(!(oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUBSYSTEMS_NEW | OO_SUPPORT_SHIP)), "Invalid flag from client, please report! oo_flags value: %d\n", oo_flags);
 		if (oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUBSYSTEMS_NEW | OO_SUPPORT_SHIP)) {
 			offset += data_size;
+			mprintf(("early exit 1\n"));
 			return offset;
 		}
 	}
@@ -1594,10 +1602,17 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 
 	// if we can't find the object, skip the packet
 	if ( (pobjp == nullptr) || (pobjp->type != OBJ_SHIP) || (pobjp->instance < 0) || (pobjp->instance >= MAX_SHIPS) || (Ships[pobjp->instance].ship_info_index < 0) || (Ships[pobjp->instance].ship_info_index >= ship_info_size())) {
+		mprintf(("early exit 2\n"));
 		offset += data_size;
 		return offset;
 	}
+	mprintf(("receiving net_sig seq_num data_size flags %d %d %d %d\ncontents: ", net_sig, seq_num, data_size, oo_flags));
 
+	int headz = (MULTIPLAYER_MASTER) ? 5 : 7;
+	for (int i = 0; i < data_size + headz; i++) {
+		mprintf(("%d ",(int)data[i]));
+	}
+	mprintf(("\n"));
 	// ship pointer
 	shipp = &Ships[pobjp->instance];
 	sip = &Ship_info[shipp->ship_info_index];
@@ -1665,6 +1680,8 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 	// Because we want as many timestamps as possible, we want to record what we get, no matter when it came from.
 	ubyte received_timestamp;
 	GET_DATA(received_timestamp);
+	
+	mprintf(("Variables received unpacked: timestamp %d", received_timestamp));
 	pos_and_time_data_size++;
 
 	// figure out how many items we may have to create
@@ -1691,10 +1708,6 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 	// if this is from a player, read his button info
 	if(MULTIPLAYER_MASTER){
 		int r0 = multi_oo_unpack_client_data(pl, data + offset);		
-<<<<<<< HEAD
-		offset += r0;
-	}
-=======
 		pos_and_time_data_size += r0;
 		offset += r0;
 	}
@@ -1703,7 +1716,6 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 	// CRITICAL OBJECT UPDATE SHIZ
 	// ---------------------------------------------------------------------------------------------------------------
 	// (Positon, Orientation, and the related velocities and desired velocities)
->>>>>>> d5e4b6939... Object Update Refactor
 
 	// Have "new info" default to the old info before reading
 	vec3d new_pos = pobjp->pos;
@@ -1727,20 +1739,28 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		offset += r1;
 		pos_and_time_data_size += r1;
 
+		mprintf((" new_pos %f %f %f", new_pos.xyz.x, new_pos.xyz.y, new_pos.xyz.z));
+
+
 		// unpack orientation
 		int r2 = multi_pack_unpack_orient( 0, data + offset, &new_angles );
 		offset += r2;
 		pos_and_time_data_size += r2;
-		
+		mprintf((" new_angles %f %f %f", new_angles.b, new_angles.h, new_angles.p));
+
 		// new version of the orient packer sends angles instead to save on bandwidth, so we'll need the orienation from that.
 		vm_angles_2_matrix(&new_orient, &new_angles);
 //		vm_orthogonalize_matrix(&new_orient);
 
 		int r3 = multi_pack_unpack_vel(0, data + offset, &new_orient, &new_phys_info);
+		mprintf((" new_vel %f %f %f", new_phys_info.vel.xyz.x, new_phys_info.vel.xyz.y, new_phys_info.vel.xyz.z));
+
 		offset += r3;
 		pos_and_time_data_size += r3;
 
 		int r4 = multi_pack_unpack_rotvel( 0, data + offset, &new_phys_info );
+		mprintf((" new_rotvel %f %f %f", new_phys_info.rotvel.xyz.x, new_phys_info.rotvel.xyz.y, new_phys_info.rotvel.xyz.z));
+
 		offset += r4;
 		pos_and_time_data_size += r4;
 
@@ -1750,6 +1770,9 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		ubyte r5;
 		if (oo_flags & OO_FULL_PHYSICS) {
 			r5 = multi_pack_unpack_desired_vel_and_desired_rotvel(0, true, data + offset, &pobjp->phys_info, &local_desired_vel);
+			mprintf((" local_desired_rotvel %f %f %f", pobjp->phys_info.desired_rotvel.xyz.x, pobjp->phys_info.desired_rotvel.xyz.y, pobjp->phys_info.desired_rotvel.xyz.z));
+			mprintf((" local_desired_vel %f %f %f", local_desired_vel.xyz.x, local_desired_vel.xyz.y, local_desired_vel.xyz.z));
+
 		}
 		else {
 			r5 = multi_pack_unpack_desired_vel_and_desired_rotvel(0, false, data + offset, &pobjp->phys_info, &local_desired_vel);
@@ -1844,6 +1867,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 	if (shipp->is_arriving() || shipp->is_dying_or_departing() || shipp->flags[Ship::Ship_Flags::Exploded]) {
 		int header_bytes = (MULTIPLAYER_MASTER) ? 5 : 7;		
 		offset = header_bytes + data_size;
+		mprintf(("\n early exit 3\n"));
 		return offset;
 	}
 
@@ -1854,6 +1878,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 	// hull info
 	if ( oo_flags & OO_HULL_NEW ){
 		UNPACK_PERCENT(fpct);
+		mprintf((" hull %f", fpct));
 		if (interp_data->hull_comparison_frame < frame_comparison) {
 			pobjp->hull_strength = fpct * Ships[pobjp->instance].ship_max_hull_strength;
 			interp_data->hull_comparison_frame = seq_num;
@@ -1868,6 +1893,8 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		if (interp_data->shields_comparison_frame < frame_comparison) {
 			for (int i = 0; i < pobjp->n_quadrants; i++) {
 				UNPACK_PERCENT(fpct);
+				mprintf((" shield quad %f", fpct));
+
 				pobjp->shield_quadrant[i] = fpct * quad;
 			}
 			interp_data->shields_comparison_frame = seq_num;
@@ -1875,12 +1902,15 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		else {
 			for (int i = 0; i < pobjp->n_quadrants; i++) {
 				UNPACK_PERCENT(fpct);
+				mprintf((" shield quad %f", fpct));
+
 			}
 		}
 	}
 
 
 	if (oo_flags & OO_SUBSYSTEMS_NEW) {
+
 		ubyte n_subsystems, subsys_count = 0;
 		ship_subsys* subsysp, * firstsubsys = GET_FIRST(&shipp->subsys_list);
 		ubyte current_subsystem = 0;
@@ -1952,11 +1982,11 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data)
 		GET_DATA( umode );
 		GET_SHORT( submode );
 		GET_USHORT( target_signature );		
-
+		mprintf((" umode %d submode %d target_sig %d", umode, submode, target_signature));
 		// primary weapon energy		
 		float weapon_energy_pct;
 		UNPACK_PERCENT(weapon_energy_pct);
-
+		mprintf((" weapon_energy_pct %f", weapon_energy_pct));
 		if( frame_comparison > interp_data->ai_comparison_frame ){
 			if ( shipp->ai_index >= 0 ){
 				// make sure to undo the wrap if it occurred during compression for unset ai mode.
