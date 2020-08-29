@@ -1444,6 +1444,13 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 	ADD_DATA( data_size );	
 	
 	packet_size += data_size;
+	
+	mprintf(("Sending out net_sig seq_num data_size flags %d %d %d %d\ncontents: ", objp->net_signature, Oo_info.cur_frame_index , data_size, oo_flags));
+	
+	for (int i = 0; i < packet_size; i++) {
+		mprintf(("%d ", (int)data[i]));
+	}
+	mprintf(("\n"));
 
 	// copy to the outgoing data
 	memcpy(data_out, data, packet_size);	
@@ -1639,6 +1646,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		Assertion(!(oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUBSYSTEMS_NEW | OO_SUPPORT_SHIP)), "Invalid flag from client, please report! oo_flags value: %d\n", oo_flags);
 		if (oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUBSYSTEMS_NEW | OO_SUPPORT_SHIP)) {
 			offset += data_size;
+			mprintf(("early exit 1\n"));
 			return offset;
 		}
 	}
@@ -1659,10 +1667,17 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 
 	// if we can't find the object, skip the packet
 	if ( (pobjp == nullptr) || (pobjp->type != OBJ_SHIP) || (pobjp->instance < 0) || (pobjp->instance >= MAX_SHIPS) || (Ships[pobjp->instance].ship_info_index < 0) || (Ships[pobjp->instance].ship_info_index >= ship_info_size())) {
+		mprintf(("early exit 2\n"));
 		offset += data_size;
 		return offset;
 	}
+	mprintf(("receiving net_sig seq_num data_size flags %d %d %d %d\ncontents: ", net_sig, seq_num, data_size, oo_flags));
 
+	int headz = (MULTIPLAYER_MASTER) ? 5 : 7;
+	for (int i = 0; i < data_size + headz; i++) {
+		mprintf(("%d ",(int)data[i]));
+	}
+	mprintf(("\n"));
 	// ship pointer
 	shipp = &Ships[pobjp->instance];
 	sip = &Ship_info[shipp->ship_info_index];
@@ -1684,6 +1699,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 	if (MULTIPLAYER_CLIENT) {
 		multi_ship_record_rank_seq_num(pobjp, seq_num);
 	}
+
 
 	// ---------------------------------------------------------------------------------------------------------------
 	// SPECIAL CLIENT INFO
@@ -1714,17 +1730,25 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		int r1 = multi_pack_unpack_position(0, data + offset, &new_pos);
 		offset += r1;
 
+		mprintf((" new_pos %f %f %f", new_pos.xyz.x, new_pos.xyz.y, new_pos.xyz.z));
+
+
 		// unpack orientation
 		int r2 = multi_pack_unpack_orient( 0, data + offset, &new_angles );
 		offset += r2;
+		mprintf((" new_angles %f %f %f", new_angles.b, new_angles.h, new_angles.p));
 
 		// new version of the orient packer sends angles instead to save on bandwidth, so we'll need the orienation from that.
 		vm_angles_2_matrix(&new_orient, &new_angles);
 
 		int r3 = multi_pack_unpack_vel(0, data + offset, &new_orient, &new_phys_info);
+		mprintf((" new_vel %f %f %f", new_phys_info.vel.xyz.x, new_phys_info.vel.xyz.y, new_phys_info.vel.xyz.z));
+
 		offset += r3;
 
 		int r4 = multi_pack_unpack_rotvel( 0, data + offset, &new_phys_info );
+		mprintf((" new_rotvel %f %f %f", new_phys_info.rotvel.xyz.x, new_phys_info.rotvel.xyz.y, new_phys_info.rotvel.xyz.z));
+
 		offset += r4;
 
 		vec3d local_desired_vel = vmd_zero_vector;
@@ -1733,6 +1757,9 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		ubyte r5;
 		if (oo_flags & OO_FULL_PHYSICS) {
 			r5 = multi_pack_unpack_desired_vel_and_desired_rotvel(0, true, data + offset, &pobjp->phys_info, &local_desired_vel);
+			mprintf((" local_desired_rotvel %f %f %f", pobjp->phys_info.desired_rotvel.xyz.x, pobjp->phys_info.desired_rotvel.xyz.y, pobjp->phys_info.desired_rotvel.xyz.z));
+			mprintf((" local_desired_vel %f %f %f", local_desired_vel.xyz.x, local_desired_vel.xyz.y, local_desired_vel.xyz.z));
+
 		}
 		else {
 			r5 = multi_pack_unpack_desired_vel_and_desired_rotvel(0, false, data + offset, &pobjp->phys_info, &local_desired_vel);
@@ -1826,6 +1853,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 	if (shipp->is_arriving() || shipp->is_dying_or_departing() || shipp->flags[Ship::Ship_Flags::Exploded]) {
 		int header_bytes = (MULTIPLAYER_MASTER) ? 3 : 5;		
 		offset = header_bytes + data_size;
+		mprintf(("\n early exit 3\n"));
 		return offset;
 	}
 
@@ -1836,6 +1864,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 	// hull info
 	if ( oo_flags & OO_HULL_NEW ){
 		UNPACK_PERCENT(fpct);
+		mprintf((" hull %f", fpct));
 		if (seq_num > interp_data->hull_comparison_frame) {
 			pobjp->hull_strength = fpct * Ships[pobjp->instance].ship_max_hull_strength;
 			interp_data->hull_comparison_frame = seq_num;
@@ -1850,6 +1879,8 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		if (seq_num > interp_data->shields_comparison_frame ) {
 			for (int i = 0; i < pobjp->n_quadrants; i++) {
 				UNPACK_PERCENT(fpct);
+				mprintf((" shield quad %f", fpct));
+
 				pobjp->shield_quadrant[i] = fpct * quad;
 			}
 			interp_data->shields_comparison_frame = seq_num;
@@ -1857,12 +1888,15 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		else {
 			for (int i = 0; i < pobjp->n_quadrants; i++) {
 				UNPACK_PERCENT(fpct);
+				mprintf((" shield quad %f", fpct));
+
 			}
 		}
 	}
 
 	// get the subsystem info
 	if (oo_flags & OO_SUBSYSTEMS_NEW) {
+
 		SCP_vector<ubyte> flags;  flags.reserve(MAX_MODEL_SUBSYSTEMS);
 		SCP_vector<float> subsys_data;  subsys_data.reserve(MAX_MODEL_SUBSYSTEMS); // couldn't think of a better constant to put here
 		
@@ -1957,11 +1991,12 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		GET_DATA( umode );
 		GET_SHORT( submode );
 		GET_USHORT( target_signature );		
-
+		mprintf((" umode %d submode %d target_sig %d", umode, submode, target_signature));
 		// primary weapon energy		
 		float weapon_energy_pct;
 		UNPACK_PERCENT(weapon_energy_pct);
-
+		
+		mprintf((" weapon_energy_pct %f", weapon_energy_pct));
 		if( seq_num > interp_data->ai_comparison_frame ){
 			if ( shipp->ai_index >= 0 ){
 				// make sure to undo the wrap if it occurred during compression for unset ai mode.
