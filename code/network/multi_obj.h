@@ -42,6 +42,21 @@ struct weapon;
 #define MAX_FRAMES_RECORDED		30
 #define PRIMARY_PACKET_CUTOFF			2000
 
+// and two special values to help with multilock
+#define OOC_INDEX_NULLPTR_SUBSYSEM 255
+#define OOC_MAX_LOCKS			   128  // Probably *could* be up to 140, but this is safer
+
+// some values for subsystem packing
+#define OO_SUBSYS_HEALTH			(1<<0)		// Did this subsystem's health change
+#define OO_SUBSYS_ROTATION_1b		(1<<1)		// Did this subsystem's base rotation angles change
+#define OO_SUBSYS_ROTATION_1h		(1<<2)		// Did this subsystem's base rotation angles change
+#define OO_SUBSYS_ROTATION_1p		(1<<3)		// Did this subsystem's base rotation angles change
+#define OO_SUBSYS_ROTATION_2b		(1<<4)		// Did this subsystem's barrel rotation angles change
+#define OO_SUBSYS_ROTATION_2h		(1<<5)		// Did this subsystem's barrel rotation angles change
+#define OO_SUBSYS_ROTATION_2p		(1<<6)		// Did this subsystem's barrel rotation angles change
+#define OO_SUBSYS_TRANSLATION		(1<<7)		// Only for backwards compatibility of future builds.
+
+
 // ---------------------------------------------------------------------------------------------------
 // POSITION AND ORIENTATION RECORDING
 // if it breaks, find Cyborg17 so you can yell at him

@@ -64,7 +64,13 @@ struct oo_info_sent_to_players {
 	int ai_submode;					// what ai submode was last sent.
 	int target_signature;			// what target_signature was last sent (used for AI portion of OO packet)
 
-	SCP_vector<float> subsystems;	// We need a vector to keep track of all subsystems.
+	SCP_vector<float> subsystem_health;	// We need vectors to keep track of all subsystem health and subsystem angles.
+	SCP_vector<float> subsystem_1b;
+	SCP_vector<float> subsystem_1h;
+	SCP_vector<float> subsystem_1p;
+	SCP_vector<float> subsystem_2b;
+	SCP_vector<float> subsystem_2h;
+	SCP_vector<float> subsystem_2p;
 };
 
 struct oo_netplayer_records{
@@ -164,7 +170,6 @@ struct oo_general_info {
 
 
 	SCP_vector<oo_packet_and_interp_tracking> interp;		// Tracking received info and interpolation timing per ship, uses net_signature as its index.
-
 	// rollback info
 	bool rollback_mode;										// are we currently creating and moving weapons from the client primary fire packets
 	SCP_vector<object*> rollback_wobjp_created_this_frame;	// the weapons created this rollback frame.
@@ -175,6 +180,8 @@ struct oo_general_info {
 	SCP_vector<oo_unsimulated_shots> 
 		rollback_shots_to_be_fired[MAX_FRAMES_RECORDED];				// the shots we will need to fire and simulate during rollback, organized into the frames they will be fired
 	SCP_vector<int>rollback_collide_list;					// the list of ships and weapons that we need to pass to collision detection during rollback.
+														
+	SCP_vector<const ship_registry_entry*> rotation_list;	// subsystem rotation
 };
 
 oo_general_info Oo_info;
@@ -236,6 +243,8 @@ float multi_oo_calc_pos_time_difference(int player_id, int net_sig_idx);
 #define OO_PRIMARY_LINKED			(1<<10)		// if this is set, banks are linked
 #define OO_TRIGGER_DOWN				(1<<11)		// if this is set, trigger is DOWN
 #define OO_SUPPORT_SHIP				(1<<12)		// Send extra info for the support ship.
+
+#define OO_SBUSYS_ROTATION_CUTOFF	0.1f		// if the squared difference between the old and new angles is less than this, don't send.
 
 #define OO_VIEW_CONE_DOT			(0.1f)
 #define OO_VIEW_DIFF_TOL			(0.15f)			// if the dotproducts differ this far between frames, he's coming into view
@@ -391,7 +400,13 @@ void multi_ship_record_add_ship(int obj_num)
 		Oo_info.interp[net_sig_idx].subsystems_comparison_frame.push_back(-1);
 
 		for (int i = 0; i < MAX_PLAYERS; i++) {
-			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystems.push_back(-1.0f) ;
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_health.push_back(-1.0f);
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_1b.push_back(-1.0f);
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_1h.push_back(-1.0f);
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_1p.push_back(-1.0f);
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_2b.push_back(-1.0f);
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_2h.push_back(-1.0f);
+			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_2p.push_back(-1.0f);
 		}
 	}
 
@@ -879,8 +894,15 @@ void multi_oo_respawn_reset_info(ushort net_sig)
 		player_record.last_sent[net_sig].ai_submode = -1;
 		player_record.last_sent[net_sig].target_signature = -1;
 		player_record.last_sent[net_sig].perfect_shields_sent = false;
-		for (uint i = 0; i < player_record.last_sent[net_sig].subsystems.size(); i++) {
-			player_record.last_sent[net_sig].subsystems[i] = -1;
+		for (int i = 0; i < (int)player_record.last_sent[net_sig].subsystem_health.size(); i++) {
+			player_record.last_sent[net_sig].subsystem_health[i] = -1.0f;
+			player_record.last_sent[net_sig].subsystem_1b[i] = -1.0f;
+			player_record.last_sent[net_sig].subsystem_1h[i] = -1.0f;
+			player_record.last_sent[net_sig].subsystem_1p[i] = -1.0f;
+			player_record.last_sent[net_sig].subsystem_2b[i] = -1.0f;
+			player_record.last_sent[net_sig].subsystem_2h[i] = -1.0f;
+			player_record.last_sent[net_sig].subsystem_2p[i] = -1.0f;
+
 		}
 	}
 
@@ -1273,43 +1295,78 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 		multi_rate_add(NET_PLAYER_NUM(pl), "shl", objp->n_quadrants);	
 	}	
 
-	// Cyborg17 - only server should send this
-	// just in case we have some kind of invalid data (should've been taken care of earlier in this function)
-	if (MULTIPLAYER_MASTER && shipp->ship_info_index >= 0) {	
-	// Cyborg17 - add the # of only the subsystems being changed, and their data
-		ship_subsys* subsystem;
-		ubyte count = 0;
-		ubyte flagged_subsystem_list[MAX_MODEL_SUBSYSTEMS];
-		float subsystem_list_health[MAX_MODEL_SUBSYSTEMS];
-		int i = 0;
+	ushort seq = Oo_info.cur_frame_index + (MAX_FRAMES_RECORDED * Oo_info.wrap_count);
 
-		for (subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list);
+	// Cyborg17 - add the subsystem data, now with packer function.
+	if ((MULTIPLAYER_MASTER || objp->flags[Object::Object_Flags::Player_ship]) && shipp->ship_info_index >= 0) {
+		SCP_vector<ubyte> flags;
+		SCP_vector<float> subsys_data;
+		ubyte i = 0;
+		vec3d temp = vmd_zero_vector;
+
+		flags.reserve(MAX_MODEL_SUBSYSTEMS);
+		subsys_data.reserve(MAX_MODEL_SUBSYSTEMS); // propbably won't exceed this, and even if it does, it will get cut off.
+
+		for (ship_subsys* subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list);
 			subsystem = GET_NEXT(subsystem)) {
-				// Don't send destroyed subsystems, (another packet handles that), but check to see if the subsystem changed since the last update. 
-			if ((subsystem->current_hits != 0.0f) && (subsystem->current_hits != Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystems[i])) {
-				// store the values for use later.
-				flagged_subsystem_list[count] = (ubyte)i;
+			flags.push_back(0);
+			// Don't send destroyed subsystems, (another packet handles that), but check to see if the subsystem changed since the last update. 
+			if (MULTIPLAYER_MASTER && (subsystem->current_hits != 0.0f) && (subsystem->current_hits != Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_health[i])) {
+				flags[i] |= OO_SUBSYS_HEALTH;
+				subsys_data.push_back(subsystem->current_hits / subsystem->max_hits);
+				// good thing this cheap because we have to calculate this twice to avoid iterating through the whole system list twice.
+				Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_health[i] = subsystem->current_hits;
+
 				// this should be safe because we only work with subsystems that have health.
-				subsystem_list_health[count] = subsystem->current_hits / subsystem->max_hits;
 				// and also track the list of subsystems that we packed by index
-				count++;
+			}
+			
+
+			// retrieve the submodel for rotation info.
+			if (subsystem->system_info->flags[Model::Subsystem_Flags::Rotates, Model::Subsystem_Flags::Dum_rotates]) {
+
+				// here we're checking to see if the subsystems rotated enough to send.
+				if (subsystem->submodel_info_1.angs.b != Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_1b[i]) {
+					flags[i] |= OO_SUBSYS_ROTATION_1b;
+					subsys_data.push_back(subsystem->submodel_info_1.angs.b / PI2);
+				}
+
+				if (subsystem->submodel_info_1.angs.h != Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_1h[i]) {
+					flags[i] |= OO_SUBSYS_ROTATION_1h;
+					subsys_data.push_back(subsystem->submodel_info_1.angs.h / PI2);
+				}
+
+				if (subsystem->submodel_info_1.angs.p != Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_1p[i]) {
+					flags[i] |= OO_SUBSYS_ROTATION_1p;
+					subsys_data.push_back(subsystem->submodel_info_1.angs.p / PI2);
+				}
+
+				if (subsystem->submodel_info_2.angs.b != Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_2b[i]) {
+					flags[i] |= OO_SUBSYS_ROTATION_2b;
+					subsys_data.push_back(subsystem->submodel_info_2.angs.b / PI2);
+				}
+
+				if (subsystem->submodel_info_2.angs.h != Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_2h[i]) {
+					flags[i] |= OO_SUBSYS_ROTATION_2h;
+					subsys_data.push_back(subsystem->submodel_info_2.angs.h / PI2);
+				}
+
+				if (subsystem->submodel_info_2.angs.p != Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystem_2p[i]) {
+					flags[i] |= OO_SUBSYS_ROTATION_2p;
+					subsys_data.push_back(subsystem->submodel_info_2.angs.p / PI2);
+				}
+
 			}
 			i++;
 		}
-		
-		// Only send info if the count is greater than zero and if we're *not* on the very first frame when everything is going to be 100%, anyway.
-		if (count > 0 && Oo_info.number_of_frames != 0){
-			Assertion(count <= MAX_MODEL_SUBSYSTEMS, "Object Update packet exceeded limit for number of subsystems. This is a coder error, please report!\n");
-			oo_flags |= OO_SUBSYSTEMS_NEW;
 
-			// pack the count of subsystems first.
-			PACK_BYTE(count);
-			// now we'll pack the actual information
-			for (int j = 0; j < count; j++) {
-				PACK_BYTE(flagged_subsystem_list[j]);
-				PACK_PERCENT(subsystem_list_health[j]);
-				Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].subsystems[flagged_subsystem_list[j]] = subsystem_list_health[j];
-			}
+		// Only send info if the count is greater than zero and if we're *not* on the very first frame when everything is already synced, anyway.
+		if (subsys_data.size() > 0 && Oo_info.number_of_frames != 0){
+
+			Assertion(i <= MAX_MODEL_SUBSYSTEMS, "Object Update packet exceeded limit for number of subsystems. This is a coder error, please report!\n");
+			oo_flags |= OO_SUBSYSTEMS_NEW;		
+			ret = multi_pack_unpack_subsystem_list(true, data + packet_size + header_bytes, &flags, &subsys_data);
+			packet_size += ret;
 		}
 	}
 
@@ -1380,7 +1437,6 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 
 	multi_rate_add(NET_PLAYER_NUM(pl), "siz", 1);
 	ADD_DATA( data_size );	
-	ushort seq = Oo_info.cur_frame_index + (MAX_FRAMES_RECORDED * Oo_info.wrap_count);
 	
 	packet_size += data_size;
 
@@ -1612,7 +1668,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 	}
 	mprintf(("receiving net_sig seq_num data_size flags %d %d %d %d\ncontents: ", net_sig, seq_num, data_size, oo_flags));
 
-	int headz = (MULTIPLAYER_MASTER) ? 5 : 7;
+	int headz = (MULTIPLAYER_MASTER) ? 3 : 5;
 	for (int i = 0; i < data_size + headz; i++) {
 		mprintf(("%d ",(int)data[i]));
 	}
@@ -1681,7 +1737,6 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 
 		// new version of the orient packer sends angles instead to save on bandwidth, so we'll need the orienation from that.
 		vm_angles_2_matrix(&new_orient, &new_angles);
-//		vm_orthogonalize_matrix(&new_orient);
 
 		int r3 = multi_pack_unpack_vel(0, data + offset, &new_orient, &new_phys_info);
 		mprintf((" new_vel %f %f %f", new_phys_info.vel.xyz.x, new_phys_info.vel.xyz.y, new_phys_info.vel.xyz.z));
@@ -1835,63 +1890,89 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		}
 	}
 
-
+	// get the subsystem info
 	if (oo_flags & OO_SUBSYSTEMS_NEW) {
+		SCP_vector<ubyte> flags;  flags.reserve(MAX_MODEL_SUBSYSTEMS);
+		SCP_vector<float> subsys_data;  subsys_data.reserve(MAX_MODEL_SUBSYSTEMS); // couldn't think of a better constant to put here
+		
+		ubyte ret7 = multi_pack_unpack_subsystem_list(false, data + offset, &flags, &subsys_data);
+		offset += ret7;
 
-		ubyte n_subsystems, subsys_count = 0;
-		ship_subsys* subsysp, * firstsubsys = GET_FIRST(&shipp->subsys_list);
-		ubyte current_subsystem = 0;
-		float current_percent = 0.0f;
+		mprintf((" subsystem data:"));
+		for (int i = 0; i < subsys_data.size(); i++) {
+			mprintf((" %f", subsys_data[i]));
+		}
+		// Before we start the loop, we need to get the first subsystem, to make sure that it's set up to avoid issues.
+		ship_subsys* subsysp = GET_FIRST(&shipp->subsys_list);
 
-		// get the number of subsystems
-		GET_DATA(n_subsystems);
+		// and the index to use in the subsys_data vector
+		int data_idx = 0;
 
-		// store the old offset in case of misaligned info.
-		int pre_sub_offset = offset;
-
-		// Before we start the loop, we need to get the first subsystem
-		GET_DATA(current_subsystem);
-
-		// this iterates through the packet and subsytem list simultaneously, changing values only when it finds a match.
-		for (subsysp = firstsubsys; subsysp != END_OF_LIST(&shipp->subsys_list); subsysp = GET_NEXT(subsysp)) {
-
-			auto idx = std::distance(firstsubsys, subsysp);
-
-			if (current_subsystem != idx) {
-				// the current subsystem was not sent by the server, so try the next subsystem.
-				continue;
-			}
-
-			// we found a match, so grab the next byte, so we can calculate the new hitpoints
-			UNPACK_PERCENT(current_percent);
-			subsys_count++;
-
-			// update frame is *per* subsystem here
-			if (frame_comparison > interp_data->subsystems_comparison_frame[idx]) {
-				subsysp->current_hits = current_percent * subsysp->max_hits;
-
-				// Aggregate if necessary.
-				if (!(subsysp->flags[Ship::Subsystem_Flags::No_aggregate])) {
-					shipp->subsys_info[subsysp->system_info->type].aggregate_current_hits += subsysp->current_hits;
+		if (subsysp != nullptr) {
+			// look for a match, in order to set values.
+			for (int i = 0; i < flags.size(); i++) {
+				// the current subsystem had no info, or was somehow a nullptr, so try the next subsystem.
+				if (flags[i] == 0 || subsysp == nullptr) {
+					subsysp = GET_NEXT(subsysp);
+					continue;
 				}
-			}
 
-			// Stop the loop once we've found them all.
-			if (subsys_count == n_subsystems) {
-				break;
-			}
+				// update health
+				if (flags[i] & OO_SUBSYS_HEALTH) {
+					if (seq_num > interp_data->subsystems_comparison_frame[i]) {
+						interp_data->subsystems_comparison_frame[i] = seq_num;
+						subsysp->current_hits = subsys_data[data_idx] * subsysp->max_hits;
 
-			// retrieve the next subsystem
-			GET_DATA(current_subsystem);
+						// Aggregate if necessary.
+						if (!(subsysp->flags[Ship::Subsystem_Flags::No_aggregate])) {
+							shipp->subsys_info[subsysp->system_info->type].aggregate_current_hits += subsysp->current_hits;
+						}
+					}
+					data_idx++;
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_1b) {
+					subsysp->submodel_info_1.prev_angs.b = subsysp->submodel_info_1.angs.b;
+					subsysp->submodel_info_1.angs.b = (subsys_data[data_idx] * PI2);
+					data_idx++;
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_1h) {
+					subsysp->submodel_info_1.prev_angs.h = subsysp->submodel_info_1.angs.h;
+					subsysp->submodel_info_1.angs.h = (subsys_data[data_idx] * PI2);
+					data_idx++;
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_1p) {
+					subsysp->submodel_info_1.prev_angs.p = subsysp->submodel_info_1.angs.p;
+					subsysp->submodel_info_1.angs.p = (subsys_data[data_idx] * PI2);
+					data_idx++;
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_2b) {
+					subsysp->submodel_info_2.prev_angs.b = subsysp->submodel_info_2.angs.b;
+					subsysp->submodel_info_2.angs.b = (subsys_data[data_idx] * PI2);
+					data_idx++;
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_2h) {
+					subsysp->submodel_info_2.prev_angs.h = subsysp->submodel_info_2.angs.h;
+					subsysp->submodel_info_2.angs.h = (subsys_data[data_idx] * PI2);
+					data_idx++;
+				}
+
+				if (flags[i] & OO_SUBSYS_ROTATION_2p) {
+					subsysp->submodel_info_2.prev_angs.p = subsysp->submodel_info_2.angs.p;
+					subsysp->submodel_info_2.angs.p = (subsys_data[data_idx] * PI2);
+					data_idx++;
+				}
+				subsysp = GET_NEXT(subsysp);
+
+			}
+			// recalculate all ship subsystems
+			ship_recalc_subsys_strength(shipp);
 		}
 
-		// if not all were found in the loop because of mismatched tables or other bugs, unpack the rest and ignore them to ensure aligned packets
-		if (subsys_count != n_subsystems) {
-			offset = pre_sub_offset + (n_subsystems * 2);
-		}
-
-		// recalculate all ship subsystems
-		ship_recalc_subsys_strength(shipp);
 	}
 
 	// ---------------------------------------------------------------------------------------------------------------
@@ -2464,8 +2545,26 @@ void multi_init_oo_and_ship_tracker()
 	temp_sent_to_player.perfect_shields_sent = false;
 
 	// See if *any* of the subsystems changed, so we have to allow for a variable number of subsystems within a variable number of ships.
-	temp_sent_to_player.subsystems.reserve(MAX_MODEL_SUBSYSTEMS);
-	temp_sent_to_player.subsystems.push_back(0.0f);
+	temp_sent_to_player.subsystem_health.reserve(MAX_MODEL_SUBSYSTEMS);
+	temp_sent_to_player.subsystem_health.push_back(0.0f);
+
+	temp_sent_to_player.subsystem_1b.reserve(MAX_MODEL_SUBSYSTEMS);
+	temp_sent_to_player.subsystem_1b.push_back(0.0f);
+	
+	temp_sent_to_player.subsystem_1h.reserve(MAX_MODEL_SUBSYSTEMS);
+	temp_sent_to_player.subsystem_1h.push_back(0.0f);
+	
+	temp_sent_to_player.subsystem_1p.reserve(MAX_MODEL_SUBSYSTEMS);
+	temp_sent_to_player.subsystem_1p.push_back(0.0f);
+	
+	temp_sent_to_player.subsystem_2b.reserve(MAX_MODEL_SUBSYSTEMS);
+	temp_sent_to_player.subsystem_2b.push_back(0.0f);
+	
+	temp_sent_to_player.subsystem_2h.reserve(MAX_MODEL_SUBSYSTEMS);
+	temp_sent_to_player.subsystem_2h.push_back(0.0f);
+	
+	temp_sent_to_player.subsystem_2p.reserve(MAX_MODEL_SUBSYSTEMS);
+	temp_sent_to_player.subsystem_2p.push_back(0.0f);
 
 	temp_netplayer_records.last_sent.push_back(temp_sent_to_player);
 	Oo_info.frame_info.push_back(temp_position_records);
