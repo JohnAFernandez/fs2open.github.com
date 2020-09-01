@@ -87,7 +87,7 @@ bool multi_lua_send_packet(int packet_id, int mode, player* pl) {
 
 	ushort string_count = packetp->strings.size();
 	ushort string_size;
-	for (auto & string : packetp.strings) {
+	for (auto & string : packetp->strings) {
 		string_size += string.len();
 	}
 
