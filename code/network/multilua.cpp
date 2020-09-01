@@ -96,17 +96,41 @@ bool multi_lua_send_packet(int packet_id, int mode, player* pl) {
 
 	ADD_USHORT(anticipated_packet_length);
 
-	ADD_DATA( );
+	+	ADD_DATA(integer_size);
 
 	ADD_
-		for (auto& integers : packetp.integers) {
+		for (auto& integers : packetp->integers) {
 			ADDintegers
 		}
+	for (auto& integers : packetp->integers) {
+		ADD_INT(integers);
+	}
 
+	ADD_DATA(float_size);
 
+	for (auto& floats : packetp->floats) {
+		ADD_FLOAT(floats)
+	}
+
+	ADD_DATA(bool_size);
 
 	anticipated_packet_length +=  ;
-	
+
+	for (int i = 0; i < bool_size; i++) {
+		ubyte mask = 0;
+		for (int j = 0; j < 8; j++) {
+			mask |= (int)packetp->bools[(i * 8) + j] << j;
+		}
+	}
+
+	ADD_DATA(string_size);
+
+	for (auto& strings : packetp_strings) {
+		ADD_STRING(strings);
+	}
+
+
+	// send to different players based on the supplied mode.
 
 	
 	
