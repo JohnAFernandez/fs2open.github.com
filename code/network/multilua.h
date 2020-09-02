@@ -31,7 +31,7 @@ class lua_multi_packet{
 	protected:
 		int lua_packet_id		= 0;	// this is to help scipters track which packet is which
 
-		ushort lua_type			= 0;
+		ubyte lua_type			= 0;
 
 		SCP_vector<int>integers;		// the integers to be transmiited in the packet
 		SCP_vector<float>floats;		// the floats to be transmiited in the packet
