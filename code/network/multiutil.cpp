@@ -106,6 +106,8 @@ ushort multi_assign_network_signature( int what_kind )
 {
 	ushort sig;	
 
+	Assertion(what_kind >= MULTI_SIG_SHIP && what_kind <= MULTI_SIG_WAYPOINT, "multi_assign_network_signature was passed an invalid index.");
+
 	// do limit checking on the permanent and non_permanent signatures.  Ships are considered "permanent"
 	// as are debris and asteroids since they don't die very often.  It would be vary rare for this
 	// value (the permanent signature) to wrap.  For now, this condition is an error condition
@@ -163,7 +165,6 @@ ushort multi_assign_network_signature( int what_kind )
 			Next_waypoint_signature = WAYPOINT_SIG_MIN;
 		}
 	} else {
-		Int3();		// get allender - Illegal signature type requested
 		sig = 0;
 	}
 
