@@ -107,9 +107,6 @@ int Ingame_join_net_signature = -1;								// signature for the player obj for u
 int Multi_button_info_ok = 0;										// flag saying it is ok to apply critical button info on a client machine
 int Multi_button_info_id = 0;										// identifier of the stored button info to be applying
 
-// low level networking vars
-int HEADER_LENGTH;													// 1 byte (packet type)
-
 // misc data
 active_game* Active_game_head;									// linked list of active games displayed on Join screen
 int Active_game_count;												// for interface screens as well
@@ -1461,9 +1458,7 @@ void standalone_main_init()
 
 		exit(1);
 	}
-#endif // ifdef _WIN32
-
-	HEADER_LENGTH = 1;		
+#endif // ifdef _WIN32	
 	
 	// clear out the Netgame structure and start filling in the values
 	// NOTE : these values are not incredibly important since they will be overwritten by the host when he joins

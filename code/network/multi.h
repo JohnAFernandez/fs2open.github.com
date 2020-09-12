@@ -266,6 +266,7 @@ class player;
 
 #define VARIABLE_UPDATE				0xF0		// Karajorma - a variable update packet from server to all clients
 #define SEXP						0xF1		// Karajorma - a general packet which can be used to update clients with changes caused by SEXPs
+#define JSON_DATASTREAM				0xF2		// Cyborg17 - a Packet that contains serialized lua data
 
 #define MAX_TYPE_ID					0xFF		// better not try to send > 255 in a single byte buddy
 
@@ -755,8 +756,8 @@ extern ushort Multi_ingame_join_sig;									// signature for the player obj for
 extern int Multi_button_info_ok;										// flag saying it is ok to apply critical button info on a client machine
 extern int Multi_button_info_id;										// identifier of the stored button info to be applying
 
-// low level networking vars
-extern int HEADER_LENGTH;												// 1 byte (packet type)
+// Constant for makring the size of the packet type
+constexpr int HEADER_LENGTH = 1;													
 
 // misc data
 extern active_game* Active_game_head;								// linked list of active games displayed on Join screen

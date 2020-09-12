@@ -73,6 +73,8 @@
 #include "network/multi_fstracker.h"
 #include "network/multi_sw.h"
 #include "network/multi_sexp.h"
+#include "network/multi_bytestream_manager.h"
+#include "scripting/api/objs/bytearray.h"
 
 // #define _MULTI_SUPER_WACKY_COMPRESSION
 
@@ -8726,4 +8728,119 @@ void process_sexp_packet(ubyte *data, header *hinfo)
 	PACKET_SET_SIZE();
 
 	sexp_packet_received(received_packet, num_ubytes);
+}
+
+// this constant just makes sure that we can add the filename provided, and the flags and the datastream
+constexpr int JSON_BYTESTREAM_PACKET_MAX_HEADER_SIZE = HEADER_LENGTH + sizeof(int32_t) + MAX_FILENAME_LEN + sizeof(ubyte) + sizeof(ushort);
+constexpr int MAX_INITIAL_JSON_BYTESTREAM_PACKET_SIZE = MAX_PACKET_SIZE - JSON_BYTESTREAM_PACKET_MAX_HEADER_SIZE;
+
+constexpr int BYTESTREAM_TO_ALL_PLAYERS = (1 << 0); // Is this a client sending the bytestream to all players?
+
+// sends an lua file over the multi connection. TODO: NEED TO ADD A SIZE
+void send_bytestream_packet(ubyte* data, scripting::api::bytearray_h bytearray_in, SCP_string scriptfile_to_send_to, bool to_all_players, int player_id = 0) 
+{
+	// determine how much space is needed for the filename
+	int extra_space = MAX_FILENAME_LEN - (int)scriptfile_to_send_to.size();
+
+	// return a failure to lua due to a too-large input for filename or input bytestream.
+	if (extra_space < 0) {
+		static bool filename_size_fail = false;
+		if (!filename_size_fail) {
+			Warning(LOCATION, "send_json_bytestream_packet() is trying to send a bystream to a script file whose identifier string is too large. Returning false, safely. Further failures of this type will fail silently.");
+			filename_size_fail = true;
+		}
+		return;
+
+	} else if  ((int)bytearray_in.data().size() > MAX_INITIAL_JSON_BYTESTREAM_PACKET_SIZE + extra_space) {
+		static bool bytearray_size_fail = false;
+		if (!bytearray_size_fail) {
+			Warning(LOCATION, "send_json_bytestream_packet() is trying to send a bystream that is too large. Returning false, safely. Further failures of this type will fail silently.");
+			bytearray_size_fail = true;
+		}
+		return;
+	}
+
+	// required packet vars
+	ubyte data[MAX_PACKET_SIZE], flags = 0;
+	int packet_size = 0;
+	ushort data_size_to_send;
+
+	// type header
+	BUILD_HEADER(JSON_DATASTREAM);
+
+	// if we add flags later 
+	if (to_all_players) {
+		flags |= BYTESTREAM_TO_ALL_PLAYERS;
+	}
+
+	ADD_DATA(flags);
+
+	// file we're sending it to.
+	ADD_STRING(scriptfile_to_send_to.c_str());
+
+	data_size_to_send = (ushort)bytearray_in.data().size();
+	ADD_USHORT(data_size_to_send);
+
+	// bytestream data
+	memcpy(data + packet_size, &bytearray_in.data(), bytearray_in.data().size());
+
+	// send to the correct recipients
+	if (MULTIPLAYER_MASTER) {
+		if (to_all_players) {
+			multi_io_send_to_all_reliable(data, packet_size, &Net_players[player_id]);
+		} else {
+			if (player_id = 0) {
+				static bool invalid_player_id = false;
+				if (!invalid_player_id) {
+					Warning(LOCATION, "send_json_bytestream_packet() is sending a packet to only one player without having the player you are sending it to defined. Returning false, safely.  Further failures will fail silently.");
+					invalid_player_id = false;
+				}
+				return;
+			}
+			multi_io_send_reliable(&Net_players[player_id], data, packet_size);
+		}
+	} // clients can send as well! And whether they want it to be retransmitted to all players will be marked by a flag.
+	else {
+		if (player_id != 0) {
+			static bool specified_player_on_client = false;
+			if (!specified_player_on_client) {
+				Warning(LOCATION, "send_json_bytestream_packet() was passed a to-send player but is a client.  Clients do not have this capability.  Sending to the server only.  Further mistakes of this type will be handled silently.");
+				specified_player_on_client = true;
+			}
+		}
+		multi_io_send_reliable(Netgame.server, data, packet_size);
+	}
+
+	return;
+}
+
+void process_json_bytestream_packet(ubyte* data, header* hinfo) 
+{
+	int offset = HEADER_LENGTH, team;
+	ubyte flags;
+	char string_key[]; // 
+	ushort datastream_size;
+
+	GET_DATA(flags);
+	GET_STRING(string_key);
+
+	SCP_string string_key_dynamic;
+	string_key_dynamic.copy(string_key, strlen(string_key));
+
+	GET_USHORT(datastream_size);
+
+	SCP_vector<uint8_t> temp_data_out;
+	temp_data_out.reserve(datastream_size);
+	memcpy(&temp_data_out[0], data + offset, datastream_size);
+
+	scripting::api::bytearray_h bytearray_out (temp_data_out);
+
+	if (MULTIPLAYER_MASTER && !(flags & NO_SERVER_PROCESS)) {
+		Bytestream_Packet_Manager.add_to_packets_received(bytestream_packet(flags, string_key_dynamic, bytearray_out, flags,  ,team));
+	}
+
+	if (MULTIPLAYER_MASTER && (flags & BYTESTREAM_TO_ALL_PLAYERS)) {
+		multi_io_send_to_all_reliable(data, offset, &Net_players[hinfo->id]);
+	}
+
 }
