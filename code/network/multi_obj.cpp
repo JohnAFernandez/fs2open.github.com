@@ -1382,6 +1382,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 
 		// either send out the waypoint they are trying to get to *or* their current target
 		if (umode == AIM_WAYPOINTS) {
+			//TODO: MAKE SURE THIS WORKS ON STANDALONE!  Last time waypoint list was null and waypoint index was nonsense, and it crashed.
 			// grab the waypoint's net_signature and send that instead.
 			target_signature = Objects[aip->wp_list->get_waypoints().at(aip->wp_index).get_objnum()].net_signature;
 		} // send the target signature.
