@@ -63,9 +63,10 @@ class player;
 // version 48 - 8/15/2016 Multiple changes to the packet format for multi sexps
 // version 49 - 7/26/2020 Addition of multilock
 // version 50 - 7/27/2020 IPv6
+// version 51 - 9/20/2020 Object Update Packet Upgrade: Waypoints, subsystem rotation, bandwidth improvements, bugfixes
 // STANDALONE_ONLY
 
-#define MULTI_FS_SERVER_VERSION							50
+#define MULTI_FS_SERVER_VERSION							51
 
 #define MULTI_FS_SERVER_COMPATIBLE_VERSION			MULTI_FS_SERVER_VERSION
 
