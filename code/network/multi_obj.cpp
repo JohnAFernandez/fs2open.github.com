@@ -1124,7 +1124,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 		}
 
 		// Only send info if the count is greater than zero and if we're *not* on the very first frame when everything is already synced, anyway.
-		if (subsys_data.size() > 0 && Oo_info.number_of_frames != 0){
+		if (!subsys_data.empty() && Oo_info.number_of_frames != 0){
 
 			Assertion(i <= MAX_MODEL_SUBSYSTEMS, "Object Update packet exceeded limit for number of subsystems. This is a coder error, please report!\n");
 			oo_flags |= OO_SUBSYSTEMS_NEW;		
@@ -1136,12 +1136,17 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 	// Cyborg17 - only server should send this
 	if (oo_flags & OO_AI_NEW){
 		// ai mode info
-		ubyte umode = (ubyte)(Ai_info[shipp->ai_index].mode);
-		short submode = (short)(Ai_info[shipp->ai_index].submode);
-		ushort target_signature;
+		ai_info *aip = &Ai_info[shipp->ai_index];
+		auto umode = (ubyte)(aip->mode);
+		auto submode = (short)(aip->submode);
+		ushort target_signature = 0;
 
-		target_signature = 0;
-		if ( Ai_info[shipp->ai_index].target_objnum != -1 ){
+		// either send out the waypoint they are trying to get to *or* their current target
+		if (umode == AIM_WAYPOINTS) {
+			// grab the waypoint's net_signature and send that instead.
+			target_signature = Objects[aip->wp_list->get_waypoints().at(aip->wp_index).get_objnum()].net_signature;
+		} // send the target signature.
+		else if (aip->target_objnum != -1) {
 			target_signature = Objects[Ai_info[shipp->ai_index].target_objnum].net_signature;
 		}
 
@@ -1273,7 +1278,7 @@ int multi_oo_unpack_client_data(net_player* pl, ubyte* data)
 		}
 
 		// afterburner status
-		if ( (objp != NULL) && (in_flags & OOC_AFTERBURNER_ON) ) {
+		if ( (objp != nullptr) && (in_flags & OOC_AFTERBURNER_ON) ) {
 			Afterburn_hack = true;
 		}
 	}
@@ -1555,7 +1560,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 
 	} // in order to allow the server to send only new pos and ori info, we have to do a couple checks here
 	else if (seq_num == interp_data->most_recent_packet){
-		if (interp_data->prev_packet_positionless == false) {
+		if (!interp_data->prev_packet_positionless) {
 			interp_data->prev_packet_positionless = true;
 			interp_data->prev_pack_pos_frame = interp_data->cur_pack_pos_frame ;
 			interp_data->cur_pack_pos_frame = seq_num;
@@ -1985,7 +1990,7 @@ int multi_oo_maybe_update(net_player *pl, object *obj, ubyte *data)
 
 	if (all_max) {
 		// shields are currently perfect, were they perfect last time?
-		if ( Oo_info.player_frame_info[pl->player_id].last_sent[net_sig_idx].perfect_shields_sent == false){
+		if ( !Oo_info.player_frame_info[pl->player_id].last_sent[net_sig_idx].perfect_shields_sent){
 			// send the newly perfected shields
 			oo_flags |= OO_SHIELDS_NEW;
 		}
@@ -2056,7 +2061,7 @@ void multi_oo_process_all(net_player *pl)
 	}
 
 	// finish adding the timestamp
-	ubyte time_out = (ubyte)temp_timestamp;
+	auto time_out = (ubyte)temp_timestamp;
 	ADD_DATA(time_out);
 
 	ubyte stop;
@@ -2372,7 +2377,7 @@ void multi_oo_send_control_info()
 		mprintf(("Somehow the object update packet is calculating negative time differential in multi_oo_send_control_info. Value: %d. It's going to guess on a correct value. Please investigate.", temp_timestamp));
 		temp_timestamp = TIMESTAMP_OUT_IF_ERROR;
 	}
-	ubyte time_out = (ubyte)temp_timestamp;
+	auto time_out = (ubyte)temp_timestamp;
 	ADD_DATA(time_out);
 
 	// pos and orient always
@@ -2445,7 +2450,7 @@ void multi_oo_send_changed_object(object *changedobj)
 		mprintf(("Somehow the object update packet is calculating negative time differential in multi_oo_send_control_info. Value: %d. It's going to guess on a correct value. Please investigate.", temp_timestamp));
 		temp_timestamp = TIMESTAMP_OUT_IF_ERROR;
 	}
-	ubyte time_out = (ubyte)temp_timestamp;
+	auto time_out = (ubyte)temp_timestamp;
 	ADD_DATA(time_out);
 
 	// pos and orient always

@@ -3893,8 +3893,8 @@ ubyte multi_pack_unpack_subsystem_list(bool write, ubyte* data, SCP_vector<ubyte
 		return (ubyte)bitbuffer_write_flush(&buf);
 	}
 	else {
-	Assertion(flags->size() == 0, "The flags vector was not empty before being sent to multi_pack_unpack_subsystem_list. This is a coder mistake, please report!");
-	Assertion(subsys_data->size() == 0, "The subsys_data vector was not empty before being sent to multi_pack_unpack_subsystem_list. This is a coder mistake, please report!");
+	Assertion(flags->empty(), "The flags vector was not empty before being sent to multi_pack_unpack_subsystem_list. This is a coder mistake, please report!");
+	Assertion(subsys_data->empty(), "The subsys_data vector was not empty before being sent to multi_pack_unpack_subsystem_list. This is a coder mistake, please report!");
 
 	int current_subsystem_index = 0;
 	flags->push_back(0);
