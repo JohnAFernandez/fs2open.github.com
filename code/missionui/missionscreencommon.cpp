@@ -1423,7 +1423,7 @@ int store_wss_data(ubyte *data, __UNUSED const unsigned int max_size, interface_
 
 	ADD_SHORT(player_id);
 
-	Assert( packet_size < max_size );
+	Assert( packet_size < static_cast<int>(max_size) );
 	return packet_size;
 }
 
