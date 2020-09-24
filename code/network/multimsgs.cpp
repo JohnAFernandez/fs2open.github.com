@@ -7758,74 +7758,111 @@ void process_NEW_countermeasure_fired_packet(ubyte *data, header *hinfo)
 	ship_launch_countermeasure( objp, rand_val );			
 }
 
-void send_beam_fired_packet(object *shooter, ship_subsys *turret, object *target, int beam_info_index, beam_info *override, int bfi_flags, int bank_point)
+void send_beam_fired_packet(const beam_fire_info *fire_info, const beam_info *override)
 {
 	ubyte data[MAX_PACKET_SIZE];
-	int packet_size = 0;	
+	int packet_size = 0;
 	short u_beam_info;
-	char subsys_index;
-	beam_info b_info;
+	int shooter_subsys_index = -1, target_subsys_index = -1;
 	ushort target_sig;
 
 	// only the server should ever be doing this
 	Assert(MULTIPLAYER_MASTER);
 
 	// setup outgoing data
-	Assert(shooter != NULL);
-	Assert(turret != NULL);
-	Assert(override != NULL);
-	if((shooter == NULL) || (turret == NULL) || (override == NULL)){
+	Assert(fire_info->shooter != nullptr);
+	Assert(fire_info->turret != nullptr);
+	Assert(override != nullptr);
+
+	if ( (fire_info->shooter == nullptr) || (fire_info->turret == nullptr) || (override == nullptr) ) {
 		return;
 	}
 
-	if (!(bfi_flags & BFIF_IS_FIGHTER_BEAM)) {
-		Assert(target != NULL);
-		if (target == NULL) {
+	if (fire_info->bfi_flags & BFIF_IS_FIGHTER_BEAM) {
+		Assertion(fire_info->bank > 0, "Bank for fighter BEAM is invalid!");
+		Assertion(fire_info->point > 0, "Bank point for fighter BEAM is invalid!");
+
+		if ( (fire_info->bank < 0) || (fire_info->point < 0) ) {
+			return;
+		}
+	} else {
+		Assertion(fire_info->target != nullptr, "BEAM fired without a target!");
+
+		if (fire_info->target == nullptr) {
+			return;
+		}
+
+		shooter_subsys_index = ship_get_index_from_subsys(fire_info->turret, OBJ_INDEX(fire_info->shooter));
+
+		Assertion(shooter_subsys_index >= 0, "BEAM fired from unknown subsystem!");
+		Assertion(shooter_subsys_index < SHRT_MAX, "BEAM fired from a subsystem beyond max limits!");
+
+		if (shooter_subsys_index < 0) {
 			return;
 		}
 	}
 
-	target_sig = (target) ? target->net_signature : 0;
+	target_sig = (fire_info->target) ? fire_info->target->net_signature : 0;
 
-	u_beam_info = (short)beam_info_index;
-
-	if (bfi_flags & BFIF_IS_FIGHTER_BEAM) {
-		Assert( (bank_point >= 0) && (bank_point < UCHAR_MAX) );
-		subsys_index = (char)bank_point;
-	} else {
-		subsys_index = (char)ship_get_index_from_subsys(turret, OBJ_INDEX(shooter));
+	if (fire_info->target && fire_info->target_subsys) {
+		target_subsys_index = ship_get_index_from_subsys(fire_info->target_subsys, OBJ_INDEX(fire_info->target));
 	}
 
-	Assert(subsys_index >= 0);
-	if (subsys_index < 0) {
-		return;
-	}
-
-	// swap the beam_info override info into little endian byte order
-	b_info.dir_a.xyz.x = INTEL_FLOAT(&override->dir_a.xyz.x);
-	b_info.dir_a.xyz.y = INTEL_FLOAT(&override->dir_a.xyz.y);
-	b_info.dir_a.xyz.z = INTEL_FLOAT(&override->dir_a.xyz.z);
-
-	b_info.dir_b.xyz.x = INTEL_FLOAT(&override->dir_b.xyz.x);
-	b_info.dir_b.xyz.y = INTEL_FLOAT(&override->dir_b.xyz.y);
-	b_info.dir_b.xyz.z = INTEL_FLOAT(&override->dir_b.xyz.z);
-
-	b_info.delta_ang = INTEL_FLOAT(&override->delta_ang);
-	b_info.shot_count = override->shot_count;
-
-	for (int i = 0; i < b_info.shot_count; i++) {
-		b_info.shot_aim[i] = INTEL_FLOAT(&override->shot_aim[i]);
-	}
+	u_beam_info = static_cast<short>(fire_info->beam_info_index);
 
 	// build the header
 	BUILD_HEADER(BEAM_FIRED);
-	ADD_USHORT(shooter->net_signature);
-	ADD_DATA(subsys_index);
+
+	ADD_USHORT(fire_info->shooter->net_signature);
 	ADD_USHORT(target_sig);
 	ADD_SHORT(u_beam_info);
-	ADD_DATA(b_info);  // FIXME: This is still wrong, we shouldn't be sending an entire struct over the wire - taylor
-//	ADD_DATA(bfi_flags);	// this breaks the protocol but is here in case we decided to do that in the future - taylor
-//	ADD_DATA(target_pos);	// ditto - Goober5000
+	ADD_FLOAT(fire_info->accuracy);
+	ADD_INT(fire_info->bfi_flags);
+	ADD_SHORT(static_cast<short>(shooter_subsys_index));
+	ADD_SHORT(static_cast<short>(target_subsys_index));
+
+	if (fire_info->bfi_flags & BFIF_IS_FIGHTER_BEAM) {
+		ADD_SHORT(static_cast<short>(fire_info->bank));
+		ADD_SHORT(static_cast<short>(fire_info->point));
+	}
+
+	// override info
+	{
+		// dir_a
+		ADD_FLOAT(override->dir_a.xyz.x);
+		ADD_FLOAT(override->dir_a.xyz.y);
+		ADD_FLOAT(override->dir_a.xyz.z);
+		// dir_b
+		ADD_FLOAT(override->dir_b.xyz.x);
+		ADD_FLOAT(override->dir_b.xyz.y);
+		ADD_FLOAT(override->dir_b.xyz.z);
+
+		ADD_FLOAT(override->delta_ang);
+
+		ADD_DATA(override->shot_count);
+
+		for (auto i = 0; i < override->shot_count; i++) {
+			ADD_FLOAT(override->shot_aim[i]);
+		}
+	}
+
+	if (fire_info->bfi_flags & BFIF_TARGETING_COORDS) {
+		// target 1
+		ADD_FLOAT(fire_info->target_pos1.xyz.x);
+		ADD_FLOAT(fire_info->target_pos1.xyz.y);
+		ADD_FLOAT(fire_info->target_pos1.xyz.z);
+		// target 2
+		ADD_FLOAT(fire_info->target_pos2.xyz.x);
+		ADD_FLOAT(fire_info->target_pos2.xyz.y);
+		ADD_FLOAT(fire_info->target_pos2.xyz.z);
+	}
+
+	if (fire_info->bfi_flags & BFIF_FLOATING_BEAM) {
+		ADD_FLOAT(fire_info->starting_pos.xyz.x);
+		ADD_FLOAT(fire_info->starting_pos.xyz.y);
+		ADD_FLOAT(fire_info->starting_pos.xyz.z);
+		ADD_DATA(fire_info->team);
+	}
 
 	// send to all clients	
 	multi_io_send_to_all_reliable(data, packet_size);
@@ -7835,69 +7872,93 @@ void process_beam_fired_packet(ubyte *data, header *hinfo)
 {
 	int i, offset;
 	ushort shooter_sig, target_sig;
-	char subsys_index;
+	short shooter_subsys_index, target_subsys_index;
 	short u_beam_info;
 	beam_info b_info;
 	beam_fire_info fire_info;
-//	ubyte fighter_beam = 0;
+	float shot_aim;
+	short bank = -1, point = -1;
 
 	// only clients should ever get this
 	Assert(MULTIPLAYER_CLIENT);
 
-	// read in packet data
-	offset = HEADER_LENGTH;
-	GET_USHORT(shooter_sig);
-	GET_DATA(subsys_index);
-	GET_USHORT(target_sig);
-	GET_SHORT(u_beam_info);
-	GET_DATA(b_info);  // FIXME: This is still wrong, we shouldn't be sending an entire struct over the wire - taylor
-//	GET_DATA(fighter_beam);  // this breaks the protocol but is here in case we decided to do that in the future - taylor
-	PACKET_SET_SIZE();
-
-	// swap the beam_info override info into native byte order
-	b_info.dir_a.xyz.x = INTEL_FLOAT(&b_info.dir_a.xyz.x);
-	b_info.dir_a.xyz.y = INTEL_FLOAT(&b_info.dir_a.xyz.y);
-	b_info.dir_a.xyz.z = INTEL_FLOAT(&b_info.dir_a.xyz.z);
-	
-	b_info.dir_b.xyz.x = INTEL_FLOAT(&b_info.dir_b.xyz.x);
-	b_info.dir_b.xyz.y = INTEL_FLOAT(&b_info.dir_b.xyz.y);
-	b_info.dir_b.xyz.z = INTEL_FLOAT(&b_info.dir_b.xyz.z);
-	
-	b_info.delta_ang = INTEL_FLOAT(&b_info.delta_ang);
-	
-	for (i = 0; i < b_info.shot_count; i++) {
-		b_info.shot_aim[i] = INTEL_FLOAT(&b_info.shot_aim[i]);
-	}
-
 	memset(&fire_info, 0, sizeof(beam_fire_info));
 
-	// lookup all relevant data
-	fire_info.beam_info_index = (int)u_beam_info;
-	fire_info.shooter = NULL;
-	fire_info.target = NULL;
-	fire_info.turret = NULL;
-	fire_info.target_subsys = NULL;
-	fire_info.beam_info_override = NULL;		
+	// read in packet data
+	offset = HEADER_LENGTH;
+
+	GET_USHORT(shooter_sig);
+	GET_USHORT(target_sig);
+	GET_SHORT(u_beam_info);
+	GET_FLOAT(fire_info.accuracy);
+	GET_INT(fire_info.bfi_flags);
+	GET_SHORT(shooter_subsys_index);
+	GET_SHORT(target_subsys_index);
+
+	if (fire_info.bfi_flags & BFIF_IS_FIGHTER_BEAM) {
+		GET_SHORT(bank);
+		GET_SHORT(point);
+	}
+
+	// override info
+	{
+		// dir_a
+		GET_FLOAT(b_info.dir_a.xyz.x);
+		GET_FLOAT(b_info.dir_a.xyz.y);
+		GET_FLOAT(b_info.dir_a.xyz.z);
+		// dir_b
+		GET_FLOAT(b_info.dir_b.xyz.x);
+		GET_FLOAT(b_info.dir_b.xyz.y);
+		GET_FLOAT(b_info.dir_b.xyz.z);
+
+		GET_FLOAT(b_info.delta_ang);
+
+		GET_DATA(b_info.shot_count);
+
+		for (i = 0; i < b_info.shot_count; i++) {
+			GET_FLOAT(shot_aim);
+
+			if (i < MAX_BEAM_SHOTS) {
+				b_info.shot_aim[i] = shot_aim;
+			}
+		}
+
+		fire_info.beam_info_override = &b_info;
+	}
+
+	if (fire_info.bfi_flags & BFIF_TARGETING_COORDS) {
+		// target 1
+		GET_FLOAT(fire_info.target_pos1.xyz.x);
+		GET_FLOAT(fire_info.target_pos1.xyz.y);
+		GET_FLOAT(fire_info.target_pos1.xyz.z);
+		// target 2
+		GET_FLOAT(fire_info.target_pos2.xyz.x);
+		GET_FLOAT(fire_info.target_pos2.xyz.y);
+		GET_FLOAT(fire_info.target_pos2.xyz.z);
+	}
+
+	if (fire_info.bfi_flags & BFIF_FLOATING_BEAM) {
+		GET_FLOAT(fire_info.starting_pos.xyz.x);
+		GET_FLOAT(fire_info.starting_pos.xyz.y);
+		GET_FLOAT(fire_info.starting_pos.xyz.z);
+		GET_DATA(fire_info.team);
+	}
+
+	PACKET_SET_SIZE();
+
+	fire_info.beam_info_index = u_beam_info;
 	fire_info.shooter = multi_get_network_object(shooter_sig);
 	fire_info.target = multi_get_network_object(target_sig);
-	fire_info.beam_info_override = &b_info;
-	fire_info.accuracy = 1.0f;
 
-	if((fire_info.shooter == NULL) || (fire_info.shooter->type != OBJ_SHIP) || (fire_info.shooter->instance < 0) || (fire_info.shooter->instance >= MAX_SHIPS)){
+	if ( (fire_info.shooter == nullptr) || (fire_info.shooter->type != OBJ_SHIP) || (fire_info.shooter->instance < 0) || (fire_info.shooter->instance >= MAX_SHIPS) ) {
 		nprintf(("Network", "Couldn't get shooter info for BEAM weapon!\n"));
 		return;
 	}
 
 	ship *shipp = &Ships[fire_info.shooter->instance];
 
-	// this check is a little convoluted but should cover all bases until we decide to just break the protocol
-	if ( Ship_info[shipp->ship_info_index].is_fighter_bomber() ) {
-		// make sure the beam is a primary weapon and not attached to a turret or something
-		for (i = 0; i < shipp->weapons.num_primary_banks; i++) {
-			if ( shipp->weapons.primary_bank_weapons[i] == fire_info.beam_info_index ) {
-				fire_info.bfi_flags |= BFIF_IS_FIGHTER_BEAM;
-			}
-		}
+	if (target_subsys_index >= 0) {
+		fire_info.target_subsys = ship_get_indexed_subsys(shipp, target_subsys_index);
 	}
 
 	if ( !(fire_info.bfi_flags & BFIF_IS_FIGHTER_BEAM) && (fire_info.target == NULL) ) {
@@ -7906,11 +7967,16 @@ void process_beam_fired_packet(ubyte *data, header *hinfo)
 	}
 
 	if (fire_info.bfi_flags & BFIF_IS_FIGHTER_BEAM) {
+		Assertion(bank >= 0, "Fighter BEAM bank is invalid!");
+		Assertion(point >= 0, "Fighter BEAM point is invalid!");
+
+		if ( (bank < 0) || (point < 0) ) {
+			nprintf(("Network", "Couldn't get firing point for fighter BEAM weapon!\n"));
+			return;
+		}
+
 		polymodel *pm = model_get( Ship_info[shipp->ship_info_index].model_num );
 		float field_of_fire = Weapon_info[fire_info.beam_info_index].field_of_fire;
-
-		int bank = (ubyte)subsys_index % 10;
-		int point = (ubyte)subsys_index / 10;
 
 		fire_info.targeting_laser_offset = pm->gun_banks[bank].pnt[point];
 
@@ -7931,10 +7997,11 @@ void process_beam_fired_packet(ubyte *data, header *hinfo)
 
 		fire_info.turret = &shipp->fighter_beam_turret_data;
 		fire_info.bank = bank;
+		fire_info.point = point;
 	} else {
-		fire_info.turret = ship_get_indexed_subsys(shipp, (int)subsys_index);
+		fire_info.turret = ship_get_indexed_subsys(shipp, shooter_subsys_index);
 
-		if (fire_info.turret == NULL) {
+		if (fire_info.turret == nullptr) {
 			nprintf(("Network", "Couldn't get turret for BEAM weapon!\n"));
 			return;
 		}
