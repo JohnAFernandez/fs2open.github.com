@@ -500,17 +500,7 @@ int beam_fire(beam_fire_info *fire_info)
 
 	// if we're a multiplayer master - send a packet
 	if (MULTIPLAYER_MASTER) {
-		int bank_point = -1;
-
-		if (fire_info->bfi_flags & BFIF_IS_FIGHTER_BEAM) {
-			// magic numbers suck, be we need to make sure that we are always below UCHAR_MAX (255)
-			Assert( fire_info->point <= 25 );
-			Assert( fire_info->bank <= 5 );
-
-			bank_point = (fire_info->point * 10) + fire_info->bank;
-		}
-
-		send_beam_fired_packet(fire_info->shooter, fire_info->turret, fire_info->target, fire_info->beam_info_index, &new_item->binfo, fire_info->bfi_flags, bank_point);
+		send_beam_fired_packet(fire_info, &new_item->binfo);
 	}
 
 	// start the warmup phase
