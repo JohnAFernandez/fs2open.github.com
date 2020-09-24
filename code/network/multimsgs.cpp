@@ -5918,7 +5918,7 @@ void send_post_sync_data_packet(net_player *p, int std_request)
 
 		// add weapon bank status
 		bval = static_cast<char>(shipp->weapons.current_primary_bank);
-		if (pl != NULL) {
+		if (pl != nullptr) {
 			pl->s_info.cur_primary_bank = bval;
 		}
 		// Assert(bval != -1);
