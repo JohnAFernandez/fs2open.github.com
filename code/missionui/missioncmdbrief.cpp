@@ -24,7 +24,6 @@
 #include "missionui/missioncmdbrief.h"
 #include "missionui/missionscreencommon.h"
 #include "missionui/redalert.h"
-#include "network/multi_endgame.h"
 #include "playerman/player.h"
 #include "sound/audiostr.h"
 #include "sound/fsspeech.h"
@@ -686,13 +685,8 @@ void cmd_brief_do_frame(float frametime)
 
 	switch (k) {
 	case KEY_ESC:
-		if (Game_mode & GM_MULTIPLAYER) {
-			gamesnd_play_iface(InterfaceSounds::USER_SELECT);
-			multi_quit_game(PROMPT_ALL);
-		} else {
-			common_music_close();
-			gameseq_post_event(GS_EVENT_MAIN_MENU);
-		}
+		common_music_close();
+		gameseq_post_event(GS_EVENT_MAIN_MENU);
 		break;
 	}	// end switch
 
