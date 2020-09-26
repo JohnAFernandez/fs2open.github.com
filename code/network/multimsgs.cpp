@@ -1876,9 +1876,9 @@ void send_game_active_packet(net_addr* addr)
 	ADD_DATA(val);
 
 	// use 4-byte version of *_STRING to remain compatible with older builds
-	ADD_STRING_32(Netgame.name);
-	ADD_STRING_32(Netgame.mission_name);
-	ADD_STRING_32(Netgame.title);
+	ADD_STRING(Netgame.name);
+	ADD_STRING(Netgame.mission_name);
+	ADD_STRING(Netgame.title);
 
 	val = (ubyte)multi_num_players();
 	ADD_DATA(val);
@@ -1967,9 +1967,9 @@ void process_game_active_packet(ubyte* data, header* hinfo)
 	GET_DATA(ag.comp_version);
 
 	// use 4-byte version of *_STRING to remain compatible with older builds
-	GET_STRING_32(ag.name);
-	GET_STRING_32(ag.mission_name);
-	GET_STRING_32(ag.title);
+	GET_STRING(ag.name);
+	GET_STRING(ag.mission_name);
+	GET_STRING(ag.title);
 
 	GET_DATA(val);
 	ag.num_players = val;
@@ -6261,11 +6261,12 @@ void process_post_sync_data_packet(ubyte *data, header *hinfo)
 		}
 		shipp->weapons.current_secondary_bank = (int)b;		
 
-		// primary weapon info
-		for (j = 0; j < shipp->weapons.num_primary_banks; j++) {
-			GET_SHORT(val_short);
-			shipp->weapons.primary_bank_weapons[j] = static_cast<int>(val_short);
-		}
+			// primary weapon info
+		GET_DATA(val);
+		shipp->weapons.primary_bank_weapons[0] = ((val == 255) ? -1 : static_cast<int>(val));
+
+		GET_DATA(val);
+		shipp->weapons.primary_bank_weapons[1] = ((val == 255) ? -1 : static_cast<int>(val));
 
 		// secondary weapon info
 		for (j = 0; j < shipp->weapons.num_secondary_banks; j++) {
