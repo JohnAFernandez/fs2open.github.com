@@ -6030,7 +6030,8 @@ void send_post_sync_data_packet(net_player *p, int std_request)
 		ADD_USHORT( Objects[so->objnum].net_signature );
 		
 		// add the ship info index 
-		ADD_SHORT(static_cast<short>(shipp->ship_info_index));
+		val = (ubyte)(shipp->ship_info_index);
+		ADD_DATA(val);		
 
 		// add the ships's team select index
 		val = (ubyte)shipp->ts_index;
@@ -6060,37 +6061,46 @@ void send_post_sync_data_packet(net_player *p, int std_request)
 		ADD_USHORT( Objects[so->objnum].net_signature );		
 
 		// add number of primary and secondary banks
-		bval = static_cast<char>(shipp->weapons.num_primary_banks);
+		bval = (char)(shipp->weapons.num_primary_banks);
 		ADD_DATA(bval);
-		bval = static_cast<char>(shipp->weapons.num_secondary_banks);
+		bval = (char)(shipp->weapons.num_secondary_banks);
 		ADD_DATA(bval);
 
 		// add weapon bank status
-		bval = static_cast<char>(shipp->weapons.current_primary_bank);
-		if (pl != NULL) {
+		bval = (char)(shipp->weapons.current_primary_bank);
+		if(pl != NULL){
 			pl->s_info.cur_primary_bank = bval;
 		}
 		// Assert(bval != -1);
 		ADD_DATA(bval);
 
-		bval = static_cast<char>(shipp->weapons.current_secondary_bank);
-		if (pl != nullptr) {
+		bval = (char)(shipp->weapons.current_secondary_bank);
+		if(pl != NULL){
 			pl->s_info.cur_secondary_bank = bval;
 		}
 		// Assert(bval != -1);
 		ADD_DATA(bval);
-
+						
 		// primary weapon info
-		for (idx = 0; idx < shipp->weapons.num_primary_banks; idx++) {
-			ADD_SHORT(static_cast<short>(shipp->weapons.primary_bank_weapons[idx]));
-		}
+		val = (ubyte)(shipp->weapons.primary_bank_weapons[0]);
+		ADD_DATA(val);
+		val = (ubyte)(shipp->weapons.primary_bank_weapons[1]);
+		ADD_DATA(val);
 
 		// secondary weapon info
-		for (idx = 0; idx < shipp->weapons.num_secondary_banks; idx++) {
-			ADD_SHORT(static_cast<short>(shipp->weapons.secondary_bank_weapons[idx]));
-			ADD_SHORT(static_cast<short>(shipp->weapons.secondary_bank_ammo[idx]));
-		}
-
+		val_short = (short)(shipp->weapons.secondary_bank_weapons[0]);
+		ADD_SHORT(val_short);
+		val_short = (short)(shipp->weapons.secondary_bank_ammo[0]);
+		ADD_SHORT(val_short);
+		val_short = (short)(shipp->weapons.secondary_bank_weapons[1]);
+		ADD_SHORT(val_short);
+		val_short = (short)(shipp->weapons.secondary_bank_ammo[1]);
+		ADD_SHORT(val_short);
+		val_short = (short)(shipp->weapons.secondary_bank_weapons[2]);
+		ADD_SHORT(val_short);
+		val_short = (short)(shipp->weapons.secondary_bank_ammo[2]);
+		ADD_SHORT(val_short);		
+		
 		// send primary and secondary weapon link status
 		val = 0x0;
 		if(shipp->flags[Ship::Ship_Flags::Primary_linked]){
@@ -6154,15 +6164,15 @@ void send_post_sync_data_packet(net_player *p, int std_request)
 
 void process_post_sync_data_packet(ubyte *data, header *hinfo)
 {
-	ubyte val, ts_index;
+	ubyte val, sinfo_index, ts_index;
 	char b;
 	ushort net_sig, ship_ets, sval;
 	ship *shipp;
 	object *objp;
-	int idx, j;
+	int idx;
 	int offset = HEADER_LENGTH;
 	int ship_count;
-	short val_short, sinfo_index;
+	short val_short;
 
 	// packet routing information
 	GET_DATA(val);
@@ -6212,7 +6222,7 @@ void process_post_sync_data_packet(ubyte *data, header *hinfo)
 	for(idx=0; idx<ship_count; idx++){	
 		// get the object's net signature
 		GET_USHORT(net_sig);
-		GET_SHORT(sinfo_index);
+		GET_DATA(sinfo_index);
 		GET_DATA(ts_index);
 
 		// attempt to get the object
@@ -6248,11 +6258,11 @@ void process_post_sync_data_packet(ubyte *data, header *hinfo)
 		// get number of primary and secondary banks;
 		GET_DATA(b);
 		Assert( b != -1 );
-		shipp->weapons.num_primary_banks = static_cast<int>(b);
+		shipp->weapons.num_primary_banks = (int)b;
 
 		GET_DATA(b);
 		Assert( b != -1 );
-		shipp->weapons.num_secondary_banks = static_cast<int>(b);
+		shipp->weapons.num_secondary_banks = (int)b;
 
 		// get bank selection info
 		GET_DATA(b);
@@ -6275,12 +6285,20 @@ void process_post_sync_data_packet(ubyte *data, header *hinfo)
 		shipp->weapons.primary_bank_weapons[1] = ((val == 255) ? -1 : static_cast<int>(val));
 
 		// secondary weapon info
-		for (j = 0; j < shipp->weapons.num_secondary_banks; j++) {
-			GET_SHORT(val_short);
-			shipp->weapons.secondary_bank_weapons[j] = static_cast<int>(val_short);
-			GET_SHORT(val_short);
-			shipp->weapons.secondary_bank_ammo[j] = static_cast<int>(val_short);
-		}
+		GET_SHORT(val_short);
+		shipp->weapons.secondary_bank_weapons[0] = (int)val_short;
+		GET_SHORT(val_short);
+		shipp->weapons.secondary_bank_ammo[0] = (int)val_short;
+
+		GET_SHORT(val_short);
+		shipp->weapons.secondary_bank_weapons[1] = (int)val_short;
+		GET_SHORT(val_short);
+		shipp->weapons.secondary_bank_ammo[1] = (int)val_short;
+
+		GET_SHORT(val_short);
+		shipp->weapons.secondary_bank_weapons[2] = (int)val_short;
+		GET_SHORT(val_short);
+		shipp->weapons.secondary_bank_ammo[2] = (int)val_short;
 
 		// other flags
 		val = 0x0;
