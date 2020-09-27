@@ -1362,8 +1362,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 
 			Assertion(i <= MAX_MODEL_SUBSYSTEMS, "Object Update packet exceeded limit for number of subsystems. This is a coder error, please report!\n");
 			oo_flags |= OO_SUBSYSTEMS_NEW;		
-			ret = multi_pack_unpack_subsystem_list(true, data + packet_size + header_bytes, &flags, &subsys_data);
-			packet_size += ret;
+			packet_size += multi_pack_unpack_subsystem_list(true, data + packet_size + header_bytes, &flags, &subsys_data);
 		}
 	}
 
@@ -1900,7 +1899,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		SCP_vector<ubyte> flags;  flags.reserve(MAX_MODEL_SUBSYSTEMS);
 		SCP_vector<float> subsys_data;  subsys_data.reserve(MAX_MODEL_SUBSYSTEMS); // couldn't think of a better constant to put here
 		
-		ubyte ret7 = multi_pack_unpack_subsystem_list(false, data + offset, &flags, &subsys_data);
+		int ret7 = multi_pack_unpack_subsystem_list(false, data + offset, &flags, &subsys_data);
 		offset += ret7;
 
 		// Before we start the loop, we need to get the first subsystem, to make sure that it's set up to avoid issues.
@@ -1912,8 +1911,12 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		if (subsysp != nullptr) {
 			// look for a match, in order to set values.
 			for (int i = 0; i < (int)flags.size(); i++) {
-				// the current subsystem had no info, or was somehow a nullptr, so try the next subsystem.
-				if (flags[i] == 0 || subsysp == nullptr) {
+				// if the current subsystem was somehow a nullptr there is absolutely no way to keep applying the info, just break
+				if (subsysp == nullptr) {
+					break;
+				}
+				// the current subsystem had no info
+				if (flags[i] == 0) {
 					subsysp = GET_NEXT(subsysp);
 					continue;
 				}

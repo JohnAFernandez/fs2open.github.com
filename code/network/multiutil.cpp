@@ -3676,7 +3676,7 @@ ubyte multi_pack_unpack_desired_vel_and_desired_rotvel( int write, bool full_phy
 #define SUBSYSTEM_PACKER_FALSE 0
 
 // Cyborg17 - A packing function to manage subsystem info.
-ubyte multi_pack_unpack_subsystem_list(bool write, ubyte* data, SCP_vector<ubyte>* flags, SCP_vector<float>* subsys_data)
+int multi_pack_unpack_subsystem_list(bool write, ubyte* data, SCP_vector<ubyte>* flags, SCP_vector<float>* subsys_data)
 {
 
 	bitbuffer buf;
