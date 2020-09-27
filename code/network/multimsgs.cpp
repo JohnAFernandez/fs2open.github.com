@@ -6087,6 +6087,7 @@ void send_post_sync_data_packet(net_player *p, int std_request)
 		val = (ubyte)(shipp->weapons.primary_bank_weapons[1]);
 		ADD_DATA(val);
 
+		short val_short;
 		// secondary weapon info
 		val_short = (short)(shipp->weapons.secondary_bank_weapons[0]);
 		ADD_SHORT(val_short);
