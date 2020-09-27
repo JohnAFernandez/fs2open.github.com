@@ -211,9 +211,6 @@ void multi_oo_maybe_update_interp_info(int player_id, object* objp, vec3d* new_p
 float multi_oo_calc_pos_time_difference(int player_id, int net_sig_idx);
 
 
-// how much data we're willing to put into a given oo packet
-#define OO_MAX_SIZE					480
-
 // tolerance for bashing position
 #define OO_POS_UPDATE_TOLERANCE	150.0f
 
@@ -837,7 +834,7 @@ constexpr int OO_MAX_DATA_SIZE = MAX_PACKET_SIZE - OO_MAIN_HEADER_SIZE - OO_SERV
 
 // whatever crazy thing happens, keep the buffer from overflowing because we can just "erase" the part that overflowed it
 constexpr int OO_SAFE_BUFFER_SIZE = 10000; 
-constexpr int OO_LOCK_SIZE = 3;
+constexpr int OO_LOCK_SIZE = 4; // from the 
 
 // pack information for a client (myself), return bytes added
 int multi_oo_pack_client_data(ubyte *data, ship* shipp)
@@ -912,7 +909,7 @@ int multi_oo_pack_client_data(ubyte *data, ship* shipp)
 	// multilock object update patch
 	ushort count = 0;
 	SCP_vector<ushort> lock_list;
-	SCP_vector<ubyte> subsystems;
+	SCP_vector<ushort> subsystems;
 
 	// look for locked slots
 	for (auto & lock : shipp->missile_locks) {
@@ -1680,20 +1677,26 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		SCP_vector<ubyte> flags;  flags.reserve(MAX_MODEL_SUBSYSTEMS);
 		SCP_vector<float> subsys_data;  subsys_data.reserve(MAX_MODEL_SUBSYSTEMS); // couldn't think of a better constant to put here
 		
-		ubyte ret7 = multi_pack_unpack_subsystem_list(false, data + offset, &flags, &subsys_data);
+		int ret7 = multi_pack_unpack_subsystem_list(false, data + offset, &flags, &subsys_data);
 		offset += ret7;
 
-		// Before we start the loop, we need to get the first subsystem, to make sure that it's set up to avoid issues.
-		ship_subsys* subsysp = GET_FIRST(&shipp->subsys_list);
+		if (NOT_EMPTY(&shipp->subsys_list)) {
 
-		// and the index to use in the subsys_data vector
-		int data_idx = 0;
+			// Before we start the loop, we need to get the first subsystem, to make sure that it's set up to avoid issues.
+			ship_subsys* subsysp = GET_FIRST(&shipp->subsys_list);
 
-		if (subsysp != nullptr) {
+			// and the index to use in the subsys_data vector
+			int data_idx = 0;
+
 			// look for a match, in order to set values.
 			for (int i = 0; i < (int)flags.size(); i++) {
-				// the current subsystem had no info, or was somehow a nullptr, so try the next subsystem.
-				if (flags[i] == 0 || subsysp == nullptr) {
+
+				if (subsysp == END_OF_LIST(&shipp->subsys_list)) {
+					break;
+				}
+
+				// the current subsystem had no info, so try the next subsystem.
+				if (flags[i] == 0) {
 					subsysp = GET_NEXT(subsysp);
 					continue;
 				}
