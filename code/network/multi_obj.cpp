@@ -189,9 +189,6 @@ oo_general_info Oo_info;
 // flags
 bool Afterburn_hack = false;			// HACK!!!
 
-// for multilock
-#define OOC_INDEX_NULLPTR_SUBSYSEM			255			// If a lock has a nullptr subsystem, send this as the invalid index.
-
 // returns the last frame's index.
 int multi_find_prev_frame_idx();
 
@@ -1067,7 +1064,6 @@ int multi_oo_pack_client_data(ubyte *data, ship* shipp)
 {
 	ubyte out_flags;
 	ushort tnet_signature;
-	char t_subsys, l_subsys;
 	int packet_size = 0;
 
 	// get our firing stuff. Cyborg17 - This line is only for secondary fire, not other controls.
@@ -1104,8 +1100,8 @@ int multi_oo_pack_client_data(ubyte *data, ship* shipp)
 	ADD_DATA( out_flags );
 
 	// client targeting information	
-	t_subsys = -1;
-	l_subsys = -1;
+	ushort t_subsys = OOC_INDEX_NULLPTR_SUBSYSEM;
+	ushort l_subsys = OOC_INDEX_NULLPTR_SUBSYSEM;
 
 	// if nothing targeted
 	if(Player_ai->target_objnum == -1){
@@ -1129,8 +1125,8 @@ int multi_oo_pack_client_data(ubyte *data, ship* shipp)
 
 	// add them all
 	ADD_USHORT( tnet_signature );
-	ADD_DATA( t_subsys );
-	ADD_DATA( l_subsys );
+	ADD_USHORT( t_subsys );
+	ADD_USHORT( l_subsys );
 	
 	// multilock object update patch
 	ushort count = 0;
@@ -1597,14 +1593,14 @@ int multi_oo_unpack_client_data(net_player* pl, ubyte* data)
 		// assign subsystems if possible					
 		if (Objects[pl->m_player->objnum].type == OBJ_SHIP) {
 			Ai_info[Ships[Objects[pl->m_player->objnum].instance].ai_index].targeted_subsys = nullptr;
-			if ((t_subsys != -1) && (tobj->type == OBJ_SHIP)) {
+			if ((t_subsys != OOC_INDEX_NULLPTR_SUBSYSEM) && (tobj->type == OBJ_SHIP)) {
 				Ai_info[Ships[Objects[pl->m_player->objnum].instance].ai_index].targeted_subsys = ship_get_indexed_subsys(&Ships[tobj->instance], t_subsys);
 			}
 		}
 
 		pl->m_player->locking_subsys = nullptr;
 		if (Objects[pl->m_player->objnum].type == OBJ_SHIP) {
-			if ((l_subsys != -1) && (tobj->type == OBJ_SHIP)) {
+			if ((l_subsys != OOC_INDEX_NULLPTR_SUBSYSEM ) && (tobj->type == OBJ_SHIP)) {
 				pl->m_player->locking_subsys = ship_get_indexed_subsys(&Ships[tobj->instance], l_subsys);
 			}
 		}
