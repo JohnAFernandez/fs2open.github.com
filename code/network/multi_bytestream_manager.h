@@ -13,15 +13,20 @@ constexpr int ALLOWED_KEY_SIZE (FILENAME_MAX * 4);
 // but we can send to a particular team and indiciate if this packet is for the server to process as well
 
 struct bytestream_packet {
+	
+private:
 	int _player_id;							// the originating player, according to the server's index
 	int _packet_id;							// the incoming packet id, *can* be used to distinguish one packet from another
 	int _first_message_id;					// if this message was an addendum, what was the original 
-	int _addendum_index;					// if this message is an addendum, what 
+	int _addendum_index;					// if this message is an addendum, what is the index within the message list
 	ubyte _flags;							// who are we sending this to?  Does the server process this packets?
-	SCP_string lua_string_key;				// how lua recognizes this packet.
-	scripting::api::bytearray_h contents;	// the actual contents of the data being transmitted.
+	SCP_string _string_key;					// how lua recognizes this packet.
+	scripting::api::bytearray_h _contents;	// the actual contents of the data being transmitted.
 
+public:
 	bytestream_packet(ubyte flags_in, SCP_string filename_in, scripting::api::bytearray_h contents_in, int recipient_flags, bool rebroadcast, int team = -1 );
+	SCP_string get_string_key;
+	bool send();
 };
 
 class bytestream_packet_manager {
@@ -31,17 +36,15 @@ private:
 	SCP_unordered_map<SCP_string, SCP_vector<bytestream_packet>> _packets_received;
 	int _next_packet_id;
 
-
-
 	void send_next_packet();
 	int get_next_packet_id();
 
 public:
 
 	// functions to manage the messages within
-	void add_to_send_queue(bytestream_packet packet_to_send);
-	void add_to_send_queue(ubyte flags_in, SCP_string filename_in, scripting::api::bytearray_h contents_in);
-	void add_to_packets_received(bytestream_packet packet_received);
+	void add_to_send_queue(bytestream_packet* packet_to_send);
+	void add_to_send_queue(ubyte flags_in, SCP_string filename_in, scripting::api::bytearray_h contents_in, int recipient_flags, bool rebroadcast, int team);
+	void add_to_packets_received(bytestream_packet* packet_received);
 	void clear_all_outbound_packets();
 	void clear_all_received_packets();
 	void clear_all();

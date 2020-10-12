@@ -8737,21 +8737,27 @@ constexpr int MAX_INITIAL_JSON_BYTESTREAM_PACKET_SIZE = MAX_PACKET_SIZE - JSON_B
 constexpr int BYTESTREAM_TO_ALL_PLAYERS = (1 << 0); // Is this a client sending the bytestream to all players?
 
 // sends an lua file over the multi connection. TODO: NEED TO ADD A SIZE
-void send_bytestream_packet(ubyte* data, scripting::api::bytearray_h bytearray_in, SCP_string scriptfile_to_send_to, bool to_all_players, int player_id = 0) 
+void send_bytestream_packet(scripting::api::bytearray_h bytearray_in, SCP_string scriptfile_to_send_to, bool to_all_players, int player_id = 0) 
 {
+	ubyte data[MAX_PACKET_SIZE];
+
 	// determine how much space is needed for the filename
 	int extra_space = MAX_FILENAME_LEN - (int)scriptfile_to_send_to.size();
 
-	// return a failure to lua due to a too-large input for filename or input bytestream.
-	if (extra_space < 0) {
-		static bool filename_size_fail = false;
-		if (!filename_size_fail) {
-			Warning(LOCATION, "send_json_bytestream_packet() is trying to send a bystream to a script file whose identifier string is too large. Returning false, safely. Further failures of this type will fail silently.");
-			filename_size_fail = true;
-		}
-		return;
+	char key_out[];
 
-	} else if  ((int)bytearray_in.data().size() > MAX_INITIAL_JSON_BYTESTREAM_PACKET_SIZE + extra_space) {
+		int extra_space = strlen(key_out);
+
+	// return a failure to lua due to a too-large input for filename or input bytestream.
+		if (extra_space < 0) {
+			static bool filename_size_fail = false;
+			if (!filename_size_fail) {
+				Warning(LOCATION, "send_json_bytestream_packet() is trying to send a bystream to a script file whose identifier string is too large. Returning false, safely. Further failures of this type will fail silently.");
+				filename_size_fail = true;
+			}
+			return;
+		}
+	if  ((int)bytearray_in.data().size() > MAX_INITIAL_JSON_BYTESTREAM_PACKET_SIZE + extra_space) {
 		static bool bytearray_size_fail = false;
 		if (!bytearray_size_fail) {
 			Warning(LOCATION, "send_json_bytestream_packet() is trying to send a bystream that is too large. Returning false, safely. Further failures of this type will fail silently.");
@@ -8814,7 +8820,7 @@ void send_bytestream_packet(ubyte* data, scripting::api::bytearray_h bytearray_i
 	return;
 }
 
-void process_json_bytestream_packet(ubyte* data, header* hinfo) 
+void process_bytestream_packet(ubyte* data, header* hinfo) 
 {
 	int offset = HEADER_LENGTH, team;
 	ubyte flags;
