@@ -8032,8 +8032,10 @@ void send_beam_fired_packet(const beam_fire_info *fire_info, const beam_info *ov
 		ADD_FLOAT(override->dir_b.xyz.x);
 		ADD_FLOAT(override->dir_b.xyz.y);
 		ADD_FLOAT(override->dir_b.xyz.z);
-
-		ADD_FLOAT(override->delta_ang);
+		// rot_axis
+		ADD_FLOAT(override->rot_axis.xyz.x);
+		ADD_FLOAT(override->rot_axis.xyz.y);
+		ADD_FLOAT(override->rot_axis.xyz.z);
 
 		ADD_DATA(override->shot_count);
 
@@ -8105,8 +8107,10 @@ void process_beam_fired_packet(ubyte *data, header *hinfo)
 		GET_FLOAT(b_info.dir_b.xyz.x);
 		GET_FLOAT(b_info.dir_b.xyz.y);
 		GET_FLOAT(b_info.dir_b.xyz.z);
-
-		GET_FLOAT(b_info.delta_ang);
+		// rot_axis
+		GET_FLOAT(b_info.rot_axis.xyz.x);
+		GET_FLOAT(b_info.rot_axis.xyz.y);
+		GET_FLOAT(b_info.rot_axis.xyz.z);
 
 		GET_DATA(b_info.shot_count);
 
