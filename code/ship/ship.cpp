@@ -11562,6 +11562,13 @@ int ship_fire_primary(object * obj, int stream_weapons, int force, bool rollback
 								if (has_converging_autoaim) {
 									// converging autoaim
 									vm_vec_sub(&firing_vec, &predicted_target_pos, &firing_pos);
+									mprintf(("\npnt %f %f %f\n", pnt.xyz.x, pnt.xyz.y, pnt.xyz.z));
+									mprintf(("Client location: %f %f %f ori fvec: %f %f %f rvec: %f %f %f uvec: %f %f %f\n", obj->pos.xyz.x, obj->pos.xyz.y, obj->pos.xyz.z, obj->orient.vec.fvec.xyz.x, obj->orient.vec.fvec.xyz.y, obj->orient.vec.fvec.xyz.z, obj->orient.vec.rvec.xyz.x, obj->orient.vec.rvec.xyz.y, obj->orient.vec.rvec.xyz.z, obj->orient.vec.uvec.xyz.x, obj->orient.vec.uvec.xyz.y, obj->orient.vec.uvec.xyz.z));
+									mprintf(("Target location: %f %f %f ori fvec: %f %f %f rvec: %f %f %f uvec: %f %f %f\n", Objects[aip->target_objnum].pos.xyz.x, Objects[aip->target_objnum].pos.xyz.y, Objects[aip->target_objnum].pos.xyz.z, Objects[aip->target_objnum].orient.vec.fvec.xyz.x, Objects[aip->target_objnum].orient.vec.fvec.xyz.y, Objects[aip->target_objnum].orient.vec.fvec.xyz.z, Objects[aip->target_objnum].orient.vec.rvec.xyz.x, Objects[aip->target_objnum].orient.vec.rvec.xyz.y, Objects[aip->target_objnum].orient.vec.rvec.xyz.z, Objects[aip->target_objnum].orient.vec.uvec.xyz.x, Objects[aip->target_objnum].orient.vec.uvec.xyz.y, Objects[aip->target_objnum].orient.vec.uvec.xyz.z));
+									mprintf(("Predicted target pos: %f %f %f ", predicted_target_pos.xyz.x, predicted_target_pos.xyz.y, predicted_target_pos.xyz.z));
+									mprintf(("firing_pos: %f %f %f ", firing_pos.xyz.x, firing_pos.xyz.y, firing_pos.xyz.z));
+									mprintf(("firing_vec: %f %f %f\n", firing_vec.xyz.x, firing_vec.xyz.y, firing_vec.xyz.z));
+
 								} else {
 									// autoaim
 									vm_vec_sub(&firing_vec, &predicted_target_pos, &obj->pos);
@@ -11618,6 +11625,8 @@ int ship_fire_primary(object * obj, int stream_weapons, int force, bool rollback
 							// of weapon_create							
 							weapon_objnum = weapon_create( &firing_pos, &firing_orient, weapon_idx, OBJ_INDEX(obj), new_group_id,
 								0, 0, swp->primary_bank_fof_cooldown[bank_to_fire] );
+
+							mprintf(("Weapon Orient right before firing, fvec: %f %f %f\n", firing_orient.vec.fvec.xyz.x, firing_orient.vec.fvec.xyz.y, firing_orient.vec.fvec.xyz.z));
 
 							if (weapon_objnum == -1) {
 								// Weapon most likely failed to fire
