@@ -413,7 +413,7 @@ void popupdead_draw_button_text()
 // Called once per frame to run the dead popup
 int popupdead_do_frame(float  /*frametime*/)
 {
-	int k, choice;
+	int k, choice = -1;
 
 	if ( !Popupdead_active ) {
 		return -1;
