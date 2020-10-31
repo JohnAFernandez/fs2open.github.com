@@ -45,7 +45,7 @@ constexpr int OO_MAIN_HEADER_SIZE = 6;  // two ubytes and an int
 
 
 // One frame record per ship with each contained array holding one element for each frame.
-struct oo_ship_position_records {
+struct oo_object_position_records {
 	vec3d positions[MAX_FRAMES_RECORDED];							// The recorded ship positions, cur_frame_index is the index.
 	matrix orientations[MAX_FRAMES_RECORDED];						// The recorded ship orientations, cur_frame_index is the index. 
 	vec3d velocities[MAX_FRAMES_RECORDED];							// The recorded ship velocities (required for additive velocity shots and auto aim), cur_frame_index is the index.
@@ -165,9 +165,9 @@ struct oo_general_info {
 	ubyte cur_frame_index;									// the current frame index (to access the recorded info)
 
 	int timestamps[MAX_FRAMES_RECORDED];					// The timestamp for the recorded frame
-	SCP_vector<oo_ship_position_records> frame_info;		// Actually keeps track of ship physics info.  Uses net_signature as its index.
+	SCP_vector<oo_object_position_records> frame_info;		// Actually keeps track of ship physics info.  Uses net_signature as its index.
 	SCP_vector<oo_netplayer_records> player_frame_info;		// keeps track of player targets and what has been sent to each player. Uses player as the index
-
+	SCP_map<ushort, oo_object_position_records> frame_missile_info;
 
 	SCP_vector<oo_packet_and_interp_tracking> interp;		// Tracking received info and interpolation timing per ship, uses net_signature as its index.
 	// rollback info
@@ -2521,7 +2521,7 @@ void multi_init_oo_and_ship_tracker()
 	Oo_info.player_frame_info.reserve(MAX_PLAYERS); // Reserve up to the max players
 	Oo_info.interp.reserve(MAX_SHIPS);
 
-	oo_ship_position_records temp_position_records;
+	oo_object_position_records temp_position_records;
 	oo_netplayer_records temp_netplayer_records;
 
 	for (int i = 0; i < MAX_FRAMES_RECORDED; i++) {
