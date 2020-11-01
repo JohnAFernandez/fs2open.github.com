@@ -10,6 +10,7 @@
 
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
 
@@ -27,6 +28,7 @@
 #include "io/timer.h"
 #include "io/key.h"
 #include "mod_table/mod_table.h"
+#include "network/multi.h"
 
 extern int Game_mode;
 extern int Is_standalone;
@@ -216,6 +218,11 @@ void movie_display_loop(Player* player, PlaybackState* state) {
 
 		processEvents();
 
+		// maybe do multi processing
+		if ( (Game_mode & GM_MULTIPLAYER) && Net_player && (Net_player->flags & NETINFO_FLAG_DO_NETWORKING) ) {
+			multi_do_frame();
+		}
+
 		if (passed < sleepTime) {
 			auto sleep = sleepTime - passed;
 
@@ -224,6 +231,9 @@ void movie_display_loop(Player* player, PlaybackState* state) {
 	}
 
 	os::events::removeEventListener(key_handle);
+
+	// flush keys so we don't pass anything to the current state
+	key_flush();
 }
 
 }
@@ -240,6 +250,11 @@ bool play(const char* name) {
 
 	if (Cmdline_nomovies || Is_standalone) {
 		return false;
+	}
+
+	// for multiplayer, change the state in my netplayer structure
+	if ( (Game_mode & GM_MULTIPLAYER) && Net_player ) {
+		Net_player->state = NETPLAYER_STATE_CUTSCENE;
 	}
 
 	// clear the screen and hide the mouse cursor
