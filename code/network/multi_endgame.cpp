@@ -121,6 +121,8 @@ void multi_endgame_process()
 		if(!multi_endgame_server_ok_to_leave()){
 			if(Game_mode & GM_STANDALONE_SERVER){
 				while(!multi_endgame_server_ok_to_leave()){
+					extern std::uint32_t Test_this_frame;
+					++Test_this_frame;
 					// run networking, etc.
 					game_set_frametime(-1);
 					game_do_state_common(gameseq_get_state());

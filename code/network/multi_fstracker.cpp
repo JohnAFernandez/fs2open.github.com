@@ -456,6 +456,8 @@ int multi_fs_std_tracker_store_stats()
 	// multi_fs_store_stats_do() will handle all details of negotiating stats transfer with the tracker
 	do {		
 		ret_val = multi_fs_store_stats_do();
+		extern std::uint32_t Test_this_frame;
+		++Test_this_frame;
 		game_set_frametime(GS_STATE_STANDALONE_POSTGAME);
 		multi_do_frame();
 	} while(ret_val == MT_STATS_NOT_DONE);

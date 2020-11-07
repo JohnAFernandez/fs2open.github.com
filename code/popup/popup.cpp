@@ -843,6 +843,9 @@ int popup_do(popup_info *pi, int flags)
 		}
 		// otherwise just run the common functions (for networking,etc)
 		else {
+			extern std::uint32_t Test_this_frame;
+			++Test_this_frame;
+
 			game_set_frametime(-1);
 			game_do_state_common(gameseq_get_state(),flags & PF_NO_NETWORKING);	// do stuff common to all states 
 		}
@@ -903,7 +906,10 @@ int popup_do_with_condition(popup_info *pi, int flags, int(*condition)())
 		int k;
 
 		os_poll();
-		
+
+		extern std::uint32_t Test_this_frame;
+		++Test_this_frame;
+
 		game_set_frametime(-1);
 		game_do_state_common(gameseq_get_state());	// do stuff common to all states 
 		gr_restore_screen(screen_id);

@@ -223,7 +223,7 @@ extern "C" {
 void game_reset_view_clip();
 void game_reset_shade_frame();
 void game_post_level_init();
-void game_do_frame();
+void game_do_frame(bool set_frametime = true);
 void game_update_missiontime();	// called from game_do_frame() and navmap_do_frame()
 void game_reset_time();
 void game_show_framerate();			// draws framerate in lower right corner
@@ -4272,9 +4272,12 @@ void game_update_missiontime()
 		Missiontime += Frametime;
 }
 
-void game_do_frame()
-{	
-	game_set_frametime(GS_STATE_GAME_PLAY);
+void game_do_frame(bool set_frametime)
+{
+	if (set_frametime) {
+		game_set_frametime(GS_STATE_GAME_PLAY);
+	}
+
 	game_update_missiontime();
 
 	if (Game_mode & GM_STANDALONE_SERVER) {
@@ -4297,7 +4300,7 @@ void game_do_frame()
 void multi_maybe_do_frame()
 {
 	if ( (Game_mode & GM_MULTIPLAYER) && (Game_mode & GM_IN_MISSION) && !Multi_pause_status){
-		game_do_frame(); 
+		game_do_frame(false);
 	}
 }
 
@@ -5918,6 +5921,7 @@ void game_do_state_common(int state,int no_networking)
 	}
 }
 
+std::uint32_t Test_this_frame = 0;
 // Called once a frame.
 // You should never try to change the state
 // in here... if you think you need to, you probably really
@@ -5934,6 +5938,8 @@ void game_do_state(int state)
 	if (Game_do_state_should_skip) {
 		return;
 	}
+
+	++Test_this_frame;
 
 	if (OnFrameHook->isOverride()) {
 		game_set_frametime(state);

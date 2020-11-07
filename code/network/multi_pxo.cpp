@@ -4499,6 +4499,9 @@ void multi_pxo_pinfo_show()
 	
 	// run the popup
 	do {
+		extern std::uint32_t Test_this_frame;
+		++Test_this_frame;
+
 		game_set_frametime(GS_STATE_PXO);
 	} while ( !multi_pxo_pinfo_do() );
 
@@ -4788,6 +4791,9 @@ void multi_pxo_run_medals()
 
 	// run the medals screen until it says that it should be closed
 	do {
+		extern std::uint32_t Test_this_frame;
+		++Test_this_frame;
+
 		// set frametime and run common functions
 		game_set_frametime(-1);
 		game_do_state_common( gameseq_get_state() );

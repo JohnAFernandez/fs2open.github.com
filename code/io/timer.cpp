@@ -136,8 +136,19 @@ static int timestamp_ms() {
 	return (int)(timestamp_ticker / 1000);
 }
 
+static std::uint32_t Last_inc_frame = 0;
+extern std::uint32_t Test_this_frame;
+
 void timestamp_inc(fix frametime)
 {
+	// avoid incrementing ticker more than once per frame
+
+	if (Last_inc_frame == Test_this_frame) {
+		mprintf(("DEBUG_ME => timestamp_inc() called more than once this frame!!! (%u)\n", Test_this_frame));
+		return;
+	}
+	Last_inc_frame = Test_this_frame;
+
 	// Compute the microseconds, assumes that a fix uses the lower 16 bit for storing the fractional part
 	auto delta = (std::uint64_t)frametime;
 	delta = delta * (MICROSECONDS_PER_SECOND / 65536);
