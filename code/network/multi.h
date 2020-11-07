@@ -365,8 +365,6 @@ class player;
 #define STATS_MISSION_CLASS_KILLS	4			// kills for the mission, for one player
 #define STATS_ALLTIME_KILLS			5			// alltime kills, for one player
 
-#define MAX_SHIPS_PER_PACKET		64			// Number of ships in a STATS_MISSION_KILLS or STATS_ALLTIME_KILLS packet
-
 // ----------------------------------------------------------------------------------------
 
 
@@ -761,7 +759,7 @@ extern int Multi_button_info_ok;										// flag saying it is ok to apply criti
 extern int Multi_button_info_id;										// identifier of the stored button info to be applying
 
 // low level networking vars
-extern int HEADER_LENGTH;												// 1 byte (packet type)
+#define HEADER_LENGTH	1											// 1 byte (packet type)
 
 // misc data
 extern active_game* Active_game_head;								// linked list of active games displayed on Join screen
