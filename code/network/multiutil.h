@@ -28,6 +28,7 @@ struct server_item;
 class ship_info;
 class p_object;
 
+#define MULTI_INVALID_NET_SIGNATURE		0
 // two types of signatures that we can request,  permanent signatures are all below 5000.  non-permanent are above 5000
 #define MULTI_SIG_SHIP					1
 #define MULTI_SIG_ASTEROID				2

@@ -5705,8 +5705,14 @@ int weapon_create( vec3d * pos, matrix * porient, int weapon_type, int parent_ob
 			// for weapons that respawn, add the number of respawnable weapons to the net signature pool
 			// to reserve N signatures for the spawned weapons
 			if ( wip->wi_flags[Weapon::Info_Flags::Spawn] ){
-                multi_set_network_signature( (ushort)(Objects[objnum].net_signature + wip->maximum_children_spawned), MULTI_SIG_NON_PERMANENT );
-			} 
+                multi_set_network_signature( (ushort)(Objects[objnum].net_signature + wip->total_children_spawned), MULTI_SIG_NON_PERMANENT );
+			}
+
+			// if this missile can be shot down, it needs to be added to rollback, unless we're currently creating a rollback shot.
+			if ((wip->weapon_hitpoints > 0) && (!multi_ship_record_get_rollback_wep_mode())) {
+				multi_ship_record_add_bomb(objnum);
+			}
+
 		} else {
 			Objects[objnum].net_signature = multi_assign_network_signature( MULTI_SIG_NON_PERMANENT );
 		}

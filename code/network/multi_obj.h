@@ -65,6 +65,9 @@ struct weapon;
 // Add a new ship *ON IN-GAME SHIP CREATION* to the tracking struct
 void multi_ship_record_add_ship(int obj_num);
 
+// Add a newly created bomb to the tracking struct
+void multi_ship_record_add_bomb(int obj_num);
+
 // Update the tracking struct whenver the object is updated in-game
 void multi_ship_record_update_all();
 
