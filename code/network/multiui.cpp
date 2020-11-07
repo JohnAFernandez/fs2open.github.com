@@ -9141,7 +9141,10 @@ void multi_passwd_do(char *passwd)
 {
 	int k;
 
-	while(Multi_passwd_done == -1){	
+	while(Multi_passwd_done == -1){
+		extern std::uint32_t Test_this_frame;
+		++Test_this_frame;
+
 		// set frametime and run background stuff
 		game_set_frametime(-1);
 		game_do_state_common(gameseq_get_state());

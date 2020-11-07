@@ -381,6 +381,9 @@ void multi_pinfo_popup_do()
 		// check button presses
 		multi_pinfo_popup_check_buttons();
 
+		extern std::uint32_t Test_this_frame;
+		++Test_this_frame;
+
 		// set frametime and run background stuff
 		game_set_frametime(-1);
 		game_do_state_common(gameseq_get_state());
@@ -643,6 +646,9 @@ void multi_pinfo_do_medals()
 
 	// run the medals screen until it says that it should be closed
 	do {
+		extern std::uint32_t Test_this_frame;
+		++Test_this_frame;
+
 		// set frametime and run common functions
 		game_set_frametime(-1);
 		game_do_state_common(gameseq_get_state());
