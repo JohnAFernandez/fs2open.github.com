@@ -5686,6 +5686,11 @@ int weapon_create( vec3d * pos, matrix * porient, int weapon_type, int parent_ob
 		// for multiplayer clients, when creating lasers, add some more life to the lasers.  This helps
 		// to overcome some problems associated with lasers dying on client machine before they get message
 		// from server saying it hit something.
+
+		// now we're also adding weapons with hitpoints to the rollback struct so that players can actually shoot down bombs in multi
+		if (wip->weapon_hitpoints > 0) {
+			multi_ship_record_add_object(objnum);
+		}
 	}
 
 	//Check if we want to gen a random number
@@ -5701,7 +5706,6 @@ int weapon_create( vec3d * pos, matrix * porient, int weapon_type, int parent_ob
 	if(wip->life_min < 0.0f && wip->life_max < 0.0f) {
 		wp->lifeleft = wip->lifetime;
 	} else {
-		wp->lifeleft = ((rand_val) * (wip->life_max - wip->life_min)) + wip->life_min;
 		if((wip->wi_flags[Weapon::Info_Flags::Cmeasure]) && (parent_objp != NULL) && (parent_objp->flags[Object::Object_Flags::Player_ship])) {
 			wp->lifeleft *= The_mission.ai_profile->cmeasure_life_scale[Game_skill_level];
 		}
@@ -6586,6 +6590,11 @@ void weapon_hit( object * weapon_obj, object * other_obj, vec3d * hitpos, int qu
 	// if this is the player ship, and is a laser hit, skip it. wait for player "pain" to take care of it
 	if ((other_obj != Player_obj) || (wip->subtype != WP_LASER) || !MULTIPLAYER_CLIENT) {
 		weapon_hit_do_sound(other_obj, wip, hitpos, armed_weapon, quadrant);
+	}
+
+	// handle rollback cases for a collided weapon
+	if (Game_mode & GM_MULTIPLAYER) {
+		multi_ship_record_remove_object(OBJ_INDEX(weapon_obj));
 	}
 
 	if (wip->impact_weapon_expl_effect.isValid() && armed_weapon) {

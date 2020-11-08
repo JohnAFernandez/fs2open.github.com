@@ -7703,7 +7703,8 @@ void send_non_homing_fired_packet(ship* shipp, int banks_or_number_of_missiles_f
 		return;
 	}
 
-	object* ref_objp = multi_get_network_object(multi_client_lookup_ref_obj_net_sig());
+	bool missile_mode;
+	object* ref_objp = multi_get_network_object(multi_client_lookup_ref_obj_net_sig(&missile_mode));
 	if (ref_objp == nullptr) {
 		mprintf(("Unable to get accurate reference object for non-homing packet.\n"));
 		if (!secondary) {
@@ -7723,9 +7724,16 @@ void send_non_homing_fired_packet(ship* shipp, int banks_or_number_of_missiles_f
 	ADD_DATA(flags);
 	ADD_USHORT(ref_objp->net_signature);
 
+	ushort time_elapsed;
 	// We need the time elpased, so send the last frame we got from the server and how much time has happened since then.
 	int last_received_frame = multi_client_lookup_frame_idx();
-	auto time_elapsed = (ushort)(timestamp() - multi_client_lookup_frame_timestamp());
+	if (missile_mode) {
+		time_elapsed = 0;
+	}
+	else {
+		time_elapsed = (ushort)(timestamp() - multi_client_lookup_frame_timestamp());
+	}
+
 
 	ADD_INT(last_received_frame);
 	ADD_USHORT(time_elapsed);
@@ -7841,8 +7849,8 @@ void process_non_homing_fired_packet(ubyte* data, header* hinfo)
 		int time_after_frame = multi_ship_record_find_time_after_frame(client_frame, frame, (int)time_elapsed);
 		Assertion(time_after_frame >= 0, "Primary fire packet processor found an invalid time_after_frame of %d", time_after_frame);
 
-		vec3d new_tar_pos = multi_ship_record_lookup_position(objp_ref, frame);
-		matrix new_tar_ori = multi_ship_record_lookup_orientation(objp_ref, frame);
+		vec3d new_tar_pos = multi_ship_record_lookup_position(objp_ref->net_signature, frame);
+		matrix new_tar_ori = multi_ship_record_lookup_orientation(objp_ref->net_signature, frame);
 		// find out where the angle to the new primary fire should be, by
 		// rotating the vector
 
