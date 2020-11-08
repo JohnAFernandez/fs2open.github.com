@@ -45,12 +45,28 @@ constexpr int OO_MAIN_HEADER_SIZE = 6;  // two ubytes and an int
 
 
 // One frame record per ship with each contained array holding one element for each frame.
-struct oo_ship_position_records {
+class oo_object_position_records {
+public:
+	int objnum;														// now that we're tracking missiles as well, it's helpful to record the objnum 
 	vec3d positions[MAX_FRAMES_RECORDED];							// The recorded ship positions, cur_frame_index is the index.
 	matrix orientations[MAX_FRAMES_RECORDED];						// The recorded ship orientations, cur_frame_index is the index. 
 	vec3d velocities[MAX_FRAMES_RECORDED];							// The recorded ship velocities (required for additive velocity shots and auto aim), cur_frame_index is the index.
 	vec3d rotational_velocities[MAX_FRAMES_RECORDED];				// The recorded ship rotational velocities (required for auto aim if certain ), cur_frame_index is the index.
+	
+	oo_object_position_records(int objnum);
 };
+
+oo_object_position_records::oo_object_position_records(int objnum_in) 
+{
+	objnum = objnum_in;
+
+	for (int i = 0; i < MAX_FRAMES_RECORDED; i++) {
+		positions[i] = vmd_zero_vector;
+		orientations[i] = vmd_zero_matrix;
+		velocities[i] = vmd_zero_vector;
+		rotational_velocities[i] = vmd_zero_vector;
+	}
+}
 
 // keeps track of what has been sent to each player, helps cut down on bandwidth, allowing only new information to be sent instead of old.
 struct oo_info_sent_to_players {	
@@ -165,7 +181,7 @@ struct oo_general_info {
 	ubyte cur_frame_index;									// the current frame index (to access the recorded info)
 
 	int timestamps[MAX_FRAMES_RECORDED];					// The timestamp for the recorded frame
-	SCP_vector<oo_ship_position_records> frame_info;		// Actually keeps track of ship physics info.  Uses net_signature as its index.
+	SCP_unordered_map<ushort, oo_object_position_records> frame_info;		// Actually keeps track of ship physics info.  Uses net_signature as its index.
 	SCP_vector<oo_netplayer_records> player_frame_info;		// keeps track of player targets and what has been sent to each player. Uses player as the index
 
 
@@ -353,11 +369,19 @@ void multi_ship_record_add_ship(int obj_num)
 		return;
 	}
 
+	// there will only ever be one ship of a given 
+	if (objp->type == OBJ_SHIP) {
+		Oo_info.frame_info.try_emplace(objp->net_signature, *Oo_info.frame_info.find(0));
+	}	else {
+		Oo_info.frame_info.insert_or_assign()
+
+	}
+
 	// our target size is the number of ships in the vector plus one because net_signatures start at 1 and size gives the number of elements, and this should be a new element.
 	int current_size = (int)Oo_info.frame_info.size();
 	// if we're right where we should be.
 	if (net_sig_idx == current_size) {
-		Oo_info.frame_info.push_back(Oo_info.frame_info[0]);
+		Oo_info.frame_info.insert_or_assign(Oo_info.frame_info[0]);
 		Oo_info.interp.push_back(Oo_info.interp[0]);
 		for (int i = 0; i < MAX_PLAYERS; i++) {
 			Oo_info.player_frame_info[i].last_sent.push_back( Oo_info.player_frame_info[i].last_sent[0] );
@@ -2514,26 +2538,18 @@ void multi_init_oo_and_ship_tracker()
 
 	// Part 2: Init/Reset the repeating parts of the struct. 
 	Oo_info.frame_info.clear();		
+	Oo_info.frame_info.emplace(0, oo_object_position_records::oo_object_position_records(-1));
+
 	Oo_info.player_frame_info.clear();
 	Oo_info.interp.clear();
 
-	Oo_info.frame_info.reserve(MAX_SHIPS); // Reserving up to a reasonable number of ships here should help optimize a little bit.
 	Oo_info.player_frame_info.reserve(MAX_PLAYERS); // Reserve up to the max players
 	Oo_info.interp.reserve(MAX_SHIPS);
 
-	oo_ship_position_records temp_position_records;
 	oo_netplayer_records temp_netplayer_records;
-
-	for (int i = 0; i < MAX_FRAMES_RECORDED; i++) {
-		temp_position_records.orientations[i] = vmd_identity_matrix;
-		temp_position_records.positions[i] = vmd_zero_vector;
-		temp_position_records.velocities[i] = vmd_zero_vector;
-		temp_position_records.rotational_velocities[i] = vmd_zero_vector;
-	}
-
-	int cur = 0;
 	oo_info_sent_to_players temp_sent_to_player;
 
+	int cur = 0;
 	temp_sent_to_player.timestamp = timestamp(cur);
 	temp_sent_to_player.position = vmd_zero_vector;
 	temp_sent_to_player.hull = 0.0f;
@@ -2565,7 +2581,6 @@ void multi_init_oo_and_ship_tracker()
 	temp_sent_to_player.subsystem_2p.push_back(0.0f);
 
 	temp_netplayer_records.last_sent.push_back(temp_sent_to_player);
-	Oo_info.frame_info.push_back(temp_position_records);
 	
 	for (int i = 0; i < MAX_PLAYERS; i++) {
 		Oo_info.player_frame_info.push_back(temp_netplayer_records);
