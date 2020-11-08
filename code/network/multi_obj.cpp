@@ -45,12 +45,34 @@ constexpr int OO_MAIN_HEADER_SIZE = 6;  // two ubytes and an int
 
 
 // One frame record per ship with each contained array holding one element for each frame.
-struct oo_ship_position_records {
+class oo_object_position_records {
+public:
+	int objnum;														// now that we're tracking missiles as well, it's helpful to record the objnum 
 	vec3d positions[MAX_FRAMES_RECORDED];							// The recorded ship positions, cur_frame_index is the index.
 	matrix orientations[MAX_FRAMES_RECORDED];						// The recorded ship orientations, cur_frame_index is the index. 
 	vec3d velocities[MAX_FRAMES_RECORDED];							// The recorded ship velocities (required for additive velocity shots and auto aim), cur_frame_index is the index.
 	vec3d rotational_velocities[MAX_FRAMES_RECORDED];				// The recorded ship rotational velocities (required for auto aim if certain ), cur_frame_index is the index.
+
+	// In order to access these correctly, (and to keep from storing *every* last subsystem) check
+	SCP_vector<angles> subsystem_angles_h[MAX_FRAMES_RECORDED];
+	SCP_vector<angles> subsystem_angles_p[MAX_FRAMES_RECORDED];
+
+	oo_object_position_records(int objnum);
 };
+
+oo_object_position_records::oo_object_position_records(int objnum_in) 
+{
+	objnum = objnum_in;
+
+	for (int i = 0; i < MAX_FRAMES_RECORDED; i++) {
+		positions[i] = vmd_zero_vector;
+		orientations[i] = vmd_zero_matrix;
+		velocities[i] = vmd_zero_vector;
+		rotational_velocities[i] = vmd_zero_vector;
+		subsystem_angles_h[i].push_back(vmd_zero_angles);
+		subsystem_angles_p[i].push_back(vmd_zero_angles);
+	}
+}
 
 // keeps track of what has been sent to each player, helps cut down on bandwidth, allowing only new information to be sent instead of old.
 struct oo_info_sent_to_players {	
@@ -135,6 +157,8 @@ struct oo_rollback_restore_record {
 	matrix orientation;		// orientation to restore to
 	vec3d velocity;			// velocity to restore to
 	vec3d rotational_velocity; // rotational velocity to restore to
+	SCP_vector<angles> subsystem_angles_h;
+	SCP_vector<angles> subsystem_angles_p;
 };
 
 // Keeps track of how many shots that need to be fired in rollback mode.
@@ -163,19 +187,21 @@ struct oo_general_info {
 	// sent to oo_packet recipients. larger_wrap_count allows us to figure out if we are in an "odd" larger wrap
 	int number_of_frames;									// how many frames have we gone through, total.
 	ubyte cur_frame_index;									// the current frame index (to access the recorded info)
+	ubyte cur_rollback_frame;
 
 	int timestamps[MAX_FRAMES_RECORDED];					// The timestamp for the recorded frame
-	SCP_vector<oo_ship_position_records> frame_info;		// Actually keeps track of ship physics info.  Uses net_signature as its index.
+	SCP_unordered_map<ushort, oo_object_position_records> frame_info;		// Actually keeps track of ship physics info.  Uses net_signature as its index.
 	SCP_vector<oo_netplayer_records> player_frame_info;		// keeps track of player targets and what has been sent to each player. Uses player as the index
 
 
 	SCP_vector<oo_packet_and_interp_tracking> interp;		// Tracking received info and interpolation timing per ship, uses net_signature as its index.
 	// rollback info
 	bool rollback_mode;										// are we currently creating and moving weapons from the client primary fire packets
-	SCP_vector<int> rollback_weapon_numbers_created_this_frame;	// the weapons created this rollback frame.
+
+	SCP_vector<int> rollback_weapon_obj_nums_created_this_frame;	// the weapons created this rollback frame.
 	SCP_vector<int> rollback_weapon_object_number;						// a list of the weapons that were created, so that we can roll them into the current simulation
 
-	SCP_vector<int> rollback_ships;						// a list of ships that take part in roll back, no quick index, must be iterated through.
+	SCP_vector<int> rollback_objects;						// a list of ships that take part in roll back, no quick index, must be iterated through.
 	SCP_vector<oo_rollback_restore_record> restore_points;	// where to move ships back to when done with rollback. no quick index, must be iterated through.
 	SCP_vector<oo_unsimulated_shots> 
 		rollback_shots_to_be_fired[MAX_FRAMES_RECORDED];				// the shots we will need to fire and simulate during rollback, organized into the frames they will be fired
@@ -194,6 +220,9 @@ int multi_find_prev_frame_idx();
 
 // quickly lookup how much time has passed since the given frame.
 uint multi_ship_record_get_time_elapsed(int original_frame, int new_frame);
+
+// end the rollback resimulation
+void multi_end_abort_rollback();
 
 // fire the rollback weapons that are in the rollback struct
 void multi_oo_fire_rollback_shots(int frame_idx);
@@ -342,7 +371,7 @@ int OO_update_index = -1;							// The player index that allows us to look up mu
 // ---------------------------------------------------------------------------------------------------
 
 // Add a new ship to the tracking struct
-void multi_ship_record_add_ship(int obj_num)
+void multi_ship_record_add_object(int obj_num)
 {
 	object* objp = &Objects[obj_num];
 	int net_sig_idx = objp->net_signature;
@@ -353,60 +382,121 @@ void multi_ship_record_add_ship(int obj_num)
 		return;
 	}
 
-	// our target size is the number of ships in the vector plus one because net_signatures start at 1 and size gives the number of elements, and this should be a new element.
-	int current_size = (int)Oo_info.frame_info.size();
-	// if we're right where we should be.
-	if (net_sig_idx == current_size) {
-		Oo_info.frame_info.push_back(Oo_info.frame_info[0]);
-		Oo_info.interp.push_back(Oo_info.interp[0]);
-		for (int i = 0; i < MAX_PLAYERS; i++) {
-			Oo_info.player_frame_info[i].last_sent.push_back( Oo_info.player_frame_info[i].last_sent[0] );
-		}
+	// there will only ever be one ship of a given object signature, so we just need to emplace.
+	if (objp->type == OBJ_SHIP) {
+		Oo_info.frame_info.emplace(objp->net_signature, Oo_info.frame_info.find(0)->second);
 
-	} // if not, create the storage for it.
-	else if (net_sig_idx > current_size) {
-		while (net_sig_idx >= current_size) {
-			Oo_info.frame_info.push_back(Oo_info.frame_info[0]);
+		// now this section only initializes the oo ship structs that still use vectors (not a bad thing, the object records just need more flexibility because of weapons)
+
+		// our target size is the number of ships in the vector plus one because net_signatures start at 1 and size gives the number of elements, and this should be a new element.
+		int current_size = (int)Oo_info.interp.size();
+		// if we're right where we should be.
+		if (net_sig_idx == current_size) {
 			Oo_info.interp.push_back(Oo_info.interp[0]);
 			for (int i = 0; i < MAX_PLAYERS; i++) {
 				Oo_info.player_frame_info[i].last_sent.push_back( Oo_info.player_frame_info[i].last_sent[0] );
 			}
-			current_size++;
+
+		} // if not, create the storage for it.
+		else if (net_sig_idx > current_size) {
+			while (net_sig_idx >= current_size) {
+				Oo_info.interp.push_back(Oo_info.interp[0]);
+				for (int i = 0; i < MAX_PLAYERS; i++) {
+					Oo_info.player_frame_info[i].last_sent.push_back( Oo_info.player_frame_info[i].last_sent[0] );
+				}
+				current_size++;
+			}
+		} 
+
+		Assertion(net_sig_idx <= (current_size + 1), "New entry into the multi ship traker struct does not equal the index that should belong to it.\nNet_signature: %d and current_size %d\n", net_sig_idx, current_size);
+
+		ship_info* sip = &Ship_info[Ships[objp->instance].ship_info_index];
+
+		// To use vectors for the subsystems, we have to init the subsystem them here.
+		uint subsystem_count = (uint)sip->n_subsystems;
+
+		Oo_info.interp[net_sig_idx].subsystems_comparison_frame.reserve(subsystem_count);
+
+		while (Oo_info.interp[net_sig_idx].subsystems_comparison_frame.size() < subsystem_count) {
+			Oo_info.interp[net_sig_idx].subsystems_comparison_frame.push_back(-1);
+
+			for (int i = 0; i < MAX_PLAYERS; i++) {
+				Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_health.push_back(-1.0f);
+				Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_1b.push_back(-1.0f);
+				Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_1h.push_back(-1.0f);
+				Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_1p.push_back(-1.0f);
+				Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_2b.push_back(-1.0f);
+				Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_2h.push_back(-1.0f);
+				Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_2p.push_back(-1.0f);
+			}
 		}
-	} 
 
-	Assertion(net_sig_idx <= (current_size + 1), "New entry into the multi ship traker struct does not equal the index that should belong to it.\nNet_signature: %d and current_size %d\n", net_sig_idx, current_size);
-
-	ship_info* sip = &Ship_info[Ships[objp->instance].ship_info_index];
-
-	// To use vectors for the subsystems, we have to init the subsystem them here.
-	uint subsystem_count = (uint)sip->n_subsystems;
-
-	Oo_info.interp[net_sig_idx].subsystems_comparison_frame.reserve(subsystem_count);
-
-	while (Oo_info.interp[net_sig_idx].subsystems_comparison_frame.size() < subsystem_count) {
-		Oo_info.interp[net_sig_idx].subsystems_comparison_frame.push_back(-1);
-
-		for (int i = 0; i < MAX_PLAYERS; i++) {
-			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_health.push_back(-1.0f);
-			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_1b.push_back(-1.0f);
-			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_1h.push_back(-1.0f);
-			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_1p.push_back(-1.0f);
-			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_2b.push_back(-1.0f);
-			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_2h.push_back(-1.0f);
-			Oo_info.player_frame_info[i].last_sent[net_sig_idx].subsystem_2p.push_back(-1.0f);
-		}
+	// weapon signatures can wrap, so sometimes we have to replace the weapon entries. Weapons also don't need the other structs.
+	}	else {
+		Oo_info.frame_info.insert_or_assign(objp->net_signature, oo_object_position_records::oo_object_position_records(OBJ_INDEX(objp)));
 	}
 
 	// store info from the obj struct if it's already in the mission, otherwise, let the physics update call take care of it when the first frame starts.
 	if (Game_mode & GM_IN_MISSION) {
 
+		auto position_record_iterator = Oo_info.frame_info.find(objp->net_signature);
+
+		// this entry must be created already otherwise everything will crash later.
+		Assertion(position_record_iterator != Oo_info.frame_info.cend(), "Coder error. Could not find the entry that rollback was supposed to have just created.");
+
+		oo_object_position_records* position_record = &position_record_iterator->second;
+
 		// only add positional info if they are in the mission.
-		Oo_info.frame_info[net_sig_idx].positions[Oo_info.cur_frame_index] = objp->pos;
-		Oo_info.frame_info[net_sig_idx].orientations[Oo_info.cur_frame_index] = objp->orient;
-		Oo_info.frame_info[net_sig_idx].velocities[Oo_info.cur_frame_index] = objp->phys_info.vel;
-		Oo_info.frame_info[net_sig_idx].rotational_velocities[Oo_info.cur_frame_index] = objp->phys_info.rotvel;
+		position_record->positions[Oo_info.cur_frame_index] = objp->pos;
+		position_record->orientations[Oo_info.cur_frame_index] = objp->orient;
+		position_record->velocities[Oo_info.cur_frame_index] = objp->phys_info.vel;
+		position_record->rotational_velocities[Oo_info.cur_frame_index] = objp->phys_info.rotvel;
+		
+		if (objp->type == OBJ_SHIP) {
+			Assert(objp->instance >= 0);
+			ship* shipp = &Ships[objp->instance];
+			Assert(shipp != nullptr);
+			int i = 0;
+			for (ship_subsys* subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list); subsystem = GET_NEXT(subsystem)) {
+				// this should allow us to only track the rotating subsystems that are not turrets.  Turrets would probably be too much.
+				if (subsystem->system_info->flags[Model::Subsystem_Flags::Rotates, Model::Subsystem_Flags::Dum_rotates]) {
+					position_record->subsystem_angles_h[Oo_info.cur_frame_index].push_back(subsystem->submodel_info_1.angs);
+					position_record->subsystem_angles_p[Oo_info.cur_frame_index].push_back(subsystem->submodel_info_2.angs);
+					i++;
+				}
+			}
+		}
 	}
+}
+
+void multi_ship_record_remove_object(int objnum)
+{
+	object* objp = &Objects[objnum];
+
+	if (objp == nullptr || objp->instance < 0) {
+		mprintf(("Invalid object number passed to multi_ship_record_remove_object, ignoring!\n"));
+		return;
+	}
+
+	if (objp->type != OBJ_WEAPON) {
+		mprintf(("Invalid object type of %d passed to multi_ship_record_remove_object().  Only weapons are supported right now.\n", objp->type));
+		return;
+	}
+
+	if (objp->net_signature == 0) {
+		mprintf(("Object with invalid net signature passed to multi_ship_record_remove_object.  Did this run in single player?!\n"));
+		return;
+	}
+
+	auto candidate_to_remove = Oo_info.frame_info.find(objp->net_signature);
+
+	if (candidate_to_remove == Oo_info.frame_info.cend()) {
+		mprintf(("A request was sent to multi_ship_record_remove_object to remove an object which not in the multi record in the first place.\n"));
+		return;
+	}
+
+	Oo_info.frame_info.erase(objp->net_signature);
+
 }
 
 // Update the tracking struct whenever the object is updated in-game
@@ -421,8 +511,10 @@ void multi_ship_record_update_all()
 	int net_sig_idx;
 	object* objp;
 
+	// we have to update all ships and all weapons
+
 	for (ship & cur_ship : Ships) {
-		// apparently this occasionally happens.
+		// this slot is not yet in use.
 		if (cur_ship.objnum == -1) {
 			continue;
 		}		
@@ -435,16 +527,83 @@ void multi_ship_record_update_all()
 		 
 		net_sig_idx = objp->net_signature;
 
-		Assertion(net_sig_idx <= STANDALONE_SHIP_SIG, "Multi tracker got an invalid index of %d while updating it records. This is likely a coder error, please report!", net_sig_idx);
+		Assertion(net_sig_idx <= STANDALONE_SHIP_SIG, "Multi tracker got an invalid index of %d while updating its ship records. This is likely a coder error, please report!", net_sig_idx);
 		// make sure it's a valid index.
 		if (net_sig_idx < SHIP_SIG_MIN || net_sig_idx == STANDALONE_SHIP_SIG || net_sig_idx > SHIP_SIG_MAX) {
 			 continue;
 		}
 
-		Oo_info.frame_info[net_sig_idx].positions[Oo_info.cur_frame_index] = objp->pos;
-		Oo_info.frame_info[net_sig_idx].orientations[Oo_info.cur_frame_index] = objp->orient;
-		Oo_info.frame_info[net_sig_idx].velocities[Oo_info.cur_frame_index] = objp->phys_info.vel;
-		Oo_info.frame_info[net_sig_idx].rotational_velocities[Oo_info.cur_frame_index] = objp->phys_info.rotvel;
+		auto cur_records = Oo_info.frame_info.find(net_sig_idx);
+
+		// let's try adding the object in if it's not there for now.
+		if (cur_records == Oo_info.frame_info.cend()) {
+			multi_ship_record_add_object(OBJ_INDEX(objp));
+		// otherwise, just add the new info
+		} else {
+			auto info_destination = &cur_records->second;
+			info_destination->positions[Oo_info.cur_frame_index] = objp->pos;
+			info_destination->orientations[Oo_info.cur_frame_index] = objp->orient;
+			info_destination->velocities[Oo_info.cur_frame_index] = objp->phys_info.vel;
+			info_destination->rotational_velocities[Oo_info.cur_frame_index] = objp->phys_info.rotvel;
+
+			Assert(objp->instance >= 0);
+			ship* shipp = &Ships[objp->instance];
+			Assert(shipp != nullptr);
+			int i = 0;
+			for (ship_subsys* subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list); subsystem = GET_NEXT(subsystem)) {
+				if (subsystem->system_info->flags[Model::Subsystem_Flags::Rotates, Model::Subsystem_Flags::Dum_rotates]) {
+					// these *should* be added safely but let's double check just in case.
+					if (i < (int)info_destination->subsystem_angles_h[Oo_info.cur_frame_index].size()) {
+						info_destination->subsystem_angles_h[Oo_info.cur_frame_index].at(i) = subsystem->submodel_info_1.angs;
+					}
+					if (i < (int)info_destination->subsystem_angles_p[Oo_info.cur_frame_index].size()) {
+						info_destination->subsystem_angles_p[Oo_info.cur_frame_index].at(i) = subsystem->submodel_info_2.angs;
+					}
+					i++;
+				}
+			}
+		}
+	}
+
+	for (weapon& cur_weapon : Weapons) {
+		// this slot is not yet in use.
+		if (cur_weapon.objnum == -1) {
+			continue;
+		}		
+
+		objp = &Objects[cur_weapon.objnum];
+
+		if (objp == nullptr || objp->type != OBJ_WEAPON) {
+			continue;
+		}
+
+		// only need to track weapons that have hitpoints.
+		if (Weapon_info[cur_weapon.weapon_info_index].weapon_hitpoints <= 0) {
+			continue;
+		}
+
+		net_sig_idx = objp->net_signature;
+
+		Assertion(net_sig_idx >= NPERM_SIG_MIN && net_sig_idx < NPERM_SIG_MAX , "Multi tracker got an invalid index of %d while updating its weapons records. This is likely a coder error, please report!", net_sig_idx);
+		// make sure it's a valid index.
+		if (net_sig_idx < NPERM_SIG_MIN || net_sig_idx > NPERM_SIG_MAX) {
+			continue;
+		}
+
+		auto cur_records = Oo_info.frame_info.find(net_sig_idx);
+
+		// let's try adding the object in if it's not there for now, or if we've wrapped and somehow not caught it.
+		if (cur_records == Oo_info.frame_info.cend() || OBJ_INDEX(objp) != cur_records->second.objnum) {
+			mprintf(("Multi_ship_record_update_all found a qualifying weapon that was not already in the ship records.\n"));
+			multi_ship_record_add_object(OBJ_INDEX(objp));
+			// otherwise, just add the new info to the already existing struct
+		} else {
+			auto info_destination = &cur_records->second;
+			info_destination->positions[Oo_info.cur_frame_index] = objp->pos;
+			info_destination->orientations[Oo_info.cur_frame_index] = objp->orient;
+			info_destination->velocities[Oo_info.cur_frame_index] = objp->phys_info.vel;
+			info_destination->rotational_velocities[Oo_info.cur_frame_index] = objp->phys_info.rotvel;
+		}
 	}
 }
 
@@ -523,20 +682,29 @@ int multi_ship_record_find_frame(int client_frame, int time_elapsed)
 }
 
 // Quick lookup for the record of position.
-vec3d multi_ship_record_lookup_position(object* objp, int frame) 
+vec3d multi_ship_record_lookup_position(ushort net_signature, int frame) 
 {
-	Assertion(objp != nullptr, "nullptr given to multi_ship_record_lookup_position. \nThis should be handled earlier in the code, please report!");
-	return Oo_info.frame_info[objp->net_signature].positions[frame];
+	auto validity_check = Oo_info.frame_info.find(net_signature);
+
+	if (validity_check == Oo_info.frame_info.cend()) {
+		mprintf(("multi_ship_record_lookup_position curiously could not find the object it was looking for.  It was given net_sginature: %d\n", net_signature));
+		return vmd_zero_vector;
+	}
+
+	return validity_check->second.positions[frame];
 }
 
 // Quick lookup for the record of orientation.
-matrix multi_ship_record_lookup_orientation(object* objp, int frame) 
+matrix multi_ship_record_lookup_orientation(ushort net_signature, int frame) 
 {
-	Assertion(objp != nullptr, "nullptr given to multi_ship_record_lookup_position. \nThis should be handled earlier in the code, please report!");
-	if (objp == nullptr) {
+	auto validity_check = Oo_info.frame_info.find(net_signature);
+
+	if (validity_check == Oo_info.frame_info.cend()) {
+		mprintf(("multi_ship_record_lookup_orientation curiously could not find the object it was looking for.  It was given net_sginature: %d\n", net_signature));
 		return vmd_identity_matrix;
 	}
-	return Oo_info.frame_info[objp->net_signature].orientations[frame];
+
+	return validity_check->second.orientations[frame];
 }
 
 // figure out how many items we may have to create
@@ -559,7 +727,6 @@ void multi_ship_record_add_timestamp(int pl_id, ubyte timestamp, int seq_num) {
 		// lastly, add the timestamp we received to the end.
 		Oo_info.received_frametimes[pl_id].push_back(timestamp);
 	}
-
 }
 
 
@@ -601,7 +768,9 @@ void multi_ship_record_add_rollback_wep(int wep_objnum)
 	}
 	
 	// add it to the list of weapons we'll need to add to the simulation.
-	Oo_info.rollback_weapon_numbers_created_this_frame.push_back(wep_objnum);
+	Oo_info.rollback_weapon_obj_nums_created_this_frame.push_back(wep_objnum);
+
+	
 }
 
 // This stores the information we got from the client to create later.
@@ -632,9 +801,8 @@ void multi_ship_record_do_rollback()
 	// set up all restore points and ship portion of the collision list
 	for (ship& cur_ship : Ships) {
 
-		// once this happens, we've run out of ships.
 		if (cur_ship.objnum < 0) {
-			break;
+			continue;
 		}
 
 		objp = &Objects[cur_ship.objnum];
@@ -656,7 +824,7 @@ void multi_ship_record_do_rollback()
 			continue;
 		}
 
-		Oo_info.rollback_ships.push_back(cur_ship.objnum);
+		Oo_info.rollback_objects.push_back(cur_ship.objnum);
 
 		oo_rollback_restore_record restore_point;
 
@@ -666,9 +834,67 @@ void multi_ship_record_do_rollback()
 		restore_point.velocity = objp->phys_info.vel;
 		restore_point.rotational_velocity = objp->phys_info.rotvel;
 
+		// handle rotating subsystems
+		restore_point.subsystem_angles_h.clear();
+		restore_point.subsystem_angles_p.clear();
+
+		Assert(objp->instance >= 0);
+		ship* shipp = &Ships[objp->instance];
+		Assert(shipp != nullptr);
+		int i = 0;
+
+		for (ship_subsys* subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list); subsystem = GET_NEXT(subsystem)) {
+			// this should allow us to only track the rotating subsystems that are not turrets.  Turrets would probably be too much time to work through on every frame.
+			if (subsystem->system_info->flags[Model::Subsystem_Flags::Rotates, Model::Subsystem_Flags::Dum_rotates]) {
+				restore_point.subsystem_angles_h.push_back(subsystem->submodel_info_1.angs);
+				restore_point.subsystem_angles_p.push_back(subsystem->submodel_info_2.angs);
+			}
+		}
+
 		Oo_info.restore_points.push_back(restore_point);
 		// Also take this opportunity to set up their collision 
 		Oo_info.rollback_collide_list.push_back(cur_ship.objnum);
+	}
+
+	// set up all restore points and ship portion of the collision list
+	for (weapon& cur_weap : Weapons) {
+
+		// once this happens, we've run out of ships.
+		if (cur_weap.objnum < 0) {
+			continue;
+		}
+
+		objp = &Objects[cur_weap.objnum];
+		if (objp == nullptr) {
+			continue;
+		}
+
+		net_sig_idx = objp->net_signature;
+
+		// this should not happen, but it would not access correct info. 
+		//It only means a less accurate simulation (and a mystery), not a crash. So, for now, write to the log. 
+		if (net_sig_idx < 1) {
+			mprintf(("Rollback weapon does not have a net signature.  Someone should probably investigate this at some point.\n"));
+			continue;
+		}
+		
+		if (Weapon_info[Weapons[objp->instance].weapon_info_index].weapon_hitpoints <= 0) {
+			continue;
+		}
+
+		Oo_info.rollback_objects.push_back(cur_weap.objnum);
+
+		oo_rollback_restore_record restore_point;
+
+		restore_point.roll_objnum = cur_weap.objnum;
+		restore_point.position = objp->pos;
+		restore_point.orientation = objp->orient;
+		restore_point.velocity = objp->phys_info.vel;
+		restore_point.rotational_velocity = objp->phys_info.rotvel;
+
+		Oo_info.restore_points.push_back(restore_point);
+		// Also take this opportunity to set up their collision 
+		Oo_info.rollback_collide_list.push_back(cur_weap.objnum);
 	}
 
 	// now we need to figure out which frame will start the rollback simulation
@@ -695,6 +921,8 @@ void multi_ship_record_do_rollback()
 		return;
 	}
 
+	Oo_info.cur_rollback_frame = frame_idx;
+
 	do {
 		// move all ships to their recorded positions
 		multi_oo_restore_frame(frame_idx);
@@ -716,17 +944,23 @@ void multi_ship_record_do_rollback()
 
 	} while (frame_idx != Oo_info.cur_frame_index);
 
-	// restore the old frame
+	multi_end_abort_rollback();
+}
+
+// end rollback resimulation
+void multi_end_abort_rollback()
+{
+	// restore the old frame so we don't get any weird bugs
 	multi_record_restore_positions();
 
-	// clean up the rollback info that has been taken care of.
+	// clean up the finished rollback info
 	Oo_info.rollback_collide_list.clear();
 	Oo_info.rollback_mode = false;
-	Oo_info.rollback_ships.clear();
+	Oo_info.rollback_objects.clear();
+	Oo_info.rollback_weapon_object_number.clear();
 	for (auto & shots_to_be_fired : Oo_info.rollback_shots_to_be_fired) {
 		shots_to_be_fired.clear();
 	}
-	Oo_info.rollback_weapon_object_number.clear();
 }
 
 // fires the rollback weapons that are in the rollback struct
@@ -735,33 +969,61 @@ void multi_oo_fire_rollback_shots(int frame_idx)
 	for (auto & rollback_shot : Oo_info.rollback_shots_to_be_fired[frame_idx]) {
 		rollback_shot.shooterp->pos = rollback_shot.pos;
 		rollback_shot.shooterp->orient = rollback_shot.orient;
+		rollback_shot.shooterp->phys_info.vel = Oo_info.frame_info.find(rollback_shot.shooterp->net_signature)->second.velocities[frame_idx]; // until it's worthwhile to do a muti bump, used the server-recorded veloctiy.
 		if (rollback_shot.secondary_shot) {
 			ship_fire_secondary(rollback_shot.shooterp, 1, true);
-		}
-		else {
+		} else {
 			ship_fire_primary(rollback_shot.shooterp, 0, 1, true);
 		}
 	}
 
 	// add the newly created shots to the collision list.
-	for (auto& wep_obj_number : Oo_info.rollback_weapon_numbers_created_this_frame) {
+	for (auto& wep_obj_number : Oo_info.rollback_weapon_obj_nums_created_this_frame) {
 		Oo_info.rollback_weapon_object_number.push_back(wep_obj_number);
 		Oo_info.rollback_collide_list.push_back(wep_obj_number);
 	}
-	Oo_info.rollback_weapon_numbers_created_this_frame.clear();
+	Oo_info.rollback_weapon_obj_nums_created_this_frame.clear();
+}
+
+// for removing weapons once they have hit something while resimulating
+void multi_ship_record_remove_collider(int objnum)
+{
+	// regular loop here so we don't have to call std::distance
+	for (size_t i = 0; i < Oo_info.rollback_collide_list.size(); i++) {
+		if (Oo_info.rollback_collide_list[i] == objnum) {
+			Oo_info.rollback_collide_list[i] = Oo_info.rollback_collide_list.back();
+			Oo_info.rollback_collide_list.pop_back();
+			break;
+		}
+	}
 }
 
 // moves all rollbacked ships back to the original frame
 void multi_oo_restore_frame(int frame_idx)
 {
 	// set the position, orientation, and velocity for each object
-	for (auto& objnum : Oo_info.rollback_ships) {
+	for (auto& objnum : Oo_info.rollback_objects) {
 		object* objp = &Objects[objnum];
 		Assertion(objp != nullptr, "Nullptr somehow got into the rollback ship vector, please report!");
-		objp->pos = Oo_info.frame_info[objp->net_signature].positions[frame_idx];
-		objp->orient = Oo_info.frame_info[objp->net_signature].orientations[frame_idx];
-		objp->phys_info.vel = Oo_info.frame_info[objp->net_signature].velocities[frame_idx];
-		objp->phys_info.rotvel = Oo_info.frame_info[objp->net_signature].rotational_velocities[frame_idx];
+		auto object_record = Oo_info.frame_info.find(objp->net_signature)->second;
+		
+		objp->pos = object_record.positions[frame_idx];
+		objp->orient = object_record.orientations[frame_idx];
+		objp->phys_info.vel = object_record.velocities[frame_idx];
+		objp->phys_info.rotvel = object_record.rotational_velocities[frame_idx];
+
+		if (objp->type == OBJ_SHIP) {
+			Assert(objp->instance >= 0);
+			ship* shipp = &Ships[objp->instance];
+			Assert(shipp != nullptr);
+			int i = 0;
+			for (ship_subsys* subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list); subsystem = GET_NEXT(subsystem)) {
+				if (subsystem->system_info->flags[Model::Subsystem_Flags::Rotates, Model::Subsystem_Flags::Dum_rotates]) {
+					subsystem->submodel_info_1.angs = object_record.subsystem_angles_h[frame_idx].at(i);
+					subsystem->submodel_info_2.angs = object_record.subsystem_angles_p[frame_idx].at(i);
+				}
+			}
+		}
 	}
 }
 
@@ -794,6 +1056,21 @@ void multi_record_restore_positions()
 		objp->pos = restore_point.position;
 		objp->orient = restore_point.orientation;
 		objp->phys_info.vel = restore_point.velocity;
+		objp->phys_info.rotvel = restore_point.rotational_velocity;
+		if (objp->type == OBJ_SHIP) {
+			Assert(objp->instance >= 0);
+			ship* shipp = &Ships[objp->instance];
+			Assert(shipp != nullptr);
+			int i = 0;
+			for (ship_subsys* subsystem = GET_FIRST(&shipp->subsys_list); subsystem != END_OF_LIST(&shipp->subsys_list); subsystem = GET_NEXT(subsystem)) {
+				// this should allow us to only track the rotating subsystems that are not turrets.  Turrets would probably be too much.
+				if (subsystem->system_info->flags[Model::Subsystem_Flags::Rotates, Model::Subsystem_Flags::Dum_rotates]) {
+					subsystem->submodel_info_1.angs = restore_point.subsystem_angles_h[i];
+					subsystem->submodel_info_2.angs = restore_point.subsystem_angles_p[i];
+					i++;
+				}
+			}
+		}
 	}
 
 	Oo_info.restore_points.clear();
@@ -824,9 +1101,18 @@ void multi_ship_record_rank_seq_num(object* objp, int seq_num)
 	}
 }
 
-// Quick lookup for the most recently received ship
-ushort multi_client_lookup_ref_obj_net_sig()
+// Quick lookup for the most recently received ship or the currently targeted bomb
+ushort multi_client_lookup_ref_obj_net_sig(bool* mode)
 {	
+	*mode = false;
+	if (Player_ai->target_objnum > -1 && Objects[Player_ai->target_objnum].type == OBJ_WEAPON) {
+		object* candidate_weapon = &Objects[Player_ai->target_objnum];
+		if (Weapon_info[Weapons[candidate_weapon->instance].weapon_info_index].weapon_hitpoints > 0) {
+			*mode = true;
+			return candidate_weapon->net_signature;
+		}
+	}
+
 	return Oo_info.most_recent_updated_net_signature;
 }
 
@@ -2509,6 +2795,8 @@ void multi_init_oo_and_ship_tracker()
 
 	Oo_info.number_of_frames = 0;
 	Oo_info.cur_frame_index = 0;
+	Oo_info.cur_rollback_frame = 0;
+
 	for (int i = 0; i < MAX_FRAMES_RECORDED; i++) { // NOLINT
 		Oo_info.timestamps[i] = MAX_TIME; // This needs to be Max time (or at least some absurdly high number) for rollback to work correctly
 	}
@@ -2516,7 +2804,7 @@ void multi_init_oo_and_ship_tracker()
 	Oo_info.rollback_mode = false;
 	Oo_info.rollback_weapon_object_number.clear();
 	Oo_info.rollback_collide_list.clear();
-	Oo_info.rollback_ships.clear();
+	Oo_info.rollback_objects.clear();
 	for (int i = 0; i < MAX_FRAMES_RECORDED; i++) { // NOLINT
 		Oo_info.rollback_shots_to_be_fired[i].clear();
 		Oo_info.rollback_shots_to_be_fired[i].reserve(20);
@@ -2524,26 +2812,18 @@ void multi_init_oo_and_ship_tracker()
 
 	// Part 2: Init/Reset the repeating parts of the struct. 
 	Oo_info.frame_info.clear();		
+	Oo_info.frame_info.emplace(0, oo_object_position_records::oo_object_position_records(-1));
+
 	Oo_info.player_frame_info.clear();
 	Oo_info.interp.clear();
 
-	Oo_info.frame_info.reserve(MAX_SHIPS); // Reserving up to a reasonable number of ships here should help optimize a little bit.
 	Oo_info.player_frame_info.reserve(MAX_PLAYERS); // Reserve up to the max players
 	Oo_info.interp.reserve(MAX_SHIPS);
 
-	oo_ship_position_records temp_position_records;
 	oo_netplayer_records temp_netplayer_records;
-
-	for (int i = 0; i < MAX_FRAMES_RECORDED; i++) {
-		temp_position_records.orientations[i] = vmd_identity_matrix;
-		temp_position_records.positions[i] = vmd_zero_vector;
-		temp_position_records.velocities[i] = vmd_zero_vector;
-		temp_position_records.rotational_velocities[i] = vmd_zero_vector;
-	}
-
-	int cur = 0;
 	oo_info_sent_to_players temp_sent_to_player;
 
+	int cur = 0;
 	temp_sent_to_player.timestamp = timestamp(cur);
 	temp_sent_to_player.position = vmd_zero_vector;
 	temp_sent_to_player.hull = 0.0f;
@@ -2575,7 +2855,6 @@ void multi_init_oo_and_ship_tracker()
 	temp_sent_to_player.subsystem_2p.push_back(0.0f);
 
 	temp_netplayer_records.last_sent.push_back(temp_sent_to_player);
-	Oo_info.frame_info.push_back(temp_position_records);
 	
 	for (int i = 0; i < MAX_PLAYERS; i++) {
 		Oo_info.player_frame_info.push_back(temp_netplayer_records);

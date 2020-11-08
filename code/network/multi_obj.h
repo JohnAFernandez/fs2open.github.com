@@ -58,8 +58,11 @@ struct weapon;
 // if it breaks, find Cyborg17 so you can yell at him
 // This section is almost all server side
 
-// Add a new ship *ON IN-GAME SHIP CREATION* to the tracking struct
-void multi_ship_record_add_ship(int obj_num);
+// Add a new ship to the tracking struct
+void multi_ship_record_add_object(int obj_num);
+
+// Remove an object from the struct, just used for weapons for now.
+void multi_ship_record_remove_object(int objnum);
 
 // Update the tracking struct whenver the object is updated in-game
 void multi_ship_record_update_all();
@@ -71,10 +74,10 @@ void multi_ship_record_increment_frame();
 int multi_ship_record_find_frame(int client_frame, int time_elapsed);
 
 // a quick lookups for position and orientation
-vec3d multi_ship_record_lookup_position(object* objp, int frame);
+vec3d multi_ship_record_lookup_position(ushort net_signature, int frame);
 
 // a quick lookups for orientation
-matrix multi_ship_record_lookup_orientation(object* objp, int frame);
+matrix multi_ship_record_lookup_orientation(ushort net_signature, int frame);
 
 // figures out how much time has passed bwetween the two frames.
 int multi_ship_record_find_time_after_frame(int client_frame, int frame, int time_elapsed);
@@ -91,12 +94,15 @@ void multi_ship_record_add_rollback_wep(int wep_objnum);
 // Manage rollback for a frame
 void multi_ship_record_do_rollback();
 
+// for removing weapons once they have hit something while resimulating
+void multi_ship_record_remove_collider(int objnum);
+
 // ---------------------------------------------------------------------------------------------------
 // Client side frame tracking, for now used only to help lookup info from packets to improve client accuracy.
 // 
 
 // Quick lookup for the most recently received frame
-ushort multi_client_lookup_ref_obj_net_sig();
+ushort multi_client_lookup_ref_obj_net_sig(bool* mode);
 
 // Quick lookup for the most recently received frame
 int multi_client_lookup_frame_idx();
