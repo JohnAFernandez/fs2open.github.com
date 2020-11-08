@@ -59,7 +59,7 @@ struct weapon;
 // This section is almost all server side
 
 // Add a new ship *ON IN-GAME SHIP CREATION* to the tracking struct
-void multi_ship_record_add_ship(int obj_num);
+void multi_ship_record_add_object(int obj_num);
 
 // Update the tracking struct whenver the object is updated in-game
 void multi_ship_record_update_all();

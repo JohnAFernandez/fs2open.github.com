@@ -9842,7 +9842,7 @@ int ship_create(matrix* orient, vec3d* pos, int ship_type, const char* ship_name
 	
 	// Start up stracking for this ship in multi.
 	if (Game_mode & (GM_MULTIPLAYER)) {
-		multi_ship_record_add_ship(objnum);
+		multi_ship_record_add_object(objnum);
 	}
 
 	// Set time when ship is created
