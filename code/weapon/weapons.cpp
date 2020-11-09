@@ -5593,9 +5593,7 @@ int weapon_create( vec3d * pos, matrix * porient, int weapon_type, int parent_ob
 		// from server saying it hit something.
 
 		// now we're also adding weapons with hitpoints to the rollback struct so that players can actually shoot down bombs in multi
-		// but we'll wait to add the weapons that are created in a rollback resimulation until the end of resimulation to avoid
-		// weird behavior.
-		if (wip->weapon_hitpoints > 0 && !multi_ship_record_get_rollback_wep_mode()) {
+		if (wip->weapon_hitpoints > 0) {
 			multi_ship_record_add_object(objnum);
 		}
 	}
@@ -6455,7 +6453,7 @@ void weapon_hit( object * weapon_obj, object * other_obj, vec3d * hitpos, int qu
 	}
 
 	if (Game_mode & GM_MULTIPLAYER) {
-		multi_ship_record_remove_object(OBJ_INDEX(objp));
+		multi_ship_record_remove_object(OBJ_INDEX(weapon_obj));
 	}
 
 	if (wip->impact_weapon_expl_effect.isValid() && armed_weapon) {

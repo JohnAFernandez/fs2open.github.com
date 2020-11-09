@@ -58,8 +58,11 @@ struct weapon;
 // if it breaks, find Cyborg17 so you can yell at him
 // This section is almost all server side
 
-// Add a new ship *ON IN-GAME SHIP CREATION* to the tracking struct
+// Add a new ship to the tracking struct
 void multi_ship_record_add_object(int obj_num);
+
+// Remove an object from the struct, just used for weapons for now.
+void multi_ship_record_remove_object(int objnum);
 
 // Update the tracking struct whenver the object is updated in-game
 void multi_ship_record_update_all();

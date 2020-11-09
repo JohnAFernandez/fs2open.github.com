@@ -179,6 +179,7 @@ struct oo_general_info {
 	// sent to oo_packet recipients. larger_wrap_count allows us to figure out if we are in an "odd" larger wrap
 	int number_of_frames;									// how many frames have we gone through, total.
 	ubyte cur_frame_index;									// the current frame index (to access the recorded info)
+	ubyte cur_rollback_frame;
 
 	int timestamps[MAX_FRAMES_RECORDED];					// The timestamp for the recorded frame
 	SCP_unordered_map<ushort, oo_object_position_records> frame_info;		// Actually keeps track of ship physics info.  Uses net_signature as its index.
@@ -725,13 +726,15 @@ bool multi_ship_record_get_rollback_wep_mode()
 void multi_ship_record_add_rollback_wep(int wep_objnum) 
 {
 	// check for valid pointer
-	if (wep_objnum > -1 && wep_objnum < MAX_OBJECTS){
+	if (wep_objnum < 0 || wep_objnum >= MAX_OBJECTS){
 		mprintf(("Invalid object number passed when trying to add weapons to the weapon rollback tracker.\n"));
 		return;
 	}
 	
 	// add it to the list of weapons we'll need to add to the simulation.
 	Oo_info.rollback_weapon_numbers_created_this_frame.push_back(wep_objnum);
+
+	
 }
 
 // This stores the information we got from the client to create later.
@@ -861,6 +864,8 @@ void multi_ship_record_do_rollback()
 		return;
 	}
 
+	Oo_info.cur_rollback_frame = frame_idx;
+
 	do {
 		// move all ships to their recorded positions
 		multi_oo_restore_frame(frame_idx);
@@ -892,6 +897,12 @@ void multi_ship_record_do_rollback()
 	for (auto & shots_to_be_fired : Oo_info.rollback_shots_to_be_fired) {
 		shots_to_be_fired.clear();
 	}
+
+	for (auto& created_weapon : Oo_info.rollback_weapon_number) {
+		// enable the weapon to be tracked here.
+
+	}
+
 	Oo_info.rollback_weapon_number.clear();
 }
 
@@ -2667,6 +2678,8 @@ void multi_init_oo_and_ship_tracker()
 
 	Oo_info.number_of_frames = 0;
 	Oo_info.cur_frame_index = 0;
+	Oo_info.cur_rollback_frame = 0;
+
 	for (int i = 0; i < MAX_FRAMES_RECORDED; i++) { // NOLINT
 		Oo_info.timestamps[i] = MAX_TIME; // This needs to be Max time (or at least some absurdly high number) for rollback to work correctly
 	}
