@@ -429,7 +429,7 @@ void multi_ship_record_add_object(int obj_num)
 		auto position_record_iterator = Oo_info.frame_info.find(objp->net_signature);
 
 		// this entry must be created already otherwise everything will crash later.
-		Assertion(position_record_iterator != Oo_info.frame_info.cend, "Coder error. Could not find the entry that rollback was supposed to have just created.");
+		Assertion(position_record_iterator != Oo_info.frame_info.cend(), "Coder error. Could not find the entry that rollback was supposed to have just created.");
 
 		oo_object_position_records* position_record = &position_record_iterator->second;
 
@@ -439,6 +439,35 @@ void multi_ship_record_add_object(int obj_num)
 		position_record->velocities[Oo_info.cur_frame_index] = objp->phys_info.vel;
 		position_record->rotational_velocities[Oo_info.cur_frame_index] = objp->phys_info.rotvel;
 	}
+}
+
+void multi_ship_record_remove_object(int objnum)
+{
+	object* objp = &Objects[objnum];
+
+	if (objp == nullptr || objp->instance < 0) {
+		mprintf(("Invalid object number passed to multi_ship_record_remove_object, ignoring!\n"));
+		return;
+	}
+
+	if (objp->type != OBJ_WEAPON) {
+		mprintf(("Invalid object type of %d passed to multi_ship_record_remove_object().  Only weapons are supported right now.\n", objp->type));
+		return;
+	}
+
+	if (objp->net_signature == 0) {
+		mprintf(("Object with invalid net signature passed to multi_ship_record_remove_object.  Did this run in single player?!\n"));
+		return;
+	}
+
+	auto candidate_to_remove = Oo_info.frame_info.find(objp->net_signature);
+
+	if (candidate_to_remove == Oo_info.frame_info.cend()) {
+		mprintf(("A request was sent to multi_ship_record_remove_object to remove an object which not in the multi record in the first place.\n"));
+		return;
+	}
+
+	Oo_info.frame_info.erase(objp->net_signature);
 }
 
 // Update the tracking struct whenever the object is updated in-game
@@ -519,6 +548,7 @@ void multi_ship_record_update_all()
 
 		// let's try adding the object in if it's not there for now, or if we've wrapped and somehow not caught it.
 		if (cur_records == Oo_info.frame_info.cend() || OBJ_INDEX(objp) != cur_records->second.objnum) {
+			mprintf(("Multi_ship_record_update_all found a qualifying weapon that was not already in the ship records.\n"));
 			multi_ship_record_add_object(OBJ_INDEX(objp));
 			// otherwise, just add the new info to the already existing struct
 		} else {
@@ -609,7 +639,18 @@ int multi_ship_record_find_frame(int client_frame, int time_elapsed)
 vec3d multi_ship_record_lookup_position(object* objp, int frame) 
 {
 	Assertion(objp != nullptr, "nullptr given to multi_ship_record_lookup_position. \nThis should be handled earlier in the code, please report!");
-	return Oo_info.frame_info[objp->net_signature].positions[frame];
+
+	if (objp == nullptr) {
+		return vmd_zero_vector;
+	}
+
+	auto validity_check_two = Oo_info.frame_info.find(objp->net_signature);
+
+	if (validity_check_two == Oo_info.frame_info.cend()) {
+		return vmd_zero_vector;
+	}
+
+	return validity_check_two->second.positions[frame];
 }
 
 // Quick lookup for the record of orientation.
@@ -649,7 +690,6 @@ void multi_ship_record_add_timestamp(int pl_id, ubyte timestamp, int seq_num) {
 		// lastly, add the timestamp we received to the end.
 		Oo_info.received_frametimes[pl_id].push_back(timestamp);
 	}
-
 }
 
 
@@ -722,9 +762,8 @@ void multi_ship_record_do_rollback()
 	// set up all restore points and ship portion of the collision list
 	for (ship& cur_ship : Ships) {
 
-		// once this happens, we've run out of ships.
 		if (cur_ship.objnum < 0) {
-			break;
+			continue;
 		}
 
 		objp = &Objects[cur_ship.objnum];
@@ -759,6 +798,43 @@ void multi_ship_record_do_rollback()
 		Oo_info.restore_points.push_back(restore_point);
 		// Also take this opportunity to set up their collision 
 		Oo_info.rollback_collide_list.push_back(cur_ship.objnum);
+	}
+
+	// set up all restore points and ship portion of the collision list
+	for (weapon& cur_weap : Weapons) {
+
+		// once this happens, we've run out of ships.
+		if (cur_weap.objnum < 0) {
+			continue;
+		}
+
+		objp = &Objects[cur_weap.objnum];
+		if (objp == nullptr) {
+			continue;
+		}
+
+		net_sig_idx = objp->net_signature;
+
+		// this should not happen, but it would not access correct info. 
+		//It only means a less accurate simulation (and a mystery), not a crash. So, for now, write to the log. 
+		if (net_sig_idx < 1) {
+			mprintf(("Rollback weapon does not have a net signature.  Someone should probably investigate this at some point.\n"));
+			continue;
+		}
+
+		Oo_info.rollback_ships.push_back(cur_weap.objnum);
+
+		oo_rollback_restore_record restore_point;
+
+		restore_point.roll_objnum = cur_weap.objnum;
+		restore_point.position = objp->pos;
+		restore_point.orientation = objp->orient;
+		restore_point.velocity = objp->phys_info.vel;
+		restore_point.rotational_velocity = objp->phys_info.rotvel;
+
+		Oo_info.restore_points.push_back(restore_point);
+		// Also take this opportunity to set up their collision 
+		Oo_info.rollback_collide_list.push_back(cur_weap.objnum);
 	}
 
 	// now we need to figure out which frame will start the rollback simulation
