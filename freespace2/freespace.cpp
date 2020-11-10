@@ -3558,6 +3558,9 @@ void game_simulation_frame()
 
 		// move all objects - does interpolation now as well
 		obj_move_all(flFrametime);
+
+		// do a few house-cleaning things for the directives hudgauge
+		mission_evaluate_all_directives_client();
 	}
 
 	// only process the message queue when the player is "in" the game

@@ -1129,6 +1129,30 @@ void mission_eval_goals()
 	Snapshot_all_events = false;
 }
 
+void mission_evaluate_all_directives_client() 
+{
+	Assertion(MULTIPLAYER_CLIENT, "Non-multiplayer client accessed mission_process_event_client.  Go tell a coder!");
+
+	// now evaluate any mission events
+	for (int i=0; i<Num_mission_events; i++) {
+		if ( Mission_events[i].formula != -1 && !timestamp_valid( Mission_events[i].timestamp)) {
+			TRACE_SCOPE(tracing::NonrepeatingEvents);
+			int result = Mission_events[i].result;
+			if (result != 0 && !Mission_events[i].satisfied_time) {
+				Mission_events[i].satisfied_time = Missiontime;
+				if ( Mission_events[i].objective_text ) {
+					Mission_directive_sound_timestamp = timestamp(DIRECTIVE_SOUND_DELAY);
+				}
+			}
+		}
+	}
+
+	if ( !hud_disabled() && hud_gauge_active(HUD_DIRECTIVES_VIEW) ) {
+		mission_maybe_play_directive_success_sound();
+	}
+
+}
+
 //	evaluate_primary_goals() will determine if the primary goals for a mission are complete
 //
 //	returns 1 - all primary goals are all complete or imcomplete (or there are no primary goals at all)
