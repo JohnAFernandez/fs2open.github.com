@@ -1202,7 +1202,9 @@ void multi_do_frame()
 			
 			// for any potential respawns
 			multi_respawn_handle_invul_players();
-			multi_respawn_check_ai();
+			if (!(Net_player->flags & NETINFO_FLAG_WARPING_OUT)) {
+				multi_respawn_check_ai();
+			}
 
 			// for any potential ingame joiners
 			multi_handle_ingame_joiners();
