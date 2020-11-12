@@ -34,7 +34,7 @@
 
 
 // ---------------------------------------------------------------------------------------
-// MULTI RESPAWN DEFINES/VARS
+// MULTI RESPAWN DEFINES
 //
 
 // respawn notice codes
@@ -46,13 +46,18 @@
 #define MAX_AI_RESPAWNS				MAX_PLAYERS
 #define AI_RESPAWN_TIME				(7000)			// should respawn 2.0 seconds after they die
 
+// quick define for respawning priority ships 
+#define MAX_PRIORITY_POINTS						10
+
+// ---------------------------------------------------------------------------------------
+// RESPAWN MANAGMENT STRUCTS
+//
+
 typedef struct ai_respawn
 {
 	p_object		*pobjp;				// parse object
 	int			timestamp;			// timestamp when this object should get respawned
 } ai_respawn;
-
-ai_respawn Ai_respawns[MAX_AI_RESPAWNS];			// this is way too many, but I don't care
 
 // respawn point
 typedef struct respawn_point {
@@ -61,23 +66,23 @@ typedef struct respawn_point {
 	int team;												// team it belongs to
 } respawn_point;
 
-// respawn points
-#define MAX_MULTI_RESPAWN_POINTS					MAX_PLAYERS
-respawn_point Multi_respawn_points[MAX_MULTI_RESPAWN_POINTS];
-int Multi_respawn_point_count = 0;
-int Multi_next_respawn_point = 0;
+struct multi_respawn_manager {
+	SCP_vector<respawn_point> respawn_points;
+	int next_respawn_point;
 
-// priority ships for respawning
-#define MAX_PRIORITY_POINTS						10
-respawn_point Multi_respawn_priority_ships[MAX_PRIORITY_POINTS];
-int Multi_respawn_priority_count = 0;
+	SCP_vector<respawn_point> priority_ships;
+
+	ai_respawn ai_respawns[MAX_AI_RESPAWNS];			// this is way too many, but I don't care
+};
+
+multi_respawn_manager Respawn_manager;
 
 // ---------------------------------------------------------------------------------------
 // MULTI RESPAWN FORWARD DECLARATIONS
 //
 
 // respawn the passed player with the passed ship object and weapon link settings
-void multi_respawn_player(net_player *pl, char cur_primary_bank, char cur_secondary_bank, ubyte cur_link_status, ushort ship_ets, ushort net_sign, char *parse_name, vec3d *pos = NULL);
+void multi_respawn_player(net_player *pl, char cur_primary_bank, char cur_secondary_bank, ubyte cur_link_status, ushort ship_ets, ushort net_sign, vec3d *pos = NULL);
 
 // respawn an AI ship
 void multi_respawn_ai(p_object *pobjp);
@@ -147,9 +152,9 @@ void multi_respawn_check(object *objp)
 				int i;
 
 				for (i = 0; i < MAX_AI_RESPAWNS; i++ ) {
-					if ( Ai_respawns[i].pobjp == NULL ) {
-						Ai_respawns[i].pobjp = pobjp;
-						Ai_respawns[i].timestamp = timestamp(AI_RESPAWN_TIME);
+					if ( Respawn_manager.ai_respawns[i].pobjp == NULL ) {
+						Respawn_manager.ai_respawns[i].pobjp = pobjp;
+						Respawn_manager.ai_respawns[i].timestamp = timestamp(AI_RESPAWN_TIME);
 						break;
 					}
 				}
@@ -205,9 +210,9 @@ void multi_respawn_player_leave(net_player *pl)
 		int i;
 
 		for (i = 0; i < MAX_AI_RESPAWNS; i++ ) {
-			if ( Ai_respawns[i].pobjp == NULL ) {
-				Ai_respawns[i].pobjp = pobjp;
-				Ai_respawns[i].timestamp = timestamp(AI_RESPAWN_TIME);
+			if ( Respawn_manager.ai_respawns[i].pobjp == NULL ) {
+				Respawn_manager.ai_respawns[i].pobjp = pobjp;
+				Respawn_manager.ai_respawns[i].timestamp = timestamp(AI_RESPAWN_TIME);
 				break;
 			}
 		}
@@ -271,33 +276,35 @@ void multi_respawn_handle_invul_players()
 void multi_respawn_build_points()
 {
 	ship_obj *moveup;
-	respawn_point *r;
+	respawn_point new_respawn_point;
 
 	// respawn points
-	Multi_respawn_point_count = 0;
-	Multi_next_respawn_point = 0;
+	Respawn_manager.respawn_points.clear();
+	Respawn_manager.respawn_points.reserve(MAX_PLAYERS);
+	Respawn_manager.next_respawn_point = 0;
+
 	moveup = GET_FIRST(&Ship_obj_list);
-	while(moveup != END_OF_LIST(&Ship_obj_list)){
+	while((moveup != END_OF_LIST(&Ship_obj_list)) && (Respawn_manager.respawn_points.size() < MAX_PLAYERS)){
 		// player ships
 		if(Objects[moveup->objnum].flags[Object::Object_Flags::Player_ship] || Objects[moveup->objnum].flags[Object::Object_Flags::Could_be_player]){
-			r = &Multi_respawn_points[Multi_respawn_point_count++];
-			
-			r->pos = Objects[moveup->objnum].pos;
-			r->team = Ships[Objects[moveup->objnum].instance].team;			
+			new_respawn_point.pos = Objects[moveup->objnum].pos;
+			new_respawn_point.team = Ships[Objects[moveup->objnum].instance].team;
+			Respawn_manager.respawn_points.push_back(new_respawn_point);
 		}
 		moveup = GET_NEXT(moveup);
 	}	
-
+	
 	// priority respawn points
-	Multi_respawn_priority_count = 0;
+	Respawn_manager.priority_ships.clear();
+	Respawn_manager.priority_ships.reserve(MAX_PRIORITY_POINTS);
+
 	moveup = GET_FIRST(&Ship_obj_list);
 	while(moveup != END_OF_LIST(&Ship_obj_list)){
 		// stuff info
-		if((Ships[Objects[moveup->objnum].instance].respawn_priority > 0) && (Multi_respawn_priority_count < MAX_PRIORITY_POINTS)){
-			r = &Multi_respawn_priority_ships[Multi_respawn_priority_count++];
-
-			strcpy_s(r->ship_name, Ships[Objects[moveup->objnum].instance].ship_name);
-			r->team = Ships[Objects[moveup->objnum].instance].team;
+		if((Ships[Objects[moveup->objnum].instance].respawn_priority > 0) && (Respawn_manager.priority_ships.size() < MAX_PRIORITY_POINTS)){
+			strcpy_s(new_respawn_point.ship_name, Ships[Objects[moveup->objnum].instance].ship_name);
+			new_respawn_point.team = Ships[Objects[moveup->objnum].instance].team;	
+			Respawn_manager.priority_ships.push_back(new_respawn_point);
 		}
 		moveup = GET_NEXT(moveup);
 	}	
@@ -359,15 +366,15 @@ int multi_respawn_common_stuff(p_object *pobjp)
 }
 
 // respawn the passed player with the passed ship object and weapon link settings
-void multi_respawn_player(net_player *pl, char cur_primary_bank, char cur_secondary_bank, ubyte cur_link_status, ushort ship_ets, ushort net_sig, char *parse_name, vec3d *pos)
+void multi_respawn_player(net_player *pl, char cur_primary_bank, char cur_secondary_bank, ubyte cur_link_status, ushort ship_ets, ushort net_sig, vec3d *pos)
 {
 	int objnum;
 	object *objp;
 	ship *shipp;
 	p_object *pobjp;	
 
-	// try and find the parse object
-	pobjp = mission_parse_get_arrival_ship(parse_name);		
+	// the parse object was previously stored, so just reuse it.
+	pobjp = pl->p_info.p_objp;		
 	Assert(pobjp != NULL);
 	if(pobjp == NULL){
 		return;
@@ -609,7 +616,6 @@ void multi_respawn_broadcast(net_player *np)
 	ADD_DATA(np->s_info.cur_secondary_bank);
 	ADD_DATA(np->s_info.cur_link_status);
 	ADD_USHORT(np->s_info.ship_ets);
-	ADD_STRING(np->p_info.p_objp->name);
 
 	Assert( np->s_info.ship_ets != 0 );		// find dave or allender
 
@@ -644,9 +650,13 @@ void multi_respawn_process_packet(ubyte *data, header *hinfo)
 		p_object *pobjp;
 
 		GET_USHORT( net_sig );
-		pobjp = mission_parse_get_arrival_ship( net_sig );
-		Assert( pobjp != NULL );
-		multi_respawn_ai( pobjp );
+
+		// check that we're in the right state to allow a respawn.
+		if (Game_mode & GM_IN_MISSION && !(Net_player->flags & NETINFO_FLAG_WARPING_OUT)) {
+			pobjp = mission_parse_get_arrival_ship( net_sig );
+			Assert( pobjp != NULL );
+			multi_respawn_ai( pobjp );
+		}
 		break;		
 
 	case RESPAWN_BROADCAST:
@@ -658,22 +668,25 @@ void multi_respawn_process_packet(ubyte *data, header *hinfo)
 		GET_DATA(cur_secondary_bank);
 		GET_DATA(cur_link_status);
 		GET_USHORT(ship_ets);
-		GET_STRING(parse_name);
-		player_index = find_player_id(player_id);
-		if(player_index == -1){
-			nprintf(("Network","Couldn't find player to respawn!\n"));
+
+		// check that we're in the right state to allow a respawn.
+		if ((Game_mode & GM_IN_MISSION) && !(Net_player->flags & NETINFO_FLAG_WARPING_OUT)) {
+			player_index = find_player_id(player_id);
+			if(player_index == -1){
+				nprintf(("Network","Couldn't find player to respawn!\n"));
+				break;
+			}
+
+			// create the ship and assign its position, net_signature, and class
+			// respawn the player
+			multi_respawn_player(&Net_players[player_index], cur_primary_bank, cur_secondary_bank, cur_link_status, ship_ets, net_sig, &v);
+
+			// if this is for me, I should jump back into gameplay
+			if(&Net_players[player_index] == Net_player){
+				gameseq_post_event(GS_EVENT_ENTER_GAME);
+			}
 			break;
 		}
-
-		// create the ship and assign its position, net_signature, and class
-		// respawn the player
-		multi_respawn_player(&Net_players[player_index], cur_primary_bank, cur_secondary_bank, cur_link_status, ship_ets, net_sig, parse_name, &v);
-
-		// if this is for me, I should jump back into gameplay
-		if(&Net_players[player_index] == Net_player){
-			gameseq_post_event(GS_EVENT_ENTER_GAME);
-		}
-		break;
 	
 	case RESPAWN_REQUEST:
 		// determine whether he wants to respawn as an observer or not
@@ -706,7 +719,7 @@ void multi_respawn_process_packet(ubyte *data, header *hinfo)
 			// create his new ship, and change him from respawning to respawned
 			Assert(Net_players[player_index].p_info.p_objp != NULL);
 			if(Net_players[player_index].p_info.p_objp != NULL){
-				multi_respawn_player(&Net_players[player_index], Net_players[player_index].s_info.cur_primary_bank, Net_players[player_index].s_info.cur_secondary_bank,Net_players[player_index].s_info.cur_link_status, Net_players[player_index].s_info.ship_ets, 0, Net_players[player_index].p_info.p_objp->name);
+				multi_respawn_player(&Net_players[player_index], Net_players[player_index].s_info.cur_primary_bank, Net_players[player_index].s_info.cur_secondary_bank,Net_players[player_index].s_info.cur_link_status, Net_players[player_index].s_info.ship_ets, 0);
 			}			
 		}	
 		break;
@@ -721,7 +734,7 @@ void multi_respawn_server()
 	Assert(Net_player->flags & NETINFO_FLAG_AM_MASTER);
 
 	// respawn me
-	multi_respawn_player(Net_player, Net_player->s_info.cur_primary_bank, Net_player->s_info.cur_secondary_bank, Net_player->s_info.cur_link_status, Net_player->s_info.ship_ets, Net_player->p_info.p_objp->net_signature, Net_player->p_info.p_objp->name);
+	multi_respawn_player(Net_player, Net_player->s_info.cur_primary_bank, Net_player->s_info.cur_secondary_bank, Net_player->s_info.cur_link_status, Net_player->s_info.ship_ets, Net_player->p_info.p_objp->net_signature);
 
 	// jump back into the game
 	gameseq_post_event(GS_EVENT_ENTER_GAME);	
@@ -733,8 +746,8 @@ void multi_respawn_init()
 	int i;
 
 	for (i = 0; i < MAX_AI_RESPAWNS; i++ ) {
-		Ai_respawns[i].pobjp = NULL;
-		Ai_respawns[i].timestamp = timestamp(-1);
+		Respawn_manager.ai_respawns[i].pobjp = NULL;
+		Respawn_manager.ai_respawns[i].timestamp = timestamp(-1);
 	}
 }
 
@@ -744,17 +757,19 @@ void multi_respawn_check_ai()
 	int i;
 
 	for (i = 0; i < MAX_AI_RESPAWNS; i++ ) {
-		if ( Ai_respawns[i].pobjp != NULL ) {
-			if ( timestamp_elapsed(Ai_respawns[i].timestamp) ) {
+		if ( Respawn_manager.ai_respawns[i].pobjp != NULL ) {
+			if ( timestamp_elapsed(Respawn_manager.ai_respawns[i].timestamp) ) {
+
+				auto registry_entry = ship_registry_get(Respawn_manager.ai_respawns[i].pobjp->name);
 
 				// be sure that ship is actually gone before respawning it.
-				if ( ship_name_lookup(Ai_respawns[i].pobjp->name) != -1 ) {
-					Ai_respawns[i].timestamp = timestamp(1000);
+				if (registry_entry != nullptr && registry_entry->exited_index == ShipStatus::EXITED) {
+					Respawn_manager.ai_respawns[i].timestamp = timestamp(1000);
 				} else {
-					multi_respawn_ai( Ai_respawns[i].pobjp );
-					multi_respawn_send_ai_respawn( Ai_respawns[i].pobjp->net_signature );
-					Ai_respawns[i].pobjp = NULL;
-					Ai_respawns[i].timestamp = timestamp(-1);
+					multi_respawn_ai( Respawn_manager.ai_respawns[i].pobjp );
+					multi_respawn_send_ai_respawn( Respawn_manager.ai_respawns[i].pobjp->net_signature );
+					Respawn_manager.ai_respawns[i].pobjp = NULL;
+					Respawn_manager.ai_respawns[i].timestamp = timestamp(-1);
 				}
 			}
 		}
@@ -779,11 +794,11 @@ void multi_respawn_place(object *new_obj, int team)
 	// first determine if there are any appropriate priority ships to use
 	pri = NULL;
 	pri_obj = NULL;
-	for(idx=0; idx<Multi_respawn_priority_count; idx++){
+	for(idx=0; idx<Respawn_manager.priority_ships.size(); idx++){
 		// all relevant ships
-		if((Multi_respawn_priority_ships[idx].team == team) || !(Netgame.type_flags & NG_TYPE_TEAM)){
+		if((Respawn_manager.priority_ships[idx].team == team) || !(Netgame.type_flags & NG_TYPE_TEAM)){
 
-			lookup = ship_name_lookup(Multi_respawn_priority_ships[idx].ship_name);
+			lookup = ship_name_lookup(Respawn_manager.priority_ships[idx].ship_name);
 			if( (lookup >= 0) && ((pri == NULL) || (Ships[lookup].respawn_priority > pri->respawn_priority)) && (Ships[lookup].objnum >= 0) && (Ships[lookup].objnum < MAX_OBJECTS)){
 				pri = &Ships[lookup];
 				pri_obj = &Objects[Ships[lookup].objnum];
@@ -835,22 +850,22 @@ void multi_respawn_place(object *new_obj, int team)
 	}
 	// otherwise, resort to plain respawn points
 	else {
-		Assert(Multi_respawn_point_count > 0);
+		Assert(!Respawn_manager.respawn_points.empty());
 		
 		// get the next appropriate respawn point by team
 		lookup = 0;		
 		int count = 0;
 		while(!lookup && (count < 13)){
-			if((team == Iff_traitor) || (team == Multi_respawn_points[Multi_next_respawn_point].team)){
+			if((team == Iff_traitor) || (team == Respawn_manager.respawn_points[Respawn_manager.next_respawn_point].team)){
 				lookup = 1;
 			}			
 
 			// next item
 			if(!lookup){
-				if(Multi_next_respawn_point >= (Multi_respawn_point_count-1)){
-					Multi_next_respawn_point = 0;
+				if(Respawn_manager.next_respawn_point >= (int)Respawn_manager.respawn_points.size()){
+					Respawn_manager.next_respawn_point = 0;
 				} else {
-					Multi_next_respawn_point++;
+					Respawn_manager.next_respawn_point++;
 				}				
 			}
 
@@ -858,7 +873,7 @@ void multi_respawn_place(object *new_obj, int team)
 		}
 
 		// set respawn info
-		new_obj->pos = Multi_respawn_points[Multi_next_respawn_point].pos;		
+		new_obj->pos = Respawn_manager.respawn_points[Respawn_manager.next_respawn_point].pos;		
 	}
 
 	// now make sure we're not colliding with anyone
