@@ -746,7 +746,7 @@ void multi_respawn_init()
 	int i;
 
 	for (i = 0; i < MAX_AI_RESPAWNS; i++ ) {
-		Respawn_manager.ai_respawns[i].pobjp = NULL;
+		Respawn_manager.ai_respawns[i].pobjp = nullptr;
 		Respawn_manager.ai_respawns[i].timestamp = timestamp(-1);
 	}
 }
@@ -757,7 +757,7 @@ void multi_respawn_check_ai()
 	int i;
 
 	for (i = 0; i < MAX_AI_RESPAWNS; i++ ) {
-		if ( Respawn_manager.ai_respawns[i].pobjp != NULL ) {
+		if ( Respawn_manager.ai_respawns[i].pobjp != nullptr ) {
 			if ( timestamp_elapsed(Respawn_manager.ai_respawns[i].timestamp) ) {
 
 				auto registry_entry = ship_registry_get(Respawn_manager.ai_respawns[i].pobjp->name);
@@ -768,7 +768,7 @@ void multi_respawn_check_ai()
 				} else {
 					multi_respawn_ai( Respawn_manager.ai_respawns[i].pobjp );
 					multi_respawn_send_ai_respawn( Respawn_manager.ai_respawns[i].pobjp->net_signature );
-					Respawn_manager.ai_respawns[i].pobjp = NULL;
+					Respawn_manager.ai_respawns[i].pobjp = nullptr;
 					Respawn_manager.ai_respawns[i].timestamp = timestamp(-1);
 				}
 			}
