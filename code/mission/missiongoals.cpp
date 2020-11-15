@@ -1135,7 +1135,7 @@ void mission_evaluate_all_directives_client()
 
 	// now evaluate any mission events
 	for (int i=0; i<Num_mission_events; i++) {
-		if ( Mission_events[i].formula != -1 && !timestamp_valid( Mission_events[i].timestamp)) {
+		if ( !timestamp_valid( Mission_events[i].timestamp)) {
 			TRACE_SCOPE(tracing::NonrepeatingEvents);
 			int result = Mission_events[i].result;
 			if (result != 0 && !Mission_events[i].satisfied_time) {
