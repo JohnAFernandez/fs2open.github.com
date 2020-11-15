@@ -99,7 +99,7 @@ void multi_ship_record_do_rollback();
 // 
 
 // Quick lookup for the most recently received frame
-ushort multi_client_lookup_ref_obj_net_sig();
+ushort multi_client_lookup_ref_obj_net_sig(bool* mode);
 
 // Quick lookup for the most recently received frame
 int multi_client_lookup_frame_idx();

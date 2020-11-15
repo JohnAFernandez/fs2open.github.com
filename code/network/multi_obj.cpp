@@ -1003,9 +1003,18 @@ void multi_ship_record_rank_seq_num(object* objp, int seq_num)
 	}
 }
 
-// Quick lookup for the most recently received ship
-ushort multi_client_lookup_ref_obj_net_sig()
+// Quick lookup for the most recently received ship or the currently targeted bomb
+ushort multi_client_lookup_ref_obj_net_sig(bool* mode)
 {	
+	*mode = false;
+	if (Player_ai->target_objnum > -1 && Objects[Player_ai->target_objnum].type == OBJ_WEAPON) {
+		object* candidate_weapon = &Objects[Player_ai->target_objnum];
+		if (Weapon_info[Weapons[candidate_weapon->instance].weapon_info_index].weapon_hitpoints > 0) {
+			*mode = true;
+			return candidate_weapon->net_signature;
+		}
+	}
+
 	return Oo_info.most_recent_updated_net_signature;
 }
 
