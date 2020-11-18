@@ -82,7 +82,7 @@ multi_respawn_manager Respawn_manager;
 //
 
 // respawn the passed player with the passed ship object and weapon link settings
-void multi_respawn_player(net_player *pl, char cur_primary_bank, char cur_secondary_bank, ubyte cur_link_status, ushort ship_ets, ushort net_sign, vec3d *pos = NULL);
+void multi_respawn_player(net_player *pl, char cur_primary_bank, char cur_secondary_bank, ubyte cur_link_status, ushort ship_ets, ushort net_sign, vec3d *pos = nullptr);
 
 // respawn an AI ship
 void multi_respawn_ai(p_object *pobjp);
@@ -118,7 +118,7 @@ void prevent_spawning_collision(object *new_obj);
 void multi_respawn_check(object *objp)
 {
 	int player_index;
-	net_player *pl = NULL;
+	net_player *pl = nullptr;
 	p_object *pobjp;
 
 	// get the parse object since we are storing all data for the respawns in the parse object
@@ -138,7 +138,7 @@ void multi_respawn_check(object *objp)
 
 	// if this ship isn't a player ship, then maybe it is an AI ship which should get respawed.  Only respawn
 	// on the server, then send message to respawn on client.
-	if( pl == NULL ) {
+	if( pl == nullptr ) {
 
 		// try and find the parse object with this net signature.  If we found it, and it's a player start
 		// position, respawn it.
@@ -152,7 +152,7 @@ void multi_respawn_check(object *objp)
 				int i;
 
 				for (i = 0; i < MAX_AI_RESPAWNS; i++ ) {
-					if ( Respawn_manager.ai_respawns[i].pobjp == NULL ) {
+					if ( Respawn_manager.ai_respawns[i].pobjp == nullptr ) {
 						Respawn_manager.ai_respawns[i].pobjp = pobjp;
 						Respawn_manager.ai_respawns[i].timestamp = timestamp(AI_RESPAWN_TIME);
 						break;
@@ -169,7 +169,7 @@ void multi_respawn_check(object *objp)
 		pl->s_info.rate_stamp = timestamp( (int)(1000.0f / (float)OO_gran) );
 	}
 
-	Assert( pl != NULL );
+	Assert( pl != nullptr );
 	Assert( pobjp );				// we have a player, and we should have a record of it.
 	
 	// mark the player as in the state of respawning
@@ -186,16 +186,16 @@ void multi_respawn_check(object *objp)
 void multi_respawn_player_leave(net_player *pl)
 {
 	// bogus
-	if(pl == NULL){
+	if(pl == nullptr){
 		return;
 	}
 	if( MULTI_OBSERVER((*pl)) ){
 		return;
 	}
-	if((Net_player == NULL) || !(Net_player->flags & NETINFO_FLAG_AM_MASTER)){
+	if((Net_player == nullptr) || !(Net_player->flags & NETINFO_FLAG_AM_MASTER)){
 		return;
 	}
-	if(pl->p_info.p_objp == NULL){
+	if(pl->p_info.p_objp == nullptr){
 		return;
 	}
 
@@ -210,7 +210,7 @@ void multi_respawn_player_leave(net_player *pl)
 		int i;
 
 		for (i = 0; i < MAX_AI_RESPAWNS; i++ ) {
-			if ( Respawn_manager.ai_respawns[i].pobjp == NULL ) {
+			if ( Respawn_manager.ai_respawns[i].pobjp == nullptr ) {
 				Respawn_manager.ai_respawns[i].pobjp = pobjp;
 				Respawn_manager.ai_respawns[i].timestamp = timestamp(AI_RESPAWN_TIME);
 				break;
@@ -375,8 +375,8 @@ void multi_respawn_player(net_player *pl, char cur_primary_bank, char cur_second
 
 	// the parse object was previously stored, so just reuse it.
 	pobjp = pl->p_info.p_objp;		
-	Assert(pobjp != NULL);
-	if(pobjp == NULL){
+	Assert(pobjp != nullptr);
+	if(pobjp == nullptr){
 		return;
 	}
 	objnum = multi_respawn_common_stuff(pobjp);
@@ -459,7 +459,7 @@ void multi_respawn_player(net_player *pl, char cur_primary_bank, char cur_second
 	}
 
 	// maybe bash ship position
-	if(pos != NULL){
+	if(pos != nullptr){
 		objp->pos = *pos;
 	}
 
@@ -654,7 +654,7 @@ void multi_respawn_process_packet(ubyte *data, header *hinfo)
 		// check that we're in the right state to allow a respawn.
 		if (Game_mode & GM_IN_MISSION && !(Net_player->flags & NETINFO_FLAG_WARPING_OUT)) {
 			pobjp = mission_parse_get_arrival_ship( net_sig );
-			Assert( pobjp != NULL );
+			Assert( pobjp != nullptr );
 			multi_respawn_ai( pobjp );
 		}
 		break;		
@@ -699,13 +699,10 @@ void multi_respawn_process_packet(ubyte *data, header *hinfo)
 		nprintf(("Network","Received respawn request for player %s\n", Net_players[player_index].m_player->callsign));
 
 		// make sure he's not making an invalid request
+		Assertion((code == 0 && (Net_players[player_index].flags & NETINFO_FLAG_RESPAWNING)) || (code == 1 && (Net_players[player_index].flags & NETINFO_FLAG_LIMBO)), "Invalid respawn request.  Code variable is: %d. Please report to a coder!", code);
 		if((code == 0) && !(Net_players[player_index].flags & NETINFO_FLAG_RESPAWNING)){
-			nprintf(("Network","This player shouldn't be respawning!\n"));
-			Int3();
 			break;
 		} else if((code == 1) && !(Net_players[player_index].flags & NETINFO_FLAG_LIMBO)){
-			nprintf(("Network","This is a respawn observer request from a player who shouldn't be respawning as an observer!\n"));
-			Int3();
 			break;
 		}
 
@@ -717,8 +714,8 @@ void multi_respawn_process_packet(ubyte *data, header *hinfo)
 		// respawn him as normal
 		else {						
 			// create his new ship, and change him from respawning to respawned
-			Assert(Net_players[player_index].p_info.p_objp != NULL);
-			if(Net_players[player_index].p_info.p_objp != NULL){
+			Assert(Net_players[player_index].p_info.p_objp != nullptr);
+			if(Net_players[player_index].p_info.p_objp != nullptr){
 				multi_respawn_player(&Net_players[player_index], Net_players[player_index].s_info.cur_primary_bank, Net_players[player_index].s_info.cur_secondary_bank,Net_players[player_index].s_info.cur_link_status, Net_players[player_index].s_info.ship_ets, 0);
 			}			
 		}	
@@ -787,19 +784,19 @@ void multi_respawn_check_ai()
 
 void multi_respawn_place(object *new_obj, int team)
 {
-	ship *pri = NULL;
-	object *pri_obj = NULL;
+	ship *pri = nullptr;
+	object *pri_obj = nullptr;
 	int idx, lookup;
 
 	// first determine if there are any appropriate priority ships to use
-	pri = NULL;
-	pri_obj = NULL;
+	pri = nullptr;
+	pri_obj = nullptr;
 	for(idx=0; idx<Respawn_manager.priority_ships.size(); idx++){
 		// all relevant ships
 		if((Respawn_manager.priority_ships[idx].team == team) || !(Netgame.type_flags & NG_TYPE_TEAM)){
 
 			lookup = ship_name_lookup(Respawn_manager.priority_ships[idx].ship_name);
-			if( (lookup >= 0) && ((pri == NULL) || (Ships[lookup].respawn_priority > pri->respawn_priority)) && (Ships[lookup].objnum >= 0) && (Ships[lookup].objnum < MAX_OBJECTS)){
+			if( (lookup >= 0) && ((pri == nullptr) || (Ships[lookup].respawn_priority > pri->respawn_priority)) && (Ships[lookup].objnum >= 0) && (Ships[lookup].objnum < MAX_OBJECTS)){
 				pri = &Ships[lookup];
 				pri_obj = &Objects[Ships[lookup].objnum];
 			}
@@ -807,12 +804,12 @@ void multi_respawn_place(object *new_obj, int team)
 	}
 	
 	// if we have a relevant respawn ship
-	if((pri != NULL) && (pri_obj != NULL)){
+	if((pri != nullptr) && (pri_obj != nullptr)){
 		// pick a point just outside his bounding box
 		polymodel *pm = model_get(Ship_info[pri->ship_info_index].model_num); 
 
 		// hmm, ugly. Pick a point 2000 meters to the y direction
-		if(pm == NULL){			
+		if(pm == nullptr){			
 			vm_vec_scale_add(&new_obj->pos, &pri_obj->pos, &pri_obj->orient.vec.rvec, 2000.0f);
 		} else {
 			// pick a random direction
@@ -891,7 +888,7 @@ void multi_respawn_place(object *new_obj, int team)
 */
 
 #define WITHIN_BBOX()	do { \
-	if (pm != NULL) { \
+	if (pm != nullptr) { \
 		float scale = 2.0f; \
 		collided = 0; \
 		vec3d temp = new_obj->pos; \
@@ -905,7 +902,7 @@ void multi_respawn_place(object *new_obj, int team)
 } while(false)
 
 #define MOVE_AWAY_BBOX() do { \
-	if (pm != NULL) { \
+	if (pm != nullptr) { \
 		switch((int)frand_range(0.0f, 3.9f)){ \
 		case 0: \
 			new_obj->pos.xyz.x += 200.0f; \
