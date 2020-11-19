@@ -5,11 +5,9 @@
 #undef TRUE
 #undef FALSE
 
-PUSH_SUPPRESS_WARNINGS
 #include "arg_parser/generated/ArgumentListLexer.h"
 #include "arg_parser/generated/ArgumentListParser.h"
 #include "arg_parser/generated/ArgumentListVisitor.h"
-POP_SUPPRESS_WARNINGS
 
 namespace scripting {
 

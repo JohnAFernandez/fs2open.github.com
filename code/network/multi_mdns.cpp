@@ -12,9 +12,7 @@
 #include "network/multi_log.h"
 #include "network/multi_mdns.h"
 
-PUSH_SUPPRESS_WARNINGS
 #include "mdns.h"
-POP_SUPPRESS_WARNINGS
 
 
 static const SCP_string SERVICE_NAME = "_fso._hard-light._udp.local.";
