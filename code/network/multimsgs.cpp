@@ -7758,6 +7758,7 @@ void send_non_homing_fired_packet(ship* shipp, int banks_or_number_of_missiles_f
 	ADD_FLOAT(player_ship_angles.b);
 	ADD_FLOAT(player_ship_angles.h);
 	ADD_FLOAT(player_ship_angles.p);
+	//NEXT MULTI BUMP TODO: Add reference velocity.
 
 	multi_io_send(Net_player, data, packet_size);
 }
