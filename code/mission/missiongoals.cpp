@@ -1137,13 +1137,17 @@ void mission_evaluate_all_directives_client()
 	for (int i=0; i<Num_mission_events; i++) {
 		if ( !timestamp_valid( Mission_events[i].timestamp)) {
 			TRACE_SCOPE(tracing::NonrepeatingEvents);
-			if ( Mission_events[i].objective_text && !Mission_events[i].satisfied_time) {
-				int result = mission_get_event_status(i);
-				if (result == EVENT_SATISFIED) {
-					Mission_events[i].satisfied_time = Missiontime;
+			int result = mission_get_event_status(i);
+			if (result == EVENT_SATISFIED && !Mission_events[i].satisfied_time) {
+				Mission_events[i].satisfied_time = Missiontime;
+				if ( Mission_events[i].objective_text ) {
 					Mission_directive_sound_timestamp = timestamp(DIRECTIVE_SOUND_DELAY);
-				} 
-			} 
+				}
+			} else if (result == EVENT_FAILED) {
+				if (Mission_events[i].objective_text) {
+					
+				}
+			}
 		}
 	}
 
