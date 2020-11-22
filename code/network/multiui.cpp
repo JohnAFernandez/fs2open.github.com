@@ -4870,6 +4870,7 @@ void multi_create_list_select_item(int n)
 					Multi_netgame_common_description += campaign_desc;
 				} else {
 					Multi_netgame_common_description += "No description available.";
+
 				}
 
 				Multi_netgame_common_description += DOUBLE_NEW_LINE;
