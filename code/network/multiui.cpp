@@ -8706,7 +8706,7 @@ void multi_debrief_init()
 	Multi_debrief_stats_accept_code = -1;
 
 	// mark stats as not being store yet
-	Netgame.flags &= ~(NG_FLAG_STORED_MT_STATS);
+	Netgame.flags &= ~(NG_FLAG_STORE_MT_STATS_ATTEMPTED);
 
 	// no report on TvT yet
 	Multi_debrief_reported_tvt = 0;
@@ -8789,11 +8789,12 @@ void multi_debrief_accept_hit()
 			if (MULTI_IS_TRACKER_GAME) {
 				// if not on standalone, send stats
 				if (Net_player->flags & NETINFO_FLAG_AM_MASTER) {
-					if ( !(Netgame.flags & NG_FLAG_STORED_MT_STATS) ) {
+					if ( !(Netgame.flags & NG_FLAG_STORE_MT_STATS_ATTEMPTED) ) {
 						int stats_saved = multi_fs_tracker_store_stats();
 
+						Netgame.flags |= NG_FLAG_STORE_MT_STATS_ATTEMPTED;
+
 						if (stats_saved) {
-							Netgame.flags |= NG_FLAG_STORED_MT_STATS;
 							send_netgame_update_packet();
 						} else {
 							send_store_stats_packet(0);
@@ -8855,11 +8856,12 @@ void multi_debrief_esc_hit()
 		if((Multi_debrief_stats_accept_code != -1) || (MULTI_IS_TRACKER_GAME)){
 			// if not on standalone, maybe send stats
 			if ( (Net_player->flags & NETINFO_FLAG_AM_MASTER) && MULTI_IS_TRACKER_GAME ) {
-				if ( !(Netgame.flags & NG_FLAG_STORED_MT_STATS) ) {
+				if ( !(Netgame.flags & NG_FLAG_STORE_MT_STATS_ATTEMPTED) ) {
 					int stats_saved = multi_fs_tracker_store_stats();
 
+					Netgame.flags |= NG_FLAG_STORE_MT_STATS_ATTEMPTED;
+
 					if (stats_saved) {
-						Netgame.flags |= NG_FLAG_STORED_MT_STATS;
 						send_netgame_update_packet();
 					} else {
 						send_store_stats_packet(0);

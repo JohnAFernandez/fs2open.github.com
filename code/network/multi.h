@@ -630,7 +630,7 @@ typedef struct network_buffer {
 #define NG_FLAG_SERVER_LOST					(1<<1)		// client has temporarily lost contact with the server
 #define NG_FLAG_INGAME_JOINING				(1<<2)		// someone is ingame joining.
 #define NG_FLAG_INGAME_JOINING_CRITICAL		(1<<3)		// someone is ingame joining and at the critical point where we cannot do certain things.
-#define NG_FLAG_STORED_MT_STATS				(1<<4)		// stored tracker stats in the debriefing already
+#define NG_FLAG_STORE_MT_STATS_ATTEMPTED	(1<<4)		// stored tracker stats in the debriefing already
 #define NG_FLAG_HACKED_SHIPS_TBL			(1<<5)		// set when the server is playing with a hacked ships.tbl (only needed to notify hosts playing on a standalone)
 #define NG_FLAG_HACKED_WEAPONS_TBL			(1<<6)		// set when the server is playing with a hacked weapons.tbl (only needed to notify hosts playing on a standalone)
 

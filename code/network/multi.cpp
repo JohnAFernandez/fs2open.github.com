@@ -1726,7 +1726,7 @@ void multi_standalone_postgame_init()
 	Net_player->state = NETPLAYER_STATE_DEBRIEF_ACCEPT;	
 
 	// mark stats as not being store yet
-	Netgame.flags &= ~(NG_FLAG_STORED_MT_STATS);
+	Netgame.flags &= ~(NG_FLAG_STORE_MT_STATS_ATTEMPTED);
 
 	Multi_debrief_server_framecount = 0;
 
@@ -1752,12 +1752,12 @@ void multi_standalone_postgame_do()
 void multi_standalone_postgame_close()
 {
 	// maybe store stats on tracker
-	if ( MULTI_IS_TRACKER_GAME && !(Netgame.flags & NG_FLAG_STORED_MT_STATS) ) {
+	if ( MULTI_IS_TRACKER_GAME && !(Netgame.flags & NG_FLAG_STORE_MT_STATS_ATTEMPTED) ) {
 		if (multi_debrief_stats_accept_code() != 0) {
 			int stats_saved = multi_fs_std_tracker_store_stats();
 
 			if (stats_saved) {
-				Netgame.flags |= NG_FLAG_STORED_MT_STATS;
+				Netgame.flags |= NG_FLAG_STORE_MT_STATS_ATTEMPTED;
 				send_netgame_update_packet();
 			} else {
 				send_store_stats_packet(0);
