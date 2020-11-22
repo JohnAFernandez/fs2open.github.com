@@ -83,14 +83,15 @@
  * @brief Suppresses all warnings and allows to pop back to normal afterwards
  */
 #define PUSH_SUPPRESS_WARNINGS \
-_Pragma("warning( push )") \
-_Pragma("warning( disable : 4244 )") \
-_Pragma("warning( disable : 4505 )")
+__pragma(warning( push )) \
+__pragma(warning( disable : 4244 )) \
+__pragma(warning( disable : 4505 )) \
+__pragma(warning( disable : 4189 ))
 
 /**
  * @brief Restored previous warning settings
  */
 #define POP_SUPPRESS_WARNINGS \
-_Pragma("warning( pop )")
+__pragma(warning( pop ))
 
 #endif
