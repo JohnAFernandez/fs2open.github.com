@@ -2712,6 +2712,8 @@ void multi_sg_init_gamenet()
 		Netgame.server = Net_player;
 		Net_player->player_id = multi_get_new_id();
 
+		multi_assign_safe_callsign(0);
+
 		// setup debug flags
 		Netgame.debug_flags = 0;
 	} else {
@@ -3521,6 +3523,9 @@ void multi_create_game_init()
 		Int3();
 	}
 
+	// before creating the chatbox and other ui elements with a name, make sure we have the correct callsign
+	multi_assign_safe_callsign(0);
+
 	// close any previous existing instances of the chatbox and create a new one
 	chatbox_close();
 	chatbox_create();
@@ -4219,7 +4224,7 @@ void multi_create_plist_blit_normal()
 			}			
 			
 			// make sure the string will fit, then display it
-			strcpy_s(str,Net_players[idx].m_player->callsign);
+			strcpy_s(str,Net_players[idx].safe_callsign.c_str());
 			if(Net_players[idx].flags & NETINFO_FLAG_OBSERVER){
 				strcat_s(str,XSTR("(O)",787));  // [[ Observer ]]
 			}
@@ -4293,7 +4298,7 @@ void multi_create_plist_blit_team()
 			}						
 
 			// make sure the string will fit
-			strcpy_s(str,Net_players[idx].m_player->callsign);
+			strcpy_s(str,Net_players[idx].safe_callsign.c_str());
 			if(Net_players[idx].flags & NETINFO_FLAG_OBSERVER){
 				strcat_s(str,XSTR("(O)",787));
 			}
@@ -4359,7 +4364,7 @@ void multi_create_plist_blit_team()
 			}
 
 			// make sure the string will fit
-			strcpy_s(str,Net_players[idx].m_player->callsign);
+			strcpy_s(str,Net_players[idx].safe_callsign.c_str());
 			if(Net_players[idx].flags & NETINFO_FLAG_OBSERVER){
 				strcat_s(str,XSTR("(O)",787));
 			}
@@ -6963,7 +6968,7 @@ void multi_jw_plist_blit_normal()
 			}			
 			
 			// make sure the string will fit, then display it
-			strcpy_s(str,Net_players[idx].m_player->callsign);
+			strcpy_s(str,Net_players[idx].safe_callsign.c_str());
 			if(Net_players[idx].flags & NETINFO_FLAG_OBSERVER){
 				strcat_s(str,"(0)");
 			}
@@ -7038,7 +7043,7 @@ void multi_jw_plist_blit_team()
 			}
 
 			// make sure the string will fit
-			strcpy_s(str,Net_players[idx].m_player->callsign);
+			strcpy_s(str,Net_players[idx].safe_callsign.c_str());
 			font::force_fit_string(str,CALLSIGN_LEN,Mjw_players_coords[gr_screen.res][MJW_W_COORD] - total_offset);
 
 			// display him in the correct half of the list depending on his team
@@ -7095,7 +7100,7 @@ void multi_jw_plist_blit_team()
 			}
 
 			// make sure the string will fit
-			strcpy_s(str,Net_players[idx].m_player->callsign);
+			strcpy_s(str,Net_players[idx].safe_callsign.c_str());
 			if(Net_players[idx].flags & NETINFO_FLAG_OBSERVER){
 				strcat_s(str,"(0)");
 			}
@@ -7601,7 +7606,7 @@ void multi_sync_blit_screen_all()
 	for(idx=0;idx<MAX_PLAYERS;idx++){
 		if(MULTI_CONNECTED(Net_players[idx]) && !MULTI_STANDALONE(Net_players[idx])){
 			// display his name and status
-			multi_sync_display_name(Net_players[idx].m_player->callsign,count,idx);
+			multi_sync_display_name(Net_players[idx].safe_callsign.c_str(),count,idx);
 	
 			// get the player state
 			state = Net_players[idx].state;

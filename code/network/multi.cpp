@@ -173,8 +173,8 @@ void multi_init()
 	Multi_id_num = 0;
 
 	// clear out all netplayers
-	memset(Net_players, 0, sizeof(net_player) * MAX_PLAYERS);
 	for(idx=0; idx<MAX_PLAYERS; idx++){
+		multi_reset_net_player_entry(idx);
 		Net_players[idx].reliable_socket = PSNET_INVALID_SOCKET;
 	}
 
@@ -186,7 +186,7 @@ void multi_init()
 	Net_player->s_info.xfer_handle = -1;
 	Net_player->player_id = multi_get_new_id();
 	Net_player->client_cinfo_seq = 0;
-	Net_player->client_server_seq = 0;		
+	Net_player->client_server_seq = 0;
 
 	// get our connection speed
 	Multi_connection_speed = multi_get_connection_speed();			
