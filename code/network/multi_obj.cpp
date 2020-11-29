@@ -2623,7 +2623,7 @@ void multi_oo_process_all(net_player *pl)
 
 	} else if (temp_timestamp < 0 ){
 		// this should only happen when the game is just starting, because the previous timestamp is nonsense.
-		if (Oo_info.number_of_frames < 2) {
+		if (Oo_info.number_of_frames > 1) {
 			// Send to the log if we're getting negative times. 
 			mprintf(("Somehow the object update packet is calculating a negative time differential in multi_oo_send_control_info. Value: %d. It's going to guess on a correct value. Please investigate.", temp_timestamp));
 		}

@@ -443,6 +443,7 @@ SCP_vector<sexp_oper> Operators = {
 	{ "special-warpout-name",			OP_SET_SPECIAL_WARPOUT_NAME,			2,	2,			SEXP_ACTION_OPERATOR,	},
 	{ "get-ets-value",					OP_GET_ETS_VALUE,						2,	2,			SEXP_ACTION_OPERATOR,	},	// niffiwan
 	{ "set-ets-values",					OP_SET_ETS_VALUES,						4,	INT_MAX,	SEXP_ACTION_OPERATOR,	},	// niffiwan
+	{ "get-power-output",				OP_GET_POWER_OUTPUT,					1,	1,			SEXP_ACTION_OPERATOR,	},	// The E
 
 	//Subsystems and Health Sub-Category
 	{ "ship-invulnerable",				OP_SHIP_INVULNERABLE,					1,	INT_MAX,	SEXP_ACTION_OPERATOR,	},
@@ -8114,52 +8115,75 @@ void sexp_set_ship_man(ship *shipp, int duration, int heading, int pitch, int ba
 {
 	ai_info	*aip = &Ai_info[shipp->ai_index];
 	
-	aip->ai_override_flags.reset();
-
-	// handle infinite timestamps
-	if (duration >= 2) {
-		aip->ai_override_timestamp = timestamp(duration);
-	} else {
-		aip->ai_override_timestamp = timestamp(10);
-		aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Never_expire);
+	if (!(maneuver_flags & CIF_DONT_OVERRIDE_OLD_MANEUVERS)) {
+		aip->ai_override_flags.reset();
 	}
+	bool applied_rot, applied_lat;
+	applied_rot = applied_lat = false;
 
 	if (apply_all_rotate) {
 		aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Full_rot);
 		aip->ai_override_ci.bank = bank / 100.0f;
 		aip->ai_override_ci.pitch = pitch / 100.0f;
 		aip->ai_override_ci.heading = heading / 100.0f;
+		applied_rot = true;
 	} else {
 		if (bank != 0) {
 			aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Roll);
 			aip->ai_override_ci.bank = bank / 100.0f;
+			applied_rot = true;
 		}
 		if (pitch != 0) {
 			aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Pitch);
 			aip->ai_override_ci.pitch = pitch / 100.0f;
+			applied_rot = true;
 		}
 		if (heading != 0) {
 			aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Heading);
 			aip->ai_override_ci.heading = heading / 100.0f;
+			applied_rot = true;
 		}
 	}
+
 	if (apply_all_lat) {
 		aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Full_lat);
 		aip->ai_override_ci.vertical = up / 100.0f;
 		aip->ai_override_ci.sideways = sideways / 100.0f;
 		aip->ai_override_ci.forward = forward / 100.0f;
+		applied_lat = true;
 	} else {
 		if (up != 0) {
 			aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Up);
 			aip->ai_override_ci.vertical = up / 100.0f;
+			applied_lat = true;
 		}
 		if (sideways != 0) {
 			aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Sideways);
 			aip->ai_override_ci.sideways = sideways / 100.0f;
+			applied_lat = true;
 		}
 		if (forward != 0) {
 			aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Forward);
 			aip->ai_override_ci.forward = forward / 100.0f;
+			applied_lat = true;
+		}
+	}
+
+	// handle infinite timestamps
+	if (duration >= 2) {
+		if (applied_rot)
+			aip->ai_override_rot_timestamp = timestamp(duration);
+		if (applied_lat)
+			aip->ai_override_lat_timestamp = timestamp(duration);
+	}
+	else {
+		if (applied_rot) {
+			aip->ai_override_rot_timestamp = timestamp(10);
+			aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Rotational_never_expire);
+		}
+		if (applied_lat) {
+			aip->ai_override_lat_timestamp = timestamp(10);
+			aip->ai_override_flags.set(AI::Maneuver_Override_Flags::Lateral_never_expire);
 		}
 	}
 
@@ -11249,7 +11273,6 @@ void sexp_player_use_ai(int flag)
 // Karajorma
 void sexp_allow_treason (int n) 
 {
-	n = CDR(n);
 	if (n != -1) {
 		The_mission.flags.set(Mission::Mission_Flags::No_traitor, is_sexp_true(n));
 	}
@@ -16846,6 +16869,23 @@ int sexp_gse_recharge_pct(int node, int op_num)
 	// recharge pct
 	return (int)(100.0f * Energy_levels[index]);
 }
+
+/*
+* Get a ship's power output
+*/
+int sexp_get_power_output(int node) 
+{
+	auto ship_entry = eval_ship(node);
+
+	if (ship_entry == nullptr || ship_entry->status == ShipStatus::EXITED)
+		return SEXP_NAN_FOREVER;
+
+	if (ship_entry->status == ShipStatus::NOT_YET_PRESENT)
+		return SEXP_NAN;
+
+	return (int)(std::lround(Ship_info[ship_entry->shipp->ship_info_index].power_output));
+}
+
 
 /**
  * retrieve one ETS index from a ship
@@ -24682,6 +24722,10 @@ int eval_sexp(int cur_node, int referenced_node)
 				sexp_set_ets_values(node);
 				break;
 
+			case OP_GET_POWER_OUTPUT:
+				sexp_val = sexp_get_power_output(node);
+				break;
+
 			case OP_SHIELD_QUAD_LOW:
 				sexp_val = sexp_shield_quad_low(node);
 				break;
@@ -25952,6 +25996,7 @@ int query_operator_return_type(int op)
 		case OP_GET_ETS_VALUE:
 		case OP_TURRET_GET_PRIMARY_AMMO:
 		case OP_TURRET_GET_SECONDARY_AMMO:
+		case OP_GET_POWER_OUTPUT:
 			return OPR_POSITIVE;
 
 		case OP_COND:
@@ -28021,6 +28066,9 @@ int query_operator_argument_type(int op, int argnum)
 				return OPF_SHIP;
 			}
 
+		case OP_GET_POWER_OUTPUT:
+			return OPF_SHIP;
+
 		case OP_SET_ETS_VALUES:
 			if (argnum < 3) {
 				return OPF_POSITIVE;
@@ -30008,6 +30056,7 @@ int get_subcategory(int sexp_id)
 		case OP_WARP_NEVER:
 		case OP_WARP_ALLOWED:
 		case OP_SET_ETS_VALUES:
+		case OP_GET_POWER_OUTPUT:
 			return CHANGE_SUBCATEGORY_SHIELDS_ENGINES_AND_WEAPONS;
 
 		case OP_SHIP_INVULNERABLE:
@@ -31817,6 +31866,7 @@ SCP_vector<sexp_help_struct> Sexp_help = {
 		"\t\t1 or 2^0: don't bank when changing heading\r\n"
 		"\t\t2 or 2^1: allow maneuvers exceeding tabled maximums (outside the -100 to 100 range)\r\n"
 		"\t\t4 or 2^2: instantaneously jump to the goal velocity\r\n"
+		"\t\t8 or 2^3: keeps old, but still active, maneuver values that were not overwritten\r\n"
 	},
 
 	// Wanderer
@@ -31834,6 +31884,7 @@ SCP_vector<sexp_help_struct> Sexp_help = {
 		"\t\t1 or 2^0: don't bank when changing heading\r\n"
 		"\t\t2 or 2^1: allow maneuvers exceeding tabled maximums (outside the -100 to 100 range)\r\n"
 		"\t\t4 or 2^2: instantaneously jump to the goal velocity\r\n"
+		"\t\t8 or 2^3: keeps old, but still active, maneuver values that were not overwritten\r\n"
 	},
 	
 	// Wanderer
@@ -31851,6 +31902,7 @@ SCP_vector<sexp_help_struct> Sexp_help = {
 		"\t\t1 or 2^0: don't bank when changing heading (which won't have any affect for lat-maneuver)\r\n"
 		"\t\t2 or 2^1: allow maneuvers exceeding tabled maximums (outside the -100 to 100 range)\r\n"
 		"\t\t4 or 2^2: instantaneously jump to the goal velocity\r\n"
+		"\t\t8 or 2^3: keeps old, but still active, maneuver values that were not overwritten\r\n"
 	},
 
 	// Goober5000
@@ -33210,6 +33262,11 @@ SCP_vector<sexp_help_struct> Sexp_help = {
 		"\t2: Shields index\r\n"
 		"\t3: Weapons index\r\n"
 		"\t4: Ship name\r\n"},
+
+	{ OP_GET_POWER_OUTPUT, "get-power-output\r\n"
+		"\tGets the power output rating of a ship\r\n"
+		"\t1: Ship name"
+	},
 
 	{ OP_CARGO_NO_DEPLETE, "cargo-no-deplete\r\n"
 		"\tCauses the named ship to have unlimited cargo.\r\n"

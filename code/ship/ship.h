@@ -1079,11 +1079,13 @@ public:
 	// ship explosion info
 	shockwave_create_info shockwave;
 	int	explosion_propagates;				// If true, then the explosion propagates
+	bool explosion_splits_ship;				// If true, then the ship 'splits in two' when it blows up
 	float big_exp_visual_rad;				//SUSHI: The visual size of the main explosion
 	float prop_exp_rad_mult;				// propagating explosions radius multiplier
 	float death_roll_r_mult;
 	float death_fx_r_mult;
 	float death_roll_time_mult;
+	float death_roll_rotation_mult;
 	float death_roll_xrotation_cap;         // max rotation around x-axis in radians-per-sec (aka pitch)
 	float death_roll_yrotation_cap;         // max rotation around y-axis in radians-per-sec (aka yaw)
 	float death_roll_zrotation_cap;         // max rotation around z-axis in radians-per-sec (aka roll)
@@ -1128,6 +1130,14 @@ public:
 	float		max_weapon_reserve;				// maximum energy that can be stored for primary weapon usage
 	float		max_shield_regen_per_second;	// Goober5000 - max percent/100 of shield energy regenerated per second
 	float		max_weapon_regen_per_second;	// Goober5000 - max percent/100 of weapon energy regenerated per second
+
+	// Fields for tuning the ETS' direct shield<->weapon transfer feature
+	float		shield_weap_amount;				// fraction of shield capacity to transfer
+	float		shield_weap_efficiency;			// efficiency multiplier for output into weapons capacitor
+	float		shield_weap_speed;				// rate that energy will be added to the weap capacitor
+	float		weap_shield_amount;				// ...
+	float		weap_shield_efficiency;			// ditto, but reverse the direction
+	float		weap_shield_speed;				// ...
 
 	// Afterburner fields
 	vec3d		afterburner_max_vel;				//	max velocity of the ship in the linear directions when afterburners are engaged -- read from ships.tbl

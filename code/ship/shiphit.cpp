@@ -852,7 +852,7 @@ static void shiphit_record_player_killer(object *killer_objp, player *p)
 
 			pnum = multi_find_player_by_object( &Objects[killer_objp->parent] );
 			if ( pnum != -1 ) {
-				strcpy_s(p->killer_parent_name, Net_players[pnum].m_player->callsign);
+				strcpy_s(p->killer_parent_name, Net_players[pnum].safe_callsign.c_str());
 			} else {
 				nprintf(("Network", "Couldn't find player object of weapon for killer of %s\n", p->callsign));
 			}
@@ -875,7 +875,7 @@ static void shiphit_record_player_killer(object *killer_objp, player *p)
 
 			pnum = multi_find_player_by_object( &Objects[killer_objp->parent] );
 			if ( pnum != -1 ) {
-				strcpy_s(p->killer_parent_name, Net_players[pnum].m_player->callsign);
+				strcpy_s(p->killer_parent_name, Net_players[pnum].safe_callsign.c_str());
 			} else {
 				nprintf(("Network", "Couldn't find player object of shockwave for killer of %s\n", p->callsign));
 			}
@@ -903,7 +903,7 @@ static void shiphit_record_player_killer(object *killer_objp, player *p)
 
 			pnum = multi_find_player_by_object( killer_objp );
 			if ( pnum != -1 ) {
-				strcpy_s(p->killer_parent_name, Net_players[pnum].m_player->callsign);
+				strcpy_s(p->killer_parent_name, Net_players[pnum].safe_callsign.c_str());
 			} else {
 				nprintf(("Network", "Couldn't find player object for killer of %s\n", p->callsign));
 			}
@@ -1535,6 +1535,8 @@ void ship_generic_kill_stuff( object *objp, float percent_killed )
 		rotvel_mag = 150.0f / objp->radius;
 	}
 
+	rotvel_mag *= sip->death_roll_rotation_mult;
+
 	if (object_is_dead_docked(objp)) {
 		// don't change current rotvel
 		sp->deathroll_rotvel = objp->phys_info.rotvel;
@@ -1671,7 +1673,7 @@ void ship_hit_kill(object *ship_objp, object *other_obj, vec3d *hitpos, float pe
 				// get first name				
 				np_index = multi_find_player_by_object(ship_objp);
 				if((np_index >= 0) && (np_index < MAX_PLAYERS) && (Net_players[np_index].m_player != NULL)){
-					strcpy_s(name1, Net_players[np_index].m_player->callsign);
+					strcpy_s(name1, Net_players[np_index].safe_callsign.c_str());
 				} else {
 					strcpy_s(name1, sp->ship_name);
 				}
@@ -1685,7 +1687,7 @@ void ship_hit_kill(object *ship_objp, object *other_obj, vec3d *hitpos, float pe
 					} else {
 						np_index = multi_find_player_by_object(killer_objp);
 						if((np_index >= 0) && (np_index < MAX_PLAYERS) && (Net_players[np_index].m_player != NULL)){
-							strcpy_s(name2, Net_players[np_index].m_player->callsign);
+							strcpy_s(name2, Net_players[np_index].safe_callsign.c_str());
 						} else {
 							strcpy_s(name2, killer_ship_name);
 						}
@@ -1757,7 +1759,7 @@ void ship_self_destruct( object *objp )
 	if((Game_mode & GM_MULTIPLAYER) && (multi_find_player_by_object(objp) >= 0)){
 		int np_index = multi_find_player_by_object(objp);
 		if((np_index >= 0) && (np_index < MAX_PLAYERS) && (Net_players[np_index].m_player != NULL)){
-			mission_log_add_entry(LOG_SELF_DESTRUCTED, Net_players[np_index].m_player->callsign, NULL );
+			mission_log_add_entry(LOG_SELF_DESTRUCTED, Net_players[np_index].safe_callsign.c_str(), NULL );
 		} else {
 			mission_log_add_entry(LOG_SELF_DESTRUCTED, Ships[objp->instance].ship_name, NULL );
 		}

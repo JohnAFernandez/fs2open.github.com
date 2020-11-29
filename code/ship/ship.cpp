@@ -350,6 +350,7 @@ flag_def_list_new<Info_Flags> Ship_flags[] = {
 	{ "don't bank when turning",	Info_Flags::Dont_bank_when_turning,		true, false },
 	{ "don't clamp max velocity",	Info_Flags::Dont_clamp_max_velocity,	true, false },
 	{ "instantaneous acceleration",	Info_Flags::Instantaneous_acceleration,	true, false },
+	{ "large ship deathroll",		Info_Flags::Large_ship_deathroll,	true, false },
     // to keep things clean, obsolete options go last
     { "ballistic primaries",		Info_Flags::Ballistic_primaries,	false, false }
 };
@@ -899,11 +900,13 @@ void ship_info::clone(const ship_info& other)
 
 	memcpy(&shockwave, &other.shockwave, sizeof(shockwave_create_info));
 	explosion_propagates = other.explosion_propagates;
+	explosion_splits_ship = other.explosion_splits_ship;
 	big_exp_visual_rad = other.big_exp_visual_rad;
 	prop_exp_rad_mult = other.prop_exp_rad_mult;
 	death_roll_r_mult = other.death_roll_r_mult;
 	death_fx_r_mult = other.death_fx_r_mult;
 	death_roll_time_mult = other.death_roll_time_mult;
+	death_roll_rotation_mult = other.death_roll_rotation_mult;
 	death_roll_xrotation_cap = other.death_roll_xrotation_cap;
 	death_roll_yrotation_cap = other.death_roll_yrotation_cap;
 	death_roll_zrotation_cap = other.death_roll_zrotation_cap;
@@ -972,6 +975,13 @@ void ship_info::clone(const ship_info& other)
 	max_weapon_reserve = other.max_weapon_reserve;
 	max_shield_regen_per_second = other.max_shield_regen_per_second;
 	max_weapon_regen_per_second = other.max_weapon_regen_per_second;
+
+	shield_weap_amount = other.shield_weap_amount;
+	shield_weap_efficiency = other.shield_weap_efficiency;
+	shield_weap_speed = other.shield_weap_speed;
+	weap_shield_amount = other.weap_shield_amount;
+	weap_shield_efficiency = other.weap_shield_efficiency;
+	weap_shield_speed = other.weap_shield_speed;
 
 	afterburner_max_vel = other.afterburner_max_vel;
 	afterburner_forward_accel = other.afterburner_forward_accel;
@@ -1221,11 +1231,13 @@ void ship_info::move(ship_info&& other)
 
 	std::swap(shockwave, other.shockwave);
 	explosion_propagates = other.explosion_propagates;
+	explosion_splits_ship = other.explosion_splits_ship;
 	big_exp_visual_rad = other.big_exp_visual_rad;
 	prop_exp_rad_mult = other.prop_exp_rad_mult;
 	death_roll_r_mult = other.death_roll_r_mult;
 	death_fx_r_mult = other.death_fx_r_mult;
 	death_roll_time_mult = other.death_roll_time_mult;
+	death_roll_rotation_mult = other.death_roll_rotation_mult;
 	death_roll_xrotation_cap = other.death_roll_xrotation_cap;
 	death_roll_yrotation_cap = other.death_roll_yrotation_cap;
 	death_roll_zrotation_cap = other.death_roll_zrotation_cap;
@@ -1267,6 +1279,13 @@ void ship_info::move(ship_info&& other)
 	max_weapon_reserve = other.max_weapon_reserve;
 	max_shield_regen_per_second = other.max_shield_regen_per_second;
 	max_weapon_regen_per_second = other.max_weapon_regen_per_second;
+
+	shield_weap_amount = other.shield_weap_amount;
+	shield_weap_efficiency = other.shield_weap_efficiency;
+	shield_weap_speed = other.shield_weap_speed;
+	weap_shield_amount = other.weap_shield_amount;
+	weap_shield_efficiency = other.weap_shield_efficiency;
+	weap_shield_speed = other.weap_shield_speed;
 
 	std::swap(afterburner_max_vel, other.afterburner_max_vel);
 	afterburner_forward_accel = other.afterburner_forward_accel;
@@ -1559,11 +1578,13 @@ ship_info::ship_info()
 
 	shockwave_create_info_init(&shockwave);
 	explosion_propagates = 0;
+	explosion_splits_ship = false;
 	big_exp_visual_rad = -1.0f;
 	prop_exp_rad_mult = 1.0f;
 	death_roll_r_mult = 1.0f;
 	death_fx_r_mult = 1.0f;
 	death_roll_time_mult = 1.0f;
+	death_roll_rotation_mult = 1.0f;
 	death_roll_xrotation_cap = 0.75f*DEATHROLL_ROTVEL_CAP;
 	death_roll_yrotation_cap = 0.75f*DEATHROLL_ROTVEL_CAP;
 	death_roll_zrotation_cap = 0.75f*DEATHROLL_ROTVEL_CAP;
@@ -1651,6 +1672,13 @@ ship_info::ship_info()
 	max_weapon_reserve = 0.0f;
 	max_shield_regen_per_second = 0.0f;
 	max_weapon_regen_per_second = 0.0f;
+
+	shield_weap_amount = 0.0f;
+	shield_weap_efficiency = 0.0f;
+	shield_weap_speed = 0.0f;
+	weap_shield_amount = 0.0f;
+	weap_shield_efficiency = 0.0f;
+	weap_shield_speed = 0.0f;
 
 	vm_vec_zero(&afterburner_max_vel);
 	afterburner_forward_accel = 0.0f;
@@ -3278,6 +3306,13 @@ static void parse_ship_values(ship_info* sip, const bool is_template, const bool
 		stuff_boolean(&sip->explosion_propagates);
 	}
 
+	if(optional_string("$Expl Splits Ship:")){
+		stuff_boolean(&sip->explosion_splits_ship);
+	}
+	else if (first_time) {
+		sip->explosion_splits_ship = sip->explosion_propagates == 1;
+	}
+
 	if(optional_string("$Propagating Expl Radius Multiplier:")){
 		stuff_float(&sip->prop_exp_rad_mult);
 		if(sip->prop_exp_rad_mult <= 0) {
@@ -3319,6 +3354,10 @@ static void parse_ship_values(ship_info* sip, const bool is_template, const bool
 		stuff_int(&sip->death_fx_count);
 		if (sip->death_fx_count < 0)
 			sip->death_fx_count = 0;
+	}
+
+	if (optional_string("$Death Roll Rotation Multiplier:")) {
+		stuff_float(&sip->death_roll_rotation_mult);
 	}
 
 	if(optional_string("$Death Roll X rotation Cap:")){
@@ -3525,6 +3564,36 @@ static void parse_ship_values(ship_info* sip, const bool is_template, const bool
 		stuff_float(&sip->max_weapon_regen_per_second);
 	else if (first_time)
 		sip->max_weapon_regen_per_second = 0.04f;
+
+	if (optional_string("$Shield to Weapon Transfer Quantity:"))
+		stuff_float(&sip->shield_weap_amount);
+	else if (first_time)
+		sip->shield_weap_amount = 0.2f;
+
+	if (optional_string("$Shield to Weapon Transfer Efficiency:"))
+		stuff_float(&sip->shield_weap_efficiency);
+	else if (first_time)
+		sip->shield_weap_efficiency = 1.0f;
+
+	if (optional_string("$Shield to Weapon Transfer Speed:"))
+		stuff_float(&sip->shield_weap_speed);
+	else if (first_time)
+		sip->shield_weap_speed = 0.04f;
+
+	if (optional_string("$Weapon to Shield Transfer Quantity:"))
+		stuff_float(&sip->weap_shield_amount);
+	else if (first_time)
+		sip->weap_shield_amount = 0.1f;
+
+	if (optional_string("$Weapon to Shield Transfer Efficiency:"))
+		stuff_float(&sip->weap_shield_efficiency);
+	else if (first_time)
+		sip->weap_shield_efficiency = 1.0f;
+
+	if (optional_string("$Weapon to Shield Transfer Speed:"))
+		stuff_float(&sip->weap_shield_speed);
+	else if (first_time)
+		sip->weap_shield_speed = 0.04f;
 
 	if (optional_string("$Max Oclk Speed:") || optional_string("$Max Overclock Speed:"))
 		stuff_float(&sip->max_overclocked_speed);
@@ -8337,8 +8406,8 @@ static void ship_dying_frame(object *objp, int ship_num)
 				}
 			}
 
-			// If this is a large ship with a propagating explosion, set it to blow up.
-			if ( ship_get_exp_propagates(shipp) )	{
+			// If this is a splitting explosion, set it split up.
+			if ( sip->explosion_splits_ship )	{
 				if (Ai_info[shipp->ai_index].ai_flags[AI::AI_Flags::Kamikaze]) {
 					ship_blow_up_area_apply_blast( objp );
 				}
@@ -8348,7 +8417,7 @@ static void ship_dying_frame(object *objp, int ship_num)
 				polymodel *pm = model_get(sip->model_num);
 				shipp->end_death_time = timestamp((int) pm->core_radius);
 			} else {
-				// only do big fireball if not big ship
+				// else, just a single big fireball
 				float big_rad;
 				int fireball_objnum, fireball_type, default_fireball_type;
 				float explosion_life;
@@ -8444,7 +8513,8 @@ static void ship_dying_frame(object *objp, int ship_num)
 	}
 }
 
-static void ship_chase_shield_energy_targets(ship *shipp, object *obj, float frametime)
+// Trickle buffered energy from weapon<->shield transfers into the main banks
+static void ship_move_ets_transfer_buffers(ship *shipp, object *obj, float frametime)
 {
 	float delta;
 	ship_info *sip;
@@ -8454,7 +8524,7 @@ static void ship_chase_shield_energy_targets(ship *shipp, object *obj, float fra
 
 	sip = &Ship_info[shipp->ship_info_index];
 
-	delta = frametime * ETS_RECHARGE_RATE * shipp->ship_max_shield_strength / 100.0f; // recharge is unaffected by $Max Shield Recharge
+	delta = frametime * shipp->ship_max_shield_strength * sip->weap_shield_speed;
 
 	//	Chase target_shields and target_weapon_energy
 	if (shipp->target_shields_delta > 0.0f) {
@@ -8471,7 +8541,7 @@ static void ship_chase_shield_energy_targets(ship *shipp, object *obj, float fra
 		shipp->target_shields_delta += delta;
 	}
 
-	delta = frametime * ETS_RECHARGE_RATE * sip->max_weapon_reserve / 100.0f;
+	delta = frametime * sip->max_weapon_reserve * sip->shield_weap_speed;
 
 	if (shipp->target_weapon_energy_delta > 0.0f) {
 		if (delta > shipp->target_weapon_energy_delta)
@@ -9221,7 +9291,7 @@ void ship_process_post(object * obj, float frametime)
 
 	ship_dying_frame(obj, num);
 
-	ship_chase_shield_energy_targets(shipp, obj, frametime);
+	ship_move_ets_transfer_buffers(shipp, obj, frametime);
 
 	// AL 1-6-98: record the initial ammo counts for ships, which is used as the max limit for rearming
 	// Goober5000 - added ballistics support
@@ -17244,19 +17314,18 @@ void object_jettison_cargo(object *objp, object *cargo_objp, float jettison_spee
 	if (jettison_new)
 	{
 		// new method uses dockpoint normals and user-specified force
-		extern void find_adjusted_dockpoint_info(vec3d* global_p0, vec3d* global_p1, vec3d* global_p0_norm, object* objp, polymodel* pm, int modelnum, int submodel, int dock_index);
+		extern void find_adjusted_dockpoint_info(vec3d * global_dock_point, matrix * dock_orient, object * objp, polymodel * pm, int modelnum, int submodel, int dock_index);
 		extern int find_parent_rotating_submodel(polymodel *pm, int dock_index);
 
 		int model_num = Ship_info[shipp->ship_info_index].model_num;
 		polymodel *pm = model_get(model_num);
 		int docker_rotating_submodel = find_parent_rotating_submodel(pm, docker_index);
-		vec3d docker_p0_norm, docker_p0, docker_p1;
+		matrix dock_orient;
 
-		find_adjusted_dockpoint_info(&docker_p0, &docker_p1, &docker_p0_norm, objp, pm, model_num, docker_rotating_submodel, docker_index);
-		vm_vec_avg(&pos, &docker_p0, &docker_p1);
+		find_adjusted_dockpoint_info(&pos, &dock_orient, objp, pm, model_num, docker_rotating_submodel, docker_index);
 
 		// set for relative separation speed (see also do_dying_undock_physics)
-		vm_vec_copy_scale(&impulse, &docker_p0_norm, jettison_speed * cargo_objp->phys_info.mass);
+		vm_vec_copy_scale(&impulse, &dock_orient.vec.fvec, jettison_speed * cargo_objp->phys_info.mass);
 	}
 	else
 	{

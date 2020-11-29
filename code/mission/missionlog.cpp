@@ -236,8 +236,8 @@ void mission_log_add_entry(LogType type, const char *pname, const char *sname, i
 	case LOG_SHIP_DISARMED:
 	case LOG_SELF_DESTRUCTED:
 		// multiplayer. callsign is passed in for ship destroyed and self destruct
-		if((Game_mode & GM_MULTIPLAYER) && (multi_find_player_by_callsign(pname) >= 0)){
-			int np_index = multi_find_player_by_callsign(pname);
+		if((Game_mode & GM_MULTIPLAYER) && (multi_find_player_by_safe_callsign(pname) >= 0)){
+			int np_index = multi_find_player_by_safe_callsign(pname);
 			index = multi_get_player_ship( np_index );
 		} else {
 			index = ship_name_lookup( pname );
@@ -258,9 +258,9 @@ void mission_log_add_entry(LogType type, const char *pname, const char *sname, i
 		} else if ( type == LOG_SHIP_DESTROYED ) {
 			if ( sname ) {
 				// multiplayer, player name will possibly be sent in
-				if((Game_mode & GM_MULTIPLAYER) && (multi_find_player_by_callsign(sname) >= 0)) {
+				if((Game_mode & GM_MULTIPLAYER) && (multi_find_player_by_safe_callsign(sname) >= 0)) {
 					// get the player's ship
-					int np_index = multi_find_player_by_callsign(sname);
+					int np_index = multi_find_player_by_safe_callsign(sname);
 					int np_ship = multi_get_player_ship(np_index);
 
 					if(np_ship < 0)
