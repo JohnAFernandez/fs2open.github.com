@@ -1310,7 +1310,7 @@ void multi_assign_safe_callsign(int player_index)
 int multi_find_player_by_safe_callsign(const char* safe_callsign) 
 {
 	for (int i = 0; i < MAX_PLAYERS; i++) {
-		if (MULTI_CONNECTED(Net_players[i]) && (strcmp(safe_callsign, Net_player[i].safe_callsign.c_str())) ) {
+		if (MULTI_CONNECTED(Net_players[i]) && (!strcmp(safe_callsign, Net_player[i].safe_callsign.c_str())) ) {
 			return i;
 		}
 	}
