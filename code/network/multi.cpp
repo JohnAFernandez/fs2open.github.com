@@ -491,6 +491,7 @@ void multi_client_check_server()
 
 void process_packet_normal(ubyte* data, header *header_info)
 {
+	oprintf(("received,%d,%f,%d,", (int)data[0], flFrametime, Framecount));
 	switch ( data[0] ) {
 
 		case JOIN:
@@ -936,6 +937,7 @@ void multi_process_bigdata(ubyte *data, int len, net_addr *from_addr, int reliab
 	header header_info;
 	ubyte *buf;	
 
+
 	// the only packets we will process from an unknown player are GAME_QUERY, GAME_INFO, JOIN, PING, PONG, ACCEPT, and GAME_ACTIVE packets
 	player_num = find_player(from_addr);		
 
@@ -974,7 +976,17 @@ void multi_process_bigdata(ubyte *data, int len, net_addr *from_addr, int reliab
 
 		// perform any special processing checks here		
 		process_packet_normal(buf,&header_info);
-		 
+		
+		if (MULTIPLAYER_MASTER) {
+			oprintf(("%d,%s\n", header_info.bytes_processed, (&Net_players[player_num] == Netgame.host)? "Packet received from host" : "false"));
+		}
+		else if (MULTIPLAYER_HOST) {
+			oprintf(("%d,%s\n", header_info.bytes_processed, "Packet Received at Host From Server"));
+		}
+		else {
+			oprintf(("%d,%s\n", header_info.bytes_processed, "false"));
+		}
+		
 		// MWA -- magic number was removed from header on 8/4/97.  Replaced with bytes_processed
 		// variable which gets stuffed whenever a packet is processed.
 		bytes_processed += header_info.bytes_processed;

@@ -17,6 +17,7 @@ void outwnd_init();
 void outwnd_close();
 void outwnd_printf(const char *id, SCP_FORMAT_STRING const char *format, ...) SCP_FORMAT_STRING_ARGS(2, 3);
 void outwnd_printf2(SCP_FORMAT_STRING const char *format, ...) SCP_FORMAT_STRING_ARGS(1, 2);
+void outwnd_printf3(SCP_FORMAT_STRING const char* format, ...) SCP_FORMAT_STRING_ARGS(1, 2);
 
 void outwnd_debug_window_init();
 void outwnd_debug_window_do_frame(float frametime);

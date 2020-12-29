@@ -401,13 +401,13 @@ void multi_io_send(net_player *pl, ubyte *data, int len)
 			return;
 		}
 	}
+	oprintf(("sent,%d,%f,%d,%d,%s\n", (int)data[0], flFrametime, Framecount, len,(MULTIPLAYER_HOST && !MULTIPLAYER_MASTER)? "Sending To Server From Host" : (pl == Netgame.host)? "Sending To Host from Server" : "false"));
 
 	// If this packet will push the buffer over MAX_PACKET_SIZE, send the current send_buffer
 	if ((pl->s_info.unreliable_buffer_size + len) > MAX_PACKET_SIZE) {		
 		multi_io_send_force(pl);
 		pl->s_info.unreliable_buffer_size = 0;
 	}
-
 	Assert((pl->s_info.unreliable_buffer_size + len) <= MAX_PACKET_SIZE);
 
 	memcpy(pl->s_info.unreliable_buffer + pl->s_info.unreliable_buffer_size, data, len);
@@ -489,6 +489,7 @@ void multi_io_send_reliable(net_player *pl, ubyte *data, int len)
 			return;
 		}
 	}
+	oprintf(("sent,%d,%f,%d,%d,%s\n", (int)data[0], flFrametime, Framecount, len,(MULTIPLAYER_HOST && !MULTIPLAYER_MASTER)? "Sending To Server From Host" : (pl == Netgame.host)? "Sending To Host from Server" : "false"));
 
 	// If this packet will push the buffer over MAX_PACKET_SIZE, send the current send_buffer
 	if ((pl->s_info.reliable_buffer_size + len) > MAX_PACKET_SIZE) {		

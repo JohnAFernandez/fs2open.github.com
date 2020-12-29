@@ -244,6 +244,7 @@ constexpr bool LoggingEnabled = false;
 
 #define mprintf(args) do { if (LoggingEnabled) { outwnd_printf2 args; } } while (false)
 #define nprintf(args) do { if (LoggingEnabled) { outwnd_printf args; } } while (false)
+#define oprintf(args) do { if (LoggingEnabled) { outwnd_printf3 args; } } while (false)
 
 #define LOCATION __FILE__,__LINE__
 

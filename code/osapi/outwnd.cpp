@@ -39,7 +39,7 @@ static SCP_vector<outwnd_filter_struct>& filter_vector()
 // used for file logging
 bool Log_debug_output_to_file = true;
 
-void outwnd_print(const char* id = nullptr, const char* temp = nullptr);
+void outwnd_print(const char* id = nullptr, const char* temp = nullptr, bool new_output = false);
 
 // 0 = .cfg file found, 1 = not found and warning not printed yet, 2 = not found and warning printed
 static ubyte Outwnd_no_filter_file = 0;
@@ -50,6 +50,9 @@ static bool outwnd_inited         = false;
 static FILE* Log_fp                      = nullptr;
 static bool Log_close_fp                 = false;
 static const char* FreeSpace_logfilename = nullptr;
+static const char* New_output_filename   = nullptr;
+static FILE* Log_fp_new                  = nullptr;
+
 
 static std::unique_ptr<osapi::DebugWindow> debugWindow;
 
@@ -145,6 +148,22 @@ void save_filter_info()
 	}
 }
 
+void outwnd_printf3(const char *format, ...)
+{
+	SCP_string temp;
+	va_list args;
+
+	if (format == nullptr)
+		return;
+
+	va_start(args, format);
+	vsprintf(temp, format, args);
+	va_end(args);
+
+	outwnd_print("General", temp.c_str(), true);
+}
+
+
 void outwnd_printf2(const char *format, ...)
 {
 	SCP_string temp;
@@ -157,7 +176,7 @@ void outwnd_printf2(const char *format, ...)
 	vsprintf(temp, format, args);
 	va_end(args);
 
-	outwnd_print("General", temp.c_str());
+	outwnd_print("General", temp.c_str(), false);
 }
 
 void outwnd_printf(const char *id, const char *format, ...)
@@ -172,10 +191,10 @@ void outwnd_printf(const char *id, const char *format, ...)
 	vsprintf(temp, format, args);
 	va_end(args);
 
-	outwnd_print(id, temp.c_str());
+	outwnd_print(id, temp.c_str(), false);
 }
 
-void outwnd_print(const char *id, const char *tmp)
+void outwnd_print(const char *id, const char *tmp, bool new_output)
 {
 	if (running_unittests) {
 		// Ignore all messages when running unit tests
@@ -191,10 +210,10 @@ void outwnd_print(const char *id, const char *tmp)
 	if (Outwnd_no_filter_file == 1) {
 		Outwnd_no_filter_file = 2;
 
-		outwnd_print("general", "==========================================================================\n");
-		outwnd_print("general", "DEBUG SPEW: No debug_filter.cfg found, so only general, error, and warning\n");
-		outwnd_print("general", "categories can be shown and no debug_filter.cfg info will be saved.\n");
-		outwnd_print("general", "==========================================================================\n");
+		outwnd_print("general", "==========================================================================\n", false);
+		outwnd_print("general", "DEBUG SPEW: No debug_filter.cfg found, so only general, error, and warning\n", false);
+		outwnd_print("general", "categories can be shown and no debug_filter.cfg info will be saved.\n", false);
+		outwnd_print("general", "==========================================================================\n", false);
 	}
 
 	auto filter = std::find_if(filter_vector().begin(), filter_vector().end(), [&id] (const outwnd_filter_struct& f) { return stricmp(f.name, id) == 0; });
@@ -218,10 +237,19 @@ void outwnd_print(const char *id, const char *tmp)
 			return;
 
 	if (Log_debug_output_to_file) {
-		if (Log_fp != nullptr) {
-			fputs(tmp, Log_fp);
-			fflush(Log_fp);
+		if (new_output) {
+			if (Log_fp_new != nullptr) {
+				fputs(tmp, Log_fp_new);
+				fflush(Log_fp_new);
+			}
 		}
+		else {
+			if (Log_fp != nullptr) {
+				fputs(tmp, Log_fp);
+				fflush(Log_fp);
+			}
+		}
+		
 	}
 
 	if (debugWindow) {
@@ -238,8 +266,10 @@ void outwnd_init()
 
 	if (!running_unittests && Log_fp == nullptr) {
 		SCP_string logpath;
+		SCP_string logpath2;
 		if (!Cmdline_log_to_stdout) {
 			char pathname[MAX_PATH_LEN];
+			char pathname2[MAX_PATH_LEN];
 
 			/* Set where the log file is going to go */
 			// Zacam: Set various conditions based on what type of log to generate.
@@ -251,16 +281,27 @@ void outwnd_init()
 				FreeSpace_logfilename = "fs2_open.log";
 			}
 
+			char temptacos[MAX_PATH_LEN];
+			time_t timedate = time(nullptr);
+			snprintf(temptacos, MAX_PATH_LEN, "packets_%d.csv", (int)timedate);
+
+			New_output_filename = temptacos;
+			
 			// create data file path if it does not exist
 			_mkdir(os_get_config_path(Pathtypes[CF_TYPE_DATA].path).c_str());
 
 			memset(pathname, 0, sizeof(pathname));
 			snprintf(pathname, MAX_PATH_LEN, "%s/%s", Pathtypes[CF_TYPE_DATA].path, FreeSpace_logfilename);
+			memset(pathname2, 0, sizeof(pathname2));
+			snprintf(pathname2, MAX_PATH_LEN, "%s/%s", Pathtypes[CF_TYPE_DATA].path, New_output_filename);
+
 
 			logpath = os_get_config_path(pathname);
+			logpath2 = os_get_config_path(pathname2);
 
 			Log_fp       = fopen(logpath.c_str(), "wb");
 			Log_close_fp = true;
+			Log_fp_new   = fopen(logpath2.c_str(), "wb");
 		} else {
 			Log_fp       = stdout;
 			Log_close_fp = false;
@@ -280,6 +321,8 @@ void outwnd_init()
 			strftime(datestr, sizeof(datestr) - 1, "%a %b %d %H:%M:%S %Y", localtime(&timedate));
 
 			outwnd_printf("General", "Opened log '%s', %s ...\n", logpath.c_str(), datestr);
+			outwnd_printf("General", "Sent or Received,Packet Type Number,Float Frame Time,Frame Number,Packet Size,Host To Server?\n", true);
+
 			mprintf(("Legacy config mode is %s.\nReason: %s\n", os_is_legacy_mode() ? "ENABLED" : "DISABLED",
 					 Osapi_legacy_mode_reason));
 		}
@@ -299,9 +342,11 @@ void outwnd_close()
 
 		if (Log_close_fp) {
 			fclose(Log_fp);
+			fclose(Log_fp_new);
 		}
 		Log_fp       = nullptr;
 		Log_close_fp = false;
+		Log_fp_new   = nullptr;
 	}
 
 	outwnd_inited = false;
