@@ -88,8 +88,9 @@ struct oo_packet_and_interp_tracking {
 	int prev_pack_pos_frame;			// the prev position packet arrival frame
 
 	bool client_simulation_mode;		// if the packets come in too late, a toggle to sim things like normal
-
+	bool packet_just_received;			// did we just get this packet?  -- Helps to put a leash on anti-rubberbanding
 	bool prev_packet_positionless;		// a flag that marks if the last packet as having no new position or orientation info.
+	bool manually_calculated_vel;		// did we have to manually calculate the velocity because of packet limitations?
 
 	float pos_time_delta;				// How much time passed between position packets, in the same format as flFrametime
 	int pos_timestamp;					// Time that FSO processes the most recent position packet
@@ -236,6 +237,7 @@ float multi_oo_calc_pos_time_difference(int player_id, int net_sig_idx);
 #define OO_PRIMARY_LINKED			(1<<9)		// if this is set, banks are linked
 #define OO_TRIGGER_DOWN				(1<<10)		// if this is set, trigger is DOWN
 #define OO_SUPPORT_SHIP				(1<<11)		// Send extra info for the support ship.
+#define OO_NO_VELOCITY				(1<<12)		// To circumvent packet limits, force the client to calculate a velocity.
 
 #define OO_SBUSYS_ROTATION_CUTOFF	0.1f		// if the squared difference between the old and new angles is less than this, don't send.
 
@@ -1216,7 +1218,7 @@ int multi_oo_pack_data(net_player *pl, object *objp, ushort oo_flags, ubyte *dat
 		multi_rate_add(NET_PLAYER_NUM(pl), "ori", ret);	
 
 		// velocity, 4 bytes-- Tried to do this by calculation instead but kept running into issues. 
-		ret = multi_pack_unpack_vel(1, data + packet_size + header_bytes, &objp->orient, &objp->phys_info);
+		ret = multi_pack_unpack_vel(1, data + packet_size + header_bytes, &objp->orient, &objp->phys_info.vel);
 
 		packet_size += ret;
 		// datarate tracking.
@@ -1720,6 +1722,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 
 	// Have "new info" default to the old info before reading
 	vec3d new_pos = pobjp->pos;
+	vec3d temp_velocity, position_test;
 	angles new_angles;
 	matrix new_orient = pobjp->orient;
 	physics_info new_phys_info = pobjp->phys_info;
@@ -1739,8 +1742,19 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		// new version of the orient packer sends angles instead to save on bandwidth, so we'll need the orienation from that.
 		vm_angles_2_matrix(&new_orient, &new_angles);
 
-		int r3 = multi_pack_unpack_vel(0, data + offset, &new_orient, &new_phys_info);
+		int r3 = multi_pack_unpack_vel(0, data + offset, &new_orient, &temp_velocity);
 		offset += r3;
+
+		// this is a quick test for the no speed on warpin situation.
+		if (vm_vec_mag(&temp_velocity) < 1.0f) {
+			vm_vec_sub(&position_test, &new_pos, &pobjp->pos);
+			if (vm_vec_mag(&position_test) < 2.0f) {
+				new_phys_info.vel = temp_velocity;
+			}
+		}
+		else {
+			new_phys_info.vel = temp_velocity;
+		}
 
 		int r4 = multi_pack_unpack_rotvel( 0, data + offset, &new_phys_info );
 		offset += r4;
@@ -1799,7 +1813,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		
 		// Cyborg17 - fully bash if we're past the position update tolerance or not moving
 		// Past the update tolerance will cause a jump, but it should be nice and smooth immediately afterwards
-		if(pos_new && (temp_distance > OO_POS_UPDATE_TOLERANCE || new_phys_info.vel == vmd_zero_vector)){
+		if(pos_new && (temp_distance > OO_POS_UPDATE_TOLERANCE)){
 			pobjp->pos = new_pos;
 			//Also, make sure that FSO knows that it does not need to smooth anything out
 			interp_data->position_error = vmd_zero_vector;
@@ -2613,6 +2627,7 @@ void multi_init_oo_and_ship_tracker()
 	temp_interp.prev_pack_pos_frame = -1;
 
 	temp_interp.client_simulation_mode = true;
+	temp_interp.packet_just_received = false;
 	temp_interp.prev_packet_positionless = false;
 
 	temp_interp.pos_time_delta = -1.0f;
@@ -3312,31 +3327,39 @@ void multi_oo_interp(object* objp)
 		}
 	}
 
-	// this gets rid of ships shaking in place, but once the velocity has started, it's a free for all.
-	vec3d temp_rubberband_test, local_displacement, temp_local_vel, local_rubberband_correction, global_rubberband_correction;
-	vm_vec_sub(&temp_rubberband_test, &objp->pos, &store_old_pos);
+	float speed_test = vm_vec_mag(&objp->phys_info.vel);
+	float max_speed = (Ship_info[Ships[objp->instance].ship_info_index].afterburner_max_vel.xyz.z > 0.0f) ? 
+		Ship_info[Ships[objp->instance].ship_info_index].afterburner_max_vel.xyz.z : Ship_info[Ships[objp->instance].ship_info_index].max_vel.xyz.z;
 
-	vm_vec_rotate(&local_displacement, &temp_rubberband_test, &objp->orient);
-	vm_vec_rotate(&temp_local_vel, &objp->phys_info.vel, &objp->orient);
+	// try to get rid of some of the jerkiness, if the ship is moving but not way above its max speed
+	if (!(interp_data->manually_calculated_vel)) {//&& interp_data->packet_just_received) {
+		
+		// this gets rid of ships shaking in place, but once the velocity has started, it's a free for all.
+		vec3d temp_rubberband_test, local_displacement, temp_local_vel, local_rubberband_correction, global_rubberband_correction;
+		vm_vec_sub(&temp_rubberband_test, &objp->pos, &store_old_pos);
 
-	local_rubberband_correction = vmd_zero_vector;
+		vm_vec_rotate(&local_displacement, &temp_rubberband_test, &objp->orient);
+		vm_vec_rotate(&temp_local_vel, &objp->phys_info.vel, &objp->orient);
 
-	constexpr float anti_rubberbanding_factor = 0.5f;
+		local_rubberband_correction = vmd_zero_vector;
 
-	// a difference in sign means something just rubberbanded.
-	if ( ((local_displacement.xyz.x < 0.0f) && (temp_local_vel.xyz.x > 0.0f)) || ((local_displacement.xyz.x > 0.0f) && (temp_local_vel.xyz.x < 0.0f)) ) {
-		local_rubberband_correction.xyz.x = anti_rubberbanding_factor * -local_displacement.xyz.x;
-	}
-	if ( ((local_displacement.xyz.y < 0.0f) && (temp_local_vel.xyz.y > 0.0f)) || ((local_displacement.xyz.y > 0.0f) && (temp_local_vel.xyz.y < 0.0f)) ) {
-		local_rubberband_correction.xyz.y = anti_rubberbanding_factor * -local_displacement.xyz.y;
-	}
-	if ( ((local_displacement.xyz.z < 0.0f) && (temp_local_vel.xyz.z > 0.0f)) || ((local_displacement.xyz.z > 0.0f) && (temp_local_vel.xyz.z < 0.0f)) ) {
-		local_rubberband_correction.xyz.z = anti_rubberbanding_factor * -local_displacement.xyz.z;
-	}
+		constexpr float anti_rubberbanding_factor = 0.5f;
 
-	vm_vec_unrotate(&global_rubberband_correction, &local_rubberband_correction, &objp->orient);
+		// a difference in sign means something just rubberbanded.
+		if (((local_displacement.xyz.x < 0.0f) && (temp_local_vel.xyz.x > 0.0f)) || ((local_displacement.xyz.x > 0.0f) && (temp_local_vel.xyz.x < 0.0f))) {
+			local_rubberband_correction.xyz.x = anti_rubberbanding_factor * -local_displacement.xyz.x;
+		}
+		if (((local_displacement.xyz.y < 0.0f) && (temp_local_vel.xyz.y > 0.0f)) || ((local_displacement.xyz.y > 0.0f) && (temp_local_vel.xyz.y < 0.0f))) {
+			local_rubberband_correction.xyz.y = anti_rubberbanding_factor * -local_displacement.xyz.y;
+		}
+		if (((local_displacement.xyz.z < 0.0f) && (temp_local_vel.xyz.z > 0.0f)) || ((local_displacement.xyz.z > 0.0f) && (temp_local_vel.xyz.z < 0.0f))) {
+			local_rubberband_correction.xyz.z = anti_rubberbanding_factor * -local_displacement.xyz.z;
+		}
 
-	vm_vec_add2(&objp->pos, &global_rubberband_correction);
+		vm_vec_unrotate(&global_rubberband_correction, &local_rubberband_correction, &objp->orient);
+
+		vm_vec_add2(&objp->pos, &global_rubberband_correction); 
+	} 
 
 	// duplicate the rest of the physics engine's calls here to make the simulation more exact.
 	objp->phys_info.speed = vm_vec_mag(&objp->phys_info.vel);
@@ -3377,7 +3400,26 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	point2 = Oo_info.interp[net_sig_idx].new_packet_position; 
 	matrix_copy = *new_orient;
 	physics_copy = *new_phys_info;
-	Oo_info.interp[net_sig_idx].new_velocity = physics_copy.vel;
+
+	float speed_test = vm_vec_mag(&physics_copy.vel);
+	float max_speed = (Ship_info[Ships[objp->instance].ship_info_index].afterburner_max_vel.xyz.z > 0.0f) ? 
+		Ship_info[Ships[objp->instance].ship_info_index].afterburner_max_vel.xyz.z : Ship_info[Ships[objp->instance].ship_info_index].max_vel.xyz.z;
+
+	vec3d distance_test;
+	vm_vec_sub(&distance_test, &point1, &point2);
+
+	// test for a bogus speed from the server.
+	if ((speed_test > 0.1f && speed_test < max_speed) || (vm_vec_mag(&distance_test) < 1.0f)) {
+		Oo_info.interp[net_sig_idx].new_velocity = physics_copy.vel;
+		Oo_info.interp[net_sig_idx].manually_calculated_vel = false;
+	}// if it's moving, but we don't have a velocity because of packet compression, find it manually
+	else {
+		vec3d speed_adjustment;
+		vm_vec_sub(&speed_adjustment, &point1, &point2);
+		vm_vec_scale(&speed_adjustment, 1.0f / delta);
+		Oo_info.interp[net_sig_idx].new_velocity = physics_copy.vel = speed_adjustment;
+		Oo_info.interp[net_sig_idx].manually_calculated_vel = true;
+	}
 
 	angles angle_equivalent;
 
@@ -3420,6 +3462,8 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 
 	// Set the points to the bezier
 	Oo_info.interp[net_sig_idx].pos_spline.bez_set_points(3, pts);
+
+	Oo_info.interp[net_sig_idx].packet_just_received = true;
 }
 
 // Calculates how much time has gone by between the two most recent frames 

@@ -3509,7 +3509,7 @@ int multi_pack_unpack_orient( int write, ubyte *data, angles *angles)
 
 // Packs/unpacks velocity
 // Returns number of bytes read or written.
-int multi_pack_unpack_vel( int write, ubyte *data, matrix *orient, physics_info *pi)
+int multi_pack_unpack_vel( int write, ubyte *data, matrix *orient, vec3d *velocity)
 {
 	bitbuffer buf;
 
@@ -3517,12 +3517,13 @@ int multi_pack_unpack_vel( int write, ubyte *data, matrix *orient, physics_info 
 
 	int a, b, c;
 	float r, u, f;
-
+	vec3d test;
 	if ( write )	{
 		// output velocity
-		r = vm_vec_dot( &orient->vec.rvec, &pi->vel );
-		u = vm_vec_dot( &orient->vec.uvec, &pi->vel );
-		f = vm_vec_dot( &orient->vec.fvec, &pi->vel );
+		vm_vec_unrotate(&test, velocity, orient);
+		r = test.xyz.x;
+		u = test.xyz.y;
+		f = test.xyz.z;
 
 		// Cyborg17 - using round here allows us keep part of the decimal accuracy that would have been dropped with just fl2i
 		a = fl2i(round(r * 2.0f)); 
@@ -3544,12 +3545,13 @@ int multi_pack_unpack_vel( int write, ubyte *data, matrix *orient, physics_info 
 		r = i2fl(a)/2.0f;
 		u = i2fl(b)/2.0f;
 		f = i2fl(c)/4.0f;
+		vec3d imzatester;
 
 		// Convert into world coordinates
-		vm_vec_zero(&pi->vel);
-		vm_vec_scale_add2( &pi->vel, &orient->vec.rvec, r );
-		vm_vec_scale_add2( &pi->vel, &orient->vec.uvec, u );
-		vm_vec_scale_add2( &pi->vel, &orient->vec.fvec, f );
+		imzatester.xyz.x = r;
+		imzatester.xyz.y = u;
+		imzatester.xyz.z = f;
+		vm_vec_rotate(velocity, &imzatester, orient);
 
 		return bitbuffer_read_flush(&buf);
 	}
