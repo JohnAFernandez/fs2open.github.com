@@ -30,6 +30,7 @@
 
 extern void timer_init();
 extern void timer_close();
+extern void timer_recalculate_factors();
 
 //==========================================================================
 // These functions return the time since the timer was initialized in

@@ -3332,7 +3332,7 @@ void multi_oo_interp(object* objp)
 		Ship_info[Ships[objp->instance].ship_info_index].afterburner_max_vel.xyz.z : Ship_info[Ships[objp->instance].ship_info_index].max_vel.xyz.z;
 
 	// try to get rid of some of the jerkiness, if the ship is moving but not way above its max speed
-	if (!(interp_data->manually_calculated_vel)) {//&& interp_data->packet_just_received) {
+//	if (!(interp_data->manually_calculated_vel)) {//&& interp_data->packet_just_received) {
 		
 		// this gets rid of ships shaking in place, but once the velocity has started, it's a free for all.
 		vec3d temp_rubberband_test, local_displacement, temp_local_vel, local_rubberband_correction, global_rubberband_correction;
@@ -3359,7 +3359,7 @@ void multi_oo_interp(object* objp)
 		vm_vec_unrotate(&global_rubberband_correction, &local_rubberband_correction, &objp->orient);
 
 		vm_vec_add2(&objp->pos, &global_rubberband_correction); 
-	} 
+//	} 
 
 	// duplicate the rest of the physics engine's calls here to make the simulation more exact.
 	objp->phys_info.speed = vm_vec_mag(&objp->phys_info.vel);
@@ -3409,17 +3409,17 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	vm_vec_sub(&distance_test, &point1, &point2);
 
 	// test for a bogus speed from the server.
-	if ((speed_test > 0.1f && speed_test < max_speed) || (vm_vec_mag(&distance_test) < 1.0f)) {
+//	if ((speed_test > 0.1f && speed_test < max_speed) || (vm_vec_mag(&distance_test) < 1.0f)) {
 		Oo_info.interp[net_sig_idx].new_velocity = physics_copy.vel;
 		Oo_info.interp[net_sig_idx].manually_calculated_vel = false;
-	}// if it's moving, but we don't have a velocity because of packet compression, find it manually
-	else {
-		vec3d speed_adjustment;
-		vm_vec_sub(&speed_adjustment, &point1, &point2);
-		vm_vec_scale(&speed_adjustment, 1.0f / delta);
-		Oo_info.interp[net_sig_idx].new_velocity = physics_copy.vel = speed_adjustment;
-		Oo_info.interp[net_sig_idx].manually_calculated_vel = true;
-	}
+//	}// if it's moving, but we don't have a velocity because of packet compression, find it manually
+//	else {
+//		vec3d speed_adjustment;
+//		vm_vec_sub(&speed_adjustment, &point1, &point2);
+//		vm_vec_scale(&speed_adjustment, 1.0f / delta);
+//		Oo_info.interp[net_sig_idx].new_velocity = physics_copy.vel = speed_adjustment;
+//		Oo_info.interp[net_sig_idx].manually_calculated_vel = true;
+//	}
 
 	angles angle_equivalent;
 

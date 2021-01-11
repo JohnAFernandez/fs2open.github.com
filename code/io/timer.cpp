@@ -60,6 +60,13 @@ void timer_init()
 	}
 }
 
+void timer_recalculate_factors()
+{
+	Timer_perf_counter_freq = SDL_GetPerformanceFrequency();
+	Timer_to_nanoseconds = (long double) NANOSECONDS_PER_SECOND / (long double) Timer_perf_counter_freq;
+	Timer_to_microseconds = (long double) MICROSECONDS_PER_SECOND / (long double) Timer_perf_counter_freq;
+}
+
 fix timer_get_fixed_seconds()
 {
 	if (!Timer_inited) {

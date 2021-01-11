@@ -4173,6 +4173,9 @@ void game_set_frametime(int state)
 	fix thistime;
 	float frame_cap_diff;
 
+	// before doing anything, make sure we have the correct factors in place.
+	timer_recalculate_factors();
+
 	thistime = timer_get_fixed_seconds();
 
 	if ( Last_time == 0 )	
