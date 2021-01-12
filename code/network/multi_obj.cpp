@@ -3409,7 +3409,6 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	vm_vec_sub(&distance_test, &point1, &point2);
 
 	// test for a bogus speed from the server.
-//	if ((speed_test > 0.1f && speed_test < max_speed) || (vm_vec_mag(&distance_test) < 1.0f)) {
 	if ((speed_test > 0.1f && speed_test < max_speed) || (vm_vec_mag(&distance_test) < 1.0f)) {
 		Oo_info.interp[net_sig_idx].new_velocity = physics_copy.vel;
 		Oo_info.interp[net_sig_idx].manually_calculated_vel = false;
