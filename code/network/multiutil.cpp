@@ -3532,9 +3532,9 @@ int multi_pack_unpack_vel( int write, ubyte *data, matrix *orient, vec3d *veloci
 		CAP(a,-512,511);
 		CAP(b,-512,511);
 		CAP(c,-2048,2047);
-		bitbuffer_put( &buf, (uint)a, 10 );
-		bitbuffer_put( &buf, (uint)b, 10 );
-		bitbuffer_put( &buf, (uint)c, 12 );
+		bitbuffer_put( &buf, a, 10 );
+		bitbuffer_put( &buf, b, 10 );
+		bitbuffer_put( &buf, c, 12 );
 
 		return bitbuffer_write_flush(&buf);
 	} else {

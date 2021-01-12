@@ -1742,11 +1742,11 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		// new version of the orient packer sends angles instead to save on bandwidth, so we'll need the orienation from that.
 		vm_angles_2_matrix(&new_orient, &new_angles);
 
-		int r3 = multi_pack_unpack_vel(0, data + offset, &new_orient, &temp_velocity);
+		int r3 = multi_pack_unpack_vel(0, data + offset, &new_orient, &new_phys_info.vel);
 		offset += r3;
 
 		// this is a quick test for the no speed on warpin situation.
-		if (vm_vec_mag(&temp_velocity) < 1.0f) {
+/*		if (vm_vec_mag(&temp_velocity) < 1.0f) {
 			vm_vec_sub(&position_test, &new_pos, &pobjp->pos);
 			if (vm_vec_mag(&position_test) < 2.0f) {
 				new_phys_info.vel = temp_velocity;
@@ -1755,7 +1755,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		else {
 			new_phys_info.vel = temp_velocity;
 		}
-
+*/
 		int r4 = multi_pack_unpack_rotvel( 0, data + offset, &new_phys_info );
 		offset += r4;
 
@@ -3402,24 +3402,25 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	physics_copy = *new_phys_info;
 
 	float speed_test = vm_vec_mag(&physics_copy.vel);
-	float max_speed = (Ship_info[Ships[objp->instance].ship_info_index].afterburner_max_vel.xyz.z > 0.0f) ? 
-		Ship_info[Ships[objp->instance].ship_info_index].afterburner_max_vel.xyz.z : Ship_info[Ships[objp->instance].ship_info_index].max_vel.xyz.z;
+	float max_speed = MAX(Ship_info[Ships[objp->instance].ship_info_index].afterburner_max_vel.xyz.z, 
+		Ship_info[Ships[objp->instance].ship_info_index].max_vel.xyz.z);
 
 	vec3d distance_test;
 	vm_vec_sub(&distance_test, &point1, &point2);
 
 	// test for a bogus speed from the server.
 //	if ((speed_test > 0.1f && speed_test < max_speed) || (vm_vec_mag(&distance_test) < 1.0f)) {
+	if ((speed_test > 0.1f && speed_test < max_speed) || (vm_vec_mag(&distance_test) < 1.0f)) {
 		Oo_info.interp[net_sig_idx].new_velocity = physics_copy.vel;
 		Oo_info.interp[net_sig_idx].manually_calculated_vel = false;
-//	}// if it's moving, but we don't have a velocity because of packet compression, find it manually
-//	else {
-//		vec3d speed_adjustment;
-//		vm_vec_sub(&speed_adjustment, &point1, &point2);
-//		vm_vec_scale(&speed_adjustment, 1.0f / delta);
-//		Oo_info.interp[net_sig_idx].new_velocity = physics_copy.vel = speed_adjustment;
-//		Oo_info.interp[net_sig_idx].manually_calculated_vel = true;
-//	}
+	}// if it's moving, but we don't have a velocity because of packet compression, find it manually
+	else {
+		vec3d speed_adjustment;
+		vm_vec_sub(&speed_adjustment, &point1, &point2);
+		vm_vec_scale(&speed_adjustment, 1.0f / delta);
+		Oo_info.interp[net_sig_idx].new_velocity = physics_copy.vel = speed_adjustment;
+		Oo_info.interp[net_sig_idx].manually_calculated_vel = true;
+	}
 
 	angles angle_equivalent;
 
