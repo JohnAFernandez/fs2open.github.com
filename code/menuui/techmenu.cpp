@@ -1008,13 +1008,16 @@ void techroom_intel_init()
 
 	if (Intel_inited)
 		return;
-		
+	
+	SCP_string table_filename = "species.tbl";
+
 	try
 	{
 		if (cf_exists("intel_entries.tbl", CF_TYPE_TABLES) == 1) {
-			read_file_text("intel_entries.tbl", CF_TYPE_TABLES);
+			table_filename = "intel_entries.tbl";
+			read_file_text(table_filename.c_str(), CF_TYPE_TABLES);
 		} else {
-			read_file_text("species.tbl", CF_TYPE_TABLES);
+			read_file_text(table_filename.c_str(), CF_TYPE_TABLES);
 		}
 		reset_parse();
 
@@ -1050,7 +1053,9 @@ void techroom_intel_init()
 	}
 	catch (const parse::ParseException& e)
 	{
-		mprintf(("TABLES: Unable to parse '%s'!  Error message = %s.\n", "species.tbl", e.what()));
+		mprintf(("TABLES: Unable to parse '%s'!  Error message = %s.\n", table_filename.c_str(), e.what()));
+		mprintf(("Note that species.tbl and intel_entries.tbl are both usable for the old intel_entries.tbl.\n"
+			"Any intel_entries.tbl file will take precedence over all species.tbl entries."));
 		return;
 	}
 }
