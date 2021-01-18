@@ -1011,7 +1011,11 @@ void techroom_intel_init()
 		
 	try
 	{
-		read_file_text("species.tbl", CF_TYPE_TABLES);
+		if (cf_exists("intel_entries.tbl", CF_TYPE_TABLES) == 1) {
+			read_file_text("intel_entries.tbl", CF_TYPE_TABLES);
+		} else {
+			read_file_text("species.tbl", CF_TYPE_TABLES);
+		}
 		reset_parse();
 
 		Intel_info.clear();
