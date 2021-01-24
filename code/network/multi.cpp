@@ -1797,7 +1797,7 @@ void multi_reset_timestamps()
 		Players[i].update_dumbfire_time = timestamp(0);
 		Players[i].update_lock_time = timestamp(0);
 
-		Net_players[i].s_info.voice_token_timestamp = -1;
+		Net_players[i].s_info.voice_token_timestamp = timestamp(-1);
 	}
 
 	// reset standalone gui timestamps (these are not game critical, so there is not much danger)
