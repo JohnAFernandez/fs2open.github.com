@@ -11,6 +11,7 @@
 
 #include "freespace.h"
 #include "network/multi.h"
+#include "network/multimsgs.h"
 #include "object/objcollide.h"
 #include "object/object.h"
 #include "scripting/scripting.h"
@@ -111,6 +112,17 @@ int collide_weapon_weapon( obj_pair * pair )
 						wpB->lifeleft = 0.01f;
 						wpA->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
 						wpB->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
+
+						// Cyborg17 - player caused bomb damage needs to be sent to the server
+						if (MULTIPLAYER_CLIENT) {
+							if (A->parent != -1 && &Objects[A->parent] == Player_obj) {
+								send_bomb_damage_packet(B, A);
+							}
+							else if (B->parent != -1 && &Objects[B->parent] == Player_obj) {
+								send_bomb_damage_packet(A, B);
+							}
+						}
+
 					} else {
 						A->hull_strength -= bDamage;
 						B->hull_strength -= aDamage;
@@ -132,6 +144,16 @@ int collide_weapon_weapon( obj_pair * pair )
 							wpB->lifeleft = 0.01f;
 							wpB->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
 						}
+
+						// Cyborg17 - player caused bomb damage needs to be sent to the server
+						if (MULTIPLAYER_CLIENT) {
+							if (A->parent != -1 && &Objects[A->parent] == Player_obj) {
+								send_bomb_damage_packet(B, A);
+							}
+							else if (B->parent != -1 && &Objects[B->parent] == Player_obj) {
+								send_bomb_damage_packet(A, B);
+							}
+						}
 					}
 				} else {
 					A->hull_strength -= bDamage;
@@ -141,6 +163,14 @@ int collide_weapon_weapon( obj_pair * pair )
 						wpA->lifeleft = 0.01f;
 						wpA->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
 					}
+
+					// Cyborg17 - player caused bomb damage needs to be sent to the server
+					if (MULTIPLAYER_CLIENT) {
+						if (B->parent != -1 && &Objects[B->parent] == Player_obj) {
+							send_bomb_damage_packet(A, B);
+						}
+					}
+
 				}
 			} else if (wipB->weapon_hitpoints > 0) {
 				B->hull_strength -= aDamage;
@@ -149,6 +179,13 @@ int collide_weapon_weapon( obj_pair * pair )
 				if (B->hull_strength < 0.0f) {
 					wpB->lifeleft = 0.01f;
 					wpB->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
+				}
+
+				// Cyborg17 - player caused bomb damage needs to be sent to the server
+				if (MULTIPLAYER_CLIENT && aDamage > 0.0f) {
+					if (A->parent != -1 && &Objects[A->parent] == Player_obj) {
+						send_bomb_damage_packet(B, A);
+					}
 				}
 			}
 

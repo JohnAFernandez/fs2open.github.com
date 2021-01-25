@@ -548,4 +548,7 @@ void process_self_destruct_packet(ubyte *data, header *hinfo);
 void send_sexp_packet(ubyte *sexp_packet, int num_ubytes);
 void process_sexp_packet(ubyte *data, header *hinfo);
 
+void send_bomb_damage_packet(object* objp_to_be_hit, object* hitting_objp);
+void process_bomb_damage_packet(ubyte *data, header *hinfo);
+
 #endif

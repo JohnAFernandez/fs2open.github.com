@@ -210,6 +210,7 @@ class player;
 #define HOMING_WEAPON_UPDATE		0xA9		// update homing object and subsystem for homing missile
 #define FLAK_FIRED					0xAA		// flak gun fired
 #define SELF_DESTRUCT				0xAB		// self destruct
+#define BOMB_DAMAGE					0xAC		// if a client damages a bomb, tell the server that the damage happened. 
 
 #define JOIN							0xB1		// a join request to a server
 #define ACCEPT							0xB2		// acceptance of a join packet

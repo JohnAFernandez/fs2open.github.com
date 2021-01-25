@@ -49,6 +49,7 @@
 #include "network/multi_pmsg.h"
 #include "object/object.h"
 #include "object/objectshield.h"
+#include "object/objcollide.h"
 #include "ship/ship.h"
 #include "weapon/weapon.h"
 #include "hud/hudreticle.h"
@@ -8907,4 +8908,71 @@ void process_sexp_packet(ubyte *data, header *hinfo)
 	PACKET_SET_SIZE();
 
 	sexp_packet_received(received_packet, num_ubytes);
+}
+
+void send_bomb_damage_packet(object* objp_to_be_hit, object* hitting_objp)
+{
+	// sanity checks -- What paranoia??
+	Assert(MULTIPLAYER_CLIENT);
+	Assert(objp_to_be_hit != nullptr); Assert(hitting_objp != nullptr);
+	Assert(objp_to_be_hit->type == OBJ_WEAPON); Assert(hitting_objp->type == OBJ_WEAPON);
+	Assertion(Weapon_info[Weapons[objp_to_be_hit->instance].weapon_info_index].weapon_hitpoints > 0, "A weapon without hitpoints is getting hit, according to send_bomb_damage_packet(), go get a coder.");
+
+	ubyte data[MAX_PACKET_SIZE];
+	int packet_size = 0;
+
+	BUILD_HEADER(BOMB_DAMAGE);
+	
+	// send the bomb that was hit, the object that hit it, and the name of the weapon that hit it.
+	ADD_DATA(objp_to_be_hit->net_signature);
+	ADD_DATA(hitting_objp->net_signature);
+
+	// send to the server
+	multi_io_send_reliable(Net_player, data, packet_size);
+}
+
+void process_bomb_damage_packet(ubyte* data, header* hinfo)
+{
+	int offset = HEADER_LENGTH;
+	ushort net_signature_bomb, net_signature_hitter;
+
+	GET_DATA(net_signature_bomb);
+	GET_DATA(net_signature_hitter);
+	PACKET_SET_SIZE();
+
+	// these will get us nonsense
+	if (net_signature_bomb == 0) {
+		return;
+	}
+
+	// get the bomb that was hit
+	object* bomb = multi_get_network_object(net_signature_bomb);
+	object* hitter = multi_get_network_object(net_signature_hitter);
+
+	// Check for more nonsense values.
+	if (bomb == nullptr || bomb->type != OBJ_WEAPON || Weapon_info[Weapons[bomb->instance].weapon_info_index].weapon_hitpoints <= 0) {
+		return;
+	}
+
+	if (hitter == nullptr || hitter->type != OBJ_WEAPON) {
+		return;
+	}
+
+	// HACK!! Move the weapon that should be colliding with the bomb onto the bomb, then put it through collision.
+	hitter->pos = bomb->pos;
+
+	obj_pair temp_objpair;
+
+	temp_objpair.a = bomb;
+	temp_objpair.b = hitter;
+	temp_objpair.next_check_time = timestamp(0);
+	temp_objpair.next = nullptr;
+
+	extern int collide_weapon_weapon(obj_pair * pair);
+	collide_weapon_weapon(&temp_objpair);
+
+	// just in case it fails (which it shouldn't), the hitter should not be in some random location doing who knows what
+	Weapons[hitter->instance].lifeleft = 0.01f;
+	Weapons[hitter->instance].weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
+
 }
