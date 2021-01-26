@@ -149,42 +149,50 @@ int collide_weapon_weapon( obj_pair * pair )
 						if (MULTIPLAYER_CLIENT) {
 							if (A->parent != -1 && &Objects[A->parent] == Player_obj) {
 								send_bomb_damage_packet(B, A);
+								mprintf(("Sending from point 1\n"));
 							}
 							else if (B->parent != -1 && &Objects[B->parent] == Player_obj) {
 								send_bomb_damage_packet(A, B);
+								mprintf(("Sending from point 2\n"));
 							}
 						}
 					}
 				} else {
 					A->hull_strength -= bDamage;
-					wpB->lifeleft = 0.01f;
-					wpB->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
-					if (A->hull_strength < 0.0f) {
-						wpA->lifeleft = 0.01f;
-						wpA->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
+					if (!MULTIPLAYER_CLIENT) {
+						wpB->lifeleft = 0.01f;
+						wpB->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
+						if (A->hull_strength < 0.0f) {
+							wpA->lifeleft = 0.01f;
+							wpA->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
+						}
 					}
 
 					// Cyborg17 - player caused bomb damage needs to be sent to the server
 					if (MULTIPLAYER_CLIENT) {
 						if (B->parent != -1 && &Objects[B->parent] == Player_obj) {
 							send_bomb_damage_packet(A, B);
+							mprintf(("Sending from point 3\n"));
 						}
 					}
 
 				}
 			} else if (wipB->weapon_hitpoints > 0) {
-				B->hull_strength -= aDamage;
-				wpA->lifeleft = 0.01f;
-				wpA->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
-				if (B->hull_strength < 0.0f) {
-					wpB->lifeleft = 0.01f;
-					wpB->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
+				if (!MULTIPLAYER_CLIENT) {
+					B->hull_strength -= aDamage;
+					wpA->lifeleft = 0.01f;
+					wpA->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
+					if (B->hull_strength < 0.0f) {
+						wpB->lifeleft = 0.01f;
+						wpB->weapon_flags.set(Weapon::Weapon_Flags::Destroyed_by_weapon);
+					}
 				}
 
 				// Cyborg17 - player caused bomb damage needs to be sent to the server
 				if (MULTIPLAYER_CLIENT && aDamage > 0.0f) {
 					if (A->parent != -1 && &Objects[A->parent] == Player_obj) {
 						send_bomb_damage_packet(B, A);
+						mprintf(("Sending from point 4\n"));
 					}
 				}
 			}
