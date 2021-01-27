@@ -730,28 +730,28 @@ extern net_player *Net_player;										// pointer to console's net_player entry
 
 // network object management
 #define SHIP_SIG_MIN				1
-#define SHIP_SIG_MAX				(0x1fef)		// Cyborg17 - 8000 ships ought to be enough.
+#define SHIP_SIG_MAX				(0x2ffd)		// Cyborg17 - 8000 ships ought to be enough.
 
 #define STANDALONE_SHIP_SIG	(SHIP_SIG_MAX+1)
-#define REAL_SHIP_SIG_MAX		(0x1fff)			 
+#define REAL_SHIP_SIG_MAX		(0x2fff)			 
 
 #define DEBRIS_SIG_MIN			(REAL_SHIP_SIG_MAX+1)
-#define DEBRIS_SIG_MAX			(0x3fff)			// allows for 1000 ships to be destroyed and for ~8 debris chunks to be generated for each.
+#define DEBRIS_SIG_MAX			(0xafff)			// allows for 1000 ships to be destroyed and for ~8 debris chunks to be generated for each.
 
 #define ASTEROID_SIG_MIN		(DEBRIS_SIG_MAX+1)
-#define ASTEROID_SIG_MAX		(0x6fff)			
+#define ASTEROID_SIG_MAX		(0xefff)			
 
 #define WAYPOINT_SIG_MIN		(ASTEROID_SIG_MAX+1)
-#define WAYPOINT_SIG_MAX		(0x7fff)			// required for dynamic waypoints.
+#define WAYPOINT_SIG_MAX		(0xffff)			// required for dynamic waypoints.
 
-#define NPERM_SIG_MIN			(WAYPOINT_SIG_MAX+1)
-#define NPERM_SIG_MAX			(0xffff)			// Allows us to have ~ 30K weapons simultaneously in a mission.
+#define NPERM_SIG_MIN			(1)
+#define NPERM_SIG_MAX			(0xffffffff)			// The weapons will never wrap now!
 
 extern ushort Next_ship_signature;									// next network signature to assign to an object
 extern ushort Next_asteroid_signature;								// next asteroid signature
 extern ushort Next_non_perm_signature;								// next non-permanent signature
 extern ushort Next_debris_signature;								// next debris signature
-extern ushort Next_waypoint_signature;								// next waypoint signature for dynamic waypoints in multi missions
+extern uint Next_waypoint_signature;								// next waypoint signature for dynamic waypoints in multi missions
 
 // netgame vars
 extern netgame_info Netgame;											// netgame information

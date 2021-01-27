@@ -87,9 +87,11 @@ extern int Multi_ping_timestamp;
 // network object management
 ushort Next_ship_signature;										// next permanent network signature to assign to an object
 ushort Next_asteroid_signature;									// next signature for an asteroid
-ushort Next_non_perm_signature;									// next non-permanent network signature to assign to an object
 ushort Next_debris_signature;										// next debris signature
-ushort Next_waypoint_signature;									// next waypoint signature
+uint Next_waypoint_signature;									// next waypoint signature
+
+uint Next_non_perm_signature;									// next non-permanent network signature to assign to an object
+
 
 // if a client doesn't receive an update for an object after this many seconds, query server
 // as to the objects status.
@@ -107,6 +109,7 @@ ushort multi_assign_network_signature( int what_kind )
 	ushort sig;	
 
 	Assertion(what_kind >= MULTI_SIG_SHIP && what_kind <= MULTI_SIG_WAYPOINT, "multi_assign_network_signature was passed an invalid index.");
+	Assertion(what_kind != MULTI_SIG_NON_PERMANENT, "multi_assign_network_signature no longer handles weapon signatures, go get a coder.");
 
 	// do limit checking on the permanent and non_permanent signatures.  Ships are considered "permanent"
 	// as are debris and asteroids since they don't die very often.  It would be vary rare for this
@@ -119,7 +122,7 @@ ushort multi_assign_network_signature( int what_kind )
 		sig = Next_ship_signature++;
 
 		if ( Next_ship_signature == SHIP_SIG_MAX ) {
-			Int3();			// get Allender -- signature stuff wrapped.
+			ERROR(LOCATION,"Ship net signature wrapped. Time to go tell a coder to upgrade FSO multi!"); // get Allender -- signature stuff wrapped.
 			Next_ship_signature = SHIP_SIG_MIN;
 		}
 
@@ -171,10 +174,23 @@ ushort multi_assign_network_signature( int what_kind )
 	return sig;
 }
 
+// for assigning a network signature for weapons that do not have a parent.
+uint multi_assign_weapon_network_signature() 
+{
+	uint sig = Next_non_perm_signature++;
+	if (Next_non_perm_signature == NPERM_SIG_MAX) {
+		Next_non_perm_signature = NPERM_SIG_MIN;
+	}
+
+	return sig;
+}
+
 // this function returns the next network signature that will be used for a newly created object
 // what_kind parameter tells us what kind of signature to get -- permanent or non-permanent
 ushort multi_get_next_network_signature( int what_kind )
 {
+	Assertion(what_kind != MULTI_SIG_NON_PERMANENT, "multi_get_next_network_signature no longer handles weapon signatures. If you are seeing this message, go tell a coder!");
+
 	if ( what_kind == MULTI_SIG_SHIP ) {
 		if ( Next_ship_signature < SHIP_SIG_MIN )
 			Next_ship_signature = SHIP_SIG_MIN;
