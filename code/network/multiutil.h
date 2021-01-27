@@ -72,7 +72,7 @@ extern ushort netmisc_calc_checksum( void * vptr, int len );
 extern void fill_net_addr(net_addr* addr, ubyte* address, ushort port);
 extern char* get_text_address( char * text, ubyte * address );
 
-extern object *multi_get_network_object( ushort net_signature );		// find a network object
+extern object *multi_get_network_object( ushort net_signature, uint weapon_net_signature = 0, bool weapon = false );		// find a network object
 
 void multi_find_ingame_join_pos(object *new_obj);
 

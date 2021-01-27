@@ -1142,6 +1142,9 @@ void send_ingame_ships_packet(net_player *player)
 			ADD_INT(Wings[wing_data].current_wave);
 		}
 
+		// only weapons have valid weapon_net_signatures
+		Objects[so->objnum].weapon_network_signature = 0;
+
 		// don't send anymore data if we are getting close to the maximum size of this packet.  Send it off and
 		// keep going
 		if ( packet_size > (MAX_PACKET_SIZE - INGAME_PACKET_SLOP) ) {

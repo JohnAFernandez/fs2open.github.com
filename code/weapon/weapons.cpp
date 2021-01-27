@@ -5709,7 +5709,7 @@ int weapon_create( vec3d * pos, matrix * porient, int weapon_type, int parent_ob
 	if ( Game_mode & GM_NORMAL ){
 		rand_val = frand();
 	} else {
-		rand_val = static_randf(Objects[objnum].net_signature);
+		rand_val = static_randf(static_cast<int>(Objects[objnum].weapon_network_signature));
 	}
 
 	wp->weapon_info_index = weapon_type;

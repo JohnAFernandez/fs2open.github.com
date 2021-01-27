@@ -256,11 +256,11 @@ object* multi_get_network_object( ushort net_signature, uint weapon_signature, b
 		return nullptr;
 
 	// looking for a invalid signature
-	if ((weapon && weapon_signature == 0) || net_signature == 0)
+	if ((weapon && weapon_signature == 0) || net_signature == 0 || (!weapon && weapon_signature != 0))
 		return nullptr;
 
 	for (objp = GET_FIRST(&obj_used_list); objp != END_OF_LIST(&obj_used_list); objp = GET_NEXT(objp))
-		if (objp->net_signature == net_signature && (!weapon || objp->weapon_network_signature == weapon_signature))
+		if (objp->net_signature == net_signature && objp->weapon_network_signature == weapon_signature)
 			break;
 
 	// if not found on used list, check create list (weapons will not show up on this list)

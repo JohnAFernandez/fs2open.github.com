@@ -350,6 +350,7 @@ object *asteroid_create(asteroid_field *asfieldp, int asteroid_type, int asteroi
 	else {
 		objp->net_signature = 0;
 	}
+	// only weapons have a valid weapon_network_signature
 	objp->weapon_network_signature = 0;
 
 	Num_asteroids++;
