@@ -109,7 +109,7 @@ ushort multi_assign_network_signature( int what_kind )
 	ushort sig;	
 
 	Assertion(what_kind >= MULTI_SIG_SHIP && what_kind <= MULTI_SIG_WAYPOINT, "multi_assign_network_signature was passed an invalid index.");
-	Assertion(what_kind != MULTI_SIG_NON_PERMANENT, "multi_assign_network_signature no longer handles weapon signatures, go get a coder.");
+	Verification(what_kind != MULTI_SIG_NON_PERMANENT, "multi_assign_network_signature no longer handles weapon signatures, go get a coder.");
 
 	// do limit checking on the permanent and non_permanent signatures.  Ships are considered "permanent"
 	// as are debris and asteroids since they don't die very often.  It would be vary rare for this
@@ -148,16 +148,7 @@ ushort multi_assign_network_signature( int what_kind )
 			Next_debris_signature = DEBRIS_SIG_MIN;
 		}
 
-		// signature stuff for weapons and other expendable things.
-	} else if ( what_kind == MULTI_SIG_NON_PERMANENT ) {
-		if ( Next_non_perm_signature < NPERM_SIG_MIN ){
-			Next_non_perm_signature = NPERM_SIG_MIN;
-		}
-
-		sig = Next_non_perm_signature++;
-		if ( (Next_non_perm_signature < NPERM_SIG_MIN) || (Next_non_perm_signature == NPERM_SIG_MAX) ) {
-			Next_non_perm_signature = NPERM_SIG_MIN;
-		}
+		// signatures for waypoints
 	} else if (what_kind == MULTI_SIG_WAYPOINT) {
 		if (Next_waypoint_signature < WAYPOINT_SIG_MIN) {
 			Next_waypoint_signature = WAYPOINT_SIG_MIN;
@@ -178,7 +169,7 @@ ushort multi_assign_network_signature( int what_kind )
 uint multi_assign_weapon_network_signature() 
 {
 	uint sig = Next_non_perm_signature++;
-	if (Next_non_perm_signature == NPERM_SIG_MAX) {
+	if (Next_non_perm_signature < NPERM_SIG_MIN) {
 		Next_non_perm_signature = NPERM_SIG_MIN;
 	}
 
@@ -189,7 +180,7 @@ uint multi_assign_weapon_network_signature()
 // what_kind parameter tells us what kind of signature to get -- permanent or non-permanent
 ushort multi_get_next_network_signature( int what_kind )
 {
-	Assertion(what_kind != MULTI_SIG_NON_PERMANENT, "multi_get_next_network_signature no longer handles weapon signatures. If you are seeing this message, go tell a coder!");
+	Verification(what_kind != MULTI_SIG_NON_PERMANENT, "multi_get_next_network_signature no longer handles weapon signatures. If you are seeing this message, go tell a coder!");
 
 	if ( what_kind == MULTI_SIG_SHIP ) {
 		if ( Next_ship_signature < SHIP_SIG_MIN )
@@ -211,15 +202,17 @@ ushort multi_get_next_network_signature( int what_kind )
 			Next_waypoint_signature = WAYPOINT_SIG_MIN;
 		return Next_waypoint_signature;
 
-	} else if ( what_kind == MULTI_SIG_NON_PERMANENT ) {
-		if ( Next_non_perm_signature < NPERM_SIG_MIN )
-			Next_non_perm_signature = NPERM_SIG_MIN;
-		return Next_non_perm_signature;
-
 	} else {
-		Int3();			// get allender
+		UNREACHABLE("Unknown type of signature passed to multi_get_next_network_signature. Go get a coder!");
 		return 0;
 	}
+}
+
+uint multi_get_next_weapon_network_signature() 
+{
+	if (Next_non_perm_signature < NPERM_SIG_MIN)
+		Next_non_perm_signature = NPERM_SIG_MIN;
+	return Next_non_perm_signature;
 }
 
 // this routine sets the network signature to the given value.  Should be called from client only
@@ -229,6 +222,7 @@ void multi_set_network_signature( ushort signature, int what_kind )
 	Assertion(signature != 0, "Invalid net signature of 0 requested in multi_set_network_signature().");
 	Assertion(what_kind > 0, "Invalid net signature type of value %d requested in multi_set_network_signature().", what_kind);  // get Allender
 	Assertion(what_kind < 6, "Invalid net signature type of value %d requested in multi_set_network_signature().", what_kind);
+	Verification(what_kind != MULTI_SIG_NON_PERMANENT, "This function no longer handles weapon type signatures. If you are seeing this message, go get a coder!");
 
 	if ( what_kind == MULTI_SIG_SHIP ) {
 		Assert( (signature >= SHIP_SIG_MIN) && (signature <= SHIP_SIG_MAX) );
@@ -242,48 +236,49 @@ void multi_set_network_signature( ushort signature, int what_kind )
 	} else if ( what_kind == MULTI_SIG_WAYPOINT ) {
 		Assert( (signature >= WAYPOINT_SIG_MIN) && (signature <= WAYPOINT_SIG_MAX) );
 		Next_waypoint_signature = signature;
-	} else if (what_kind == MULTI_SIG_NON_PERMANENT) {
-		// Cyborg17 - spawn weapons can set this past the max and overflow the short
-		if (signature >= NPERM_SIG_MIN) {
-			Next_non_perm_signature = signature;
-		// so if they did, just add it to the minimum, because that's where we need to be, anyway.
-		} else {
-			Next_non_perm_signature = NPERM_SIG_MIN + signature;
-			// and if they somehow wrap twice throw an assert, because that will definitely cause undesired behavior.
-			Assertion(Next_non_perm_signature >= NPERM_SIG_MIN,"Somehow the non permanent signatures in multi_set_network_signature overflowed the short *twice*, and we cannot code around this.\n\n The likely cause is having spawn weapons with too many children.");
-		}
-	} 			
+	}
+}
+
+void multi_set_weapon_network_signature(uint signature) 
+{
+	Assert(Next_non_perm_signature > 0);
+	Next_non_perm_signature = signature;
 }
 
 // multi_get_network_object() takes a net_signature and tries to locate the object in the object list
 // with that network signature.  Returns nullptr if the object cannot be found
-object *multi_get_network_object( ushort net_signature )
+object* multi_get_network_object( ushort net_signature, uint weapon_signature, bool weapon )
 {
-	object *objp;
+	object* objp;
 
-	if ( net_signature == 0 )
-		return nullptr;
-
+	// this would generally mean that we shouldn't be calling this because we're in the wrong game mode to call it.
 	if(GET_FIRST(&obj_used_list) == nullptr)
 		return nullptr;
 
-	for ( objp = GET_FIRST(&obj_used_list); objp != END_OF_LIST(&obj_used_list); objp = GET_NEXT(objp) )
-		if ( objp->net_signature == net_signature )
+	// looking for a invalid signature
+	if ((weapon && weapon_signature == 0) || net_signature == 0)
+		return nullptr;
+
+	for (objp = GET_FIRST(&obj_used_list); objp != END_OF_LIST(&obj_used_list); objp = GET_NEXT(objp))
+		if (objp->net_signature == net_signature && (!weapon || objp->weapon_network_signature == weapon_signature))
 			break;
 
-	// if not found on used list, check create list
-	if ( objp == END_OF_LIST(&obj_used_list) ) {
-		for ( objp = GET_FIRST(&obj_create_list); objp != END_OF_LIST(&obj_create_list); objp = GET_NEXT(objp) )
-			if ( objp->net_signature == net_signature )
+	// if not found on used list, check create list (weapons will not show up on this list)
+	if (objp == END_OF_LIST(&obj_used_list)) {
+		if (weapon) {
+			objp == nullptr;
+		} else {
+		for (objp = GET_FIRST(&obj_create_list); objp != END_OF_LIST(&obj_create_list); objp = GET_NEXT(objp))
+			if (objp->net_signature == net_signature)
 				break;
 
-		if ( objp == END_OF_LIST(&obj_create_list) )
+		if (objp == END_OF_LIST(&obj_create_list))
 			objp = nullptr;
+		}
 	}
-
+	
 	return objp;
 }
-
 
 // -------------------------------------------------------------------------------------------------
 // netmisc_calc_checksum() calculates the checksum of a block of memory.
@@ -1583,6 +1578,7 @@ void multi_create_standalone_object()
     flagset<Object::Object_Flags> tmp_flags;
 	obj_set_flags(&Objects[pobj_num], tmp_flags + Object::Object_Flags::Player_ship);
 	Objects[pobj_num].net_signature = STANDALONE_SHIP_SIG;
+	Objects[pobj_num].weapon_network_signature = 0;
 	Player_ship = &Ships[Objects[pobj_num].instance];
 
 	// make ship hidden from sensors so that this observer cannot target it.  Observers really have two ships

@@ -147,6 +147,7 @@ void object::clear()
 	shield_quadrant.clear();
 	objsnd_num.clear();
 	net_signature = 0;
+	weapon_network_signature = 0;
 
 	pre_move_event.clear();
 	post_move_event.clear();

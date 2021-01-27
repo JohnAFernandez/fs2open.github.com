@@ -347,6 +347,10 @@ object *asteroid_create(asteroid_field *asfieldp, int asteroid_type, int asteroi
 	if ( Game_mode & GM_MULTIPLAYER ){
 		objp->net_signature = signature;
 	}
+	else {
+		objp->net_signature = 0;
+	}
+	objp->weapon_network_signature = 0;
 
 	Num_asteroids++;
 

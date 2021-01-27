@@ -573,6 +573,7 @@ object *debris_create(object *source_obj, int model_num, int submodel_num, vec3d
 	// assign the network signature.  The signature will be 0 for non-hull pieces, but since that
 	// is our invalid signature, it should be okay.
 	obj->net_signature = 0;
+	obj->weapon_network_signature = 0;
 
 	if ( (Game_mode & GM_MULTIPLAYER) && hull_flag ) {
 		obj->net_signature = multi_get_next_network_signature( MULTI_SIG_DEBRIS );

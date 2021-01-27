@@ -36,8 +36,12 @@ class p_object;
 #define MULTI_SIG_WAYPOINT				5				// Added for dynamic waypoints in multiplayer missions
 
 extern ushort multi_assign_network_signature( int what_kind );
+extern uint multi_assign_weapon_network_signature();
 extern ushort multi_get_next_network_signature( int what_kind );
+extern uint multi_get_next_weapon_network_signature();
 extern void multi_set_network_signature( ushort signature, int what_kind );
+extern void multi_set_weapon_network_signature(uint signature);
+
 
 extern void stuff_netplayer_info( net_player *nplayer, net_addr *addr, int ship_class, player *pplayer );
 extern int find_player(net_addr* addr);

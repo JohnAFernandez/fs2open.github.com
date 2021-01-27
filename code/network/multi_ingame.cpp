@@ -1038,6 +1038,7 @@ void process_ingame_ships_packet( ubyte *data, header *hinfo )
 		ship_num = Objects[objnum].instance;
         Objects[objnum].flags.from_u64(oflags);
 		Objects[objnum].net_signature = net_signature;
+		Objects[objnum].weapon_network_signature = 0;
 
 		// Cyborg17 also add this ship to the multi ship tracking and interpolation struct
 		multi_ship_record_add_ship(objnum);

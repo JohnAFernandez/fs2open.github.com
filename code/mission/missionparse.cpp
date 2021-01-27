@@ -2443,6 +2443,8 @@ int parse_create_object_sub(p_object *p_objp)
 	if (Game_mode & GM_MULTIPLAYER)
 	{
 		Objects[objnum].net_signature = p_objp->net_signature;
+		// only weapons have a valid weapon_network_signature
+		Objects[objnum].weapon_network_signature = 0;
 
 		// Goober5000 - for an initially docked group, only send the packet for the dock leader... this is necessary so that the
 		// docked hierarchy of objects can be created in the right order on the client side

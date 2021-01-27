@@ -417,6 +417,8 @@ void multi_respawn_player(net_player *pl, char cur_primary_bank, char cur_second
 	// clients bash net signature
 	if(!(Net_player->flags & NETINFO_FLAG_AM_MASTER)){
 		objp->net_signature = net_sig;
+		// only weapons have a valid weapon_network_signature
+		objp->weapon_network_signature = 0;
 	}
 
 	// restore the correct weapon bank selections

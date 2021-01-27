@@ -5689,17 +5689,15 @@ int weapon_create( vec3d * pos, matrix * porient, int weapon_type, int parent_ob
 	// assign the network signature.  The starting sig is sent to all clients, so this call should
 	// result in the same net signature numbers getting assigned to every player in the game
 	if ( Game_mode & GM_MULTIPLAYER ) {
-		if(wip->subtype == WP_MISSILE){
-			Objects[objnum].net_signature = multi_assign_network_signature( MULTI_SIG_NON_PERMANENT );
+		Objects[objnum].net_signature = (parent_objp != nullptr) ? parent_objp->net_signature : 0;
+		Objects[objnum].weapon_network_signature = multi_assign_weapon_network_signature();
 
+		if(wip->subtype == WP_MISSILE){
 			// for weapons that respawn, add the number of respawnable weapons to the net signature pool
 			// to reserve N signatures for the spawned weapons
 			if ( wip->wi_flags[Weapon::Info_Flags::Spawn] ){
-                multi_set_network_signature( (ushort)(Objects[objnum].net_signature + wip->maximum_children_spawned), MULTI_SIG_NON_PERMANENT );
+                multi_set_weapon_network_signature( static_cast<uint>((Objects[objnum].weapon_network_signature + wip->maximum_children_spawned)));
 			} 
-		} else {
-			Objects[objnum].net_signature = multi_assign_network_signature( MULTI_SIG_NON_PERMANENT );
-		}
 		// for multiplayer clients, when creating lasers, add some more life to the lasers.  This helps
 		// to overcome some problems associated with lasers dying on client machine before they get message
 		// from server saying it hit something.

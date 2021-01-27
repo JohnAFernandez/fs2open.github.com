@@ -137,7 +137,8 @@ public:
 	float			hull_strength;	//	Remaining hull strength.
 	float			sim_hull_strength;	// Simulated hull strength - used with training weapons.
 	SCP_vector<int> objsnd_num;		// Index of persistant sound struct.
-	ushort			net_signature;
+	ushort			net_signature; // used to reference this object over the network
+	uint			weapon_network_signature; // used to reference weapons over the network
 	int				num_pairs;		// How many object pairs this is associated with.  When 0 then there are no more.
 
 	dock_instance	*dock_list;			// Goober5000 - objects this object is docked to

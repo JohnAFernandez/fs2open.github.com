@@ -110,6 +110,7 @@ void multi_obs_create_observer(net_player *pl)
 	Assert(objnum != -1);
 	Objects[objnum].flags.set(Object::Object_Flags::Player_ship);	
 	Objects[objnum].net_signature = 0;
+	Objects[objnum].weapon_network_signature = 0;
 
 	// put it a 1,1,1
 	Objects[objnum].pos.xyz.x = 1.0f;
