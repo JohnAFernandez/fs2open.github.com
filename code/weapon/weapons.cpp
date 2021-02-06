@@ -4419,10 +4419,6 @@ void weapon_home(object *obj, int num, float frame_time)
 				return;
 			}
 		}
-		else if (MULTIPLAYER_MASTER && (wip->is_locked_homing()) && (wp->weapon_flags[Weapon::Weapon_Flags::Homing_update_needed])) {
-            wp->weapon_flags.remove(Weapon::Weapon_Flags::Homing_update_needed);
-			send_homing_weapon_info(num);
-		}
 
 		if (wip->acceleration_time > 0.0f) {
 			if (Missiontime - wp->creation_time < fl2f(wip->acceleration_time)) {
@@ -4638,7 +4634,8 @@ void weapon_home(object *obj, int num, float frame_time)
 				if (hobjp->radius < 40.0f) {
 					target_pos     = hobjp->pos;
 					wp->homing_pos = target_pos;
-				} else if (pick_homing_point || (dist < 500.0f) || (rand_chance(flFrametime, 2.0f))) {
+					// only recalculate a homing point if you are not a client.  You will get the new point from the server.
+				} else if (pick_homing_point || (!MULTIPLAYER_CLIENT && ((dist < 500.0f) || (rand_chance(flFrametime, 2.0f))))) {
 
 					if (hobjp->type == OBJ_SHIP) {
 						if (!pick_homing_point) {
@@ -4681,6 +4678,8 @@ void weapon_home(object *obj, int num, float frame_time)
 						}
 
 						ai_big_pick_attack_point(hobjp, obj, &target_pos, fov);
+
+						wp->weapon_flags.set(Weapon::Weapon_Flags::Multi_homing_update_needed);
 
 					} else {
 						target_pos = hobjp->pos;
@@ -4806,7 +4805,19 @@ void weapon_update_missiles(object* obj, float  frame_time) {
 
 	// a single player or multiplayer server function -- it affects actual weapon movement.
 	if (wip->is_homing() && !(wp->weapon_flags[Weapon::Weapon_Flags::No_homing])) {
+		vec3d pos_hold = wp->homing_pos;
+		int target_hold = wp->target_sig;
+
 		weapon_home(obj, obj->instance, frame_time);
+
+		// if the first update for a weapon has already been sent, then we do not need to send any others unless the homing_pos
+		// drastically changes.
+		if (MULTIPLAYER_MASTER && wp->weapon_flags[Weapon::Weapon_Flags::Multi_Update_Sent]) {
+			vm_vec_sub2(&pos_hold, &wp->homing_pos);
+			if ((vm_vec_mag(&pos_hold) < 1.0f) && (wp->target_sig == target_hold)) {
+				wp->weapon_flags.remove(Weapon::Weapon_Flags::Multi_homing_update_needed);
+			}
+		}
 
 		// If this is a swarm type missile,  
 		if (wp->swarm_index >= 0) {
@@ -5068,7 +5079,7 @@ void weapon_process_post(object * obj, float frame_time)
 	if ( wp->lifeleft < 0.0f ) {
 		if ( wip->subtype & WP_MISSILE ) {
 			if(Game_mode & GM_MULTIPLAYER){				
-				if ( !MULTIPLAYER_CLIENT || (MULTIPLAYER_CLIENT && (wp->lifeleft < -2.0f)) || (MULTIPLAYER_CLIENT && (wip->wi_flags[Weapon::Info_Flags::Child]))) {					// don't call this function multiplayer client -- host will send this packet to us
+				if ( !MULTIPLAYER_CLIENT || (MULTIPLAYER_CLIENT && (wip->wi_flags[Weapon::Info_Flags::Child]))) {					// don't call this function multiplayer client -- host will send this packet to us
 					weapon_detonate(obj);					
 				}
 			} else {
@@ -5080,8 +5091,14 @@ void weapon_process_post(object * obj, float frame_time)
 		} else {
             obj->flags.set(Object::Object_Flags::Should_be_dead);
 		}
-
+		if (MULTIPLAYER_MASTER) {
+			send_weapon_kill_packet(obj);
+		}
 		return;
+	}
+	else if ((MULTIPLAYER_MASTER) && (wip->is_locked_homing() && wp->weapon_flags[Weapon::Weapon_Flags::Multi_homing_update_needed])) {
+		wp->weapon_flags.remove(Weapon::Weapon_Flags::Multi_homing_update_needed);
+		send_homing_weapon_info(obj->instance);
 	}
 
 	// plot homing missiles on the radar
@@ -5487,7 +5504,7 @@ void weapon_set_tracking_info(int weapon_objnum, int parent_objnum, int target_o
 		if (target_is_locked && (wp->target_num != -1) && (wip->is_locked_homing()) ) {
 			wp->lifeleft *= LOCKED_HOMING_EXTENDED_LIFE_FACTOR;
 			if (MULTIPLAYER_MASTER) {
-                wp->weapon_flags.set(Weapon::Weapon_Flags::Homing_update_needed);
+                wp->weapon_flags.set(Weapon::Weapon_Flags::Multi_homing_update_needed);
 			}
 		}
 
