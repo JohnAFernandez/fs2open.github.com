@@ -4679,8 +4679,6 @@ void weapon_home(object *obj, int num, float frame_time)
 
 						ai_big_pick_attack_point(hobjp, obj, &target_pos, fov);
 
-						wp->weapon_flags.set(Weapon::Weapon_Flags::Multi_homing_update_needed);
-
 					} else {
 						target_pos = hobjp->pos;
 					}
@@ -4810,12 +4808,16 @@ void weapon_update_missiles(object* obj, float  frame_time) {
 
 		weapon_home(obj, obj->instance, frame_time);
 
-		// if the first update for a weapon has already been sent, then we do not need to send any others unless the homing_pos
-		// drastically changes.
-		if (MULTIPLAYER_MASTER && wp->weapon_flags[Weapon::Weapon_Flags::Multi_Update_Sent]) {
-			vm_vec_sub2(&pos_hold, &wp->homing_pos);
-			if ((vm_vec_mag(&pos_hold) < 1.0f) && (wp->target_sig == target_hold)) {
-				wp->weapon_flags.remove(Weapon::Weapon_Flags::Multi_homing_update_needed);
+		// tell the server to send an update of the missile.
+		if (MULTIPLAYER_MASTER && !IS_VEC_NULL(&wp->homing_pos)) {
+			wp->weapon_flags.set(Weapon::Weapon_Flags::Multi_homing_update_needed);
+			// if the first update for a weapon has already been sent, then we do not need to send any others unless the homing_pos
+			// drastically changes.
+			if (wp->weapon_flags[Weapon::Weapon_Flags::Multi_Update_Sent]) {
+				vm_vec_sub2(&pos_hold, &wp->homing_pos);
+				if ((vm_vec_mag(&pos_hold) < 1.0f) && (wp->target_sig == target_hold)) {
+					wp->weapon_flags.remove(Weapon::Weapon_Flags::Multi_homing_update_needed);
+				}
 			}
 		}
 
@@ -5097,8 +5099,8 @@ void weapon_process_post(object * obj, float frame_time)
 		return;
 	}
 	else if ((MULTIPLAYER_MASTER) && (wip->is_locked_homing() && wp->weapon_flags[Weapon::Weapon_Flags::Multi_homing_update_needed])) {
-		wp->weapon_flags.remove(Weapon::Weapon_Flags::Multi_homing_update_needed);
 		send_homing_weapon_info(obj->instance);
+		wp->weapon_flags.remove(Weapon::Weapon_Flags::Multi_homing_update_needed);
 	}
 
 	// plot homing missiles on the radar
@@ -5503,9 +5505,6 @@ void weapon_set_tracking_info(int weapon_objnum, int parent_objnum, int target_o
 		//	put a sanity check in the color changing laser code that was broken by this code.
 		if (target_is_locked && (wp->target_num != -1) && (wip->is_locked_homing()) ) {
 			wp->lifeleft *= LOCKED_HOMING_EXTENDED_LIFE_FACTOR;
-			if (MULTIPLAYER_MASTER) {
-                wp->weapon_flags.set(Weapon::Weapon_Flags::Multi_homing_update_needed);
-			}
 		}
 
 		ai_update_danger_weapon(target_objnum, weapon_objnum);		
