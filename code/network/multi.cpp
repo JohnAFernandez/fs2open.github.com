@@ -569,6 +569,10 @@ void process_packet_normal(ubyte* data, header *header_info)
 			process_ship_kill_packet( data, header_info );
 			break;
 
+		case WEAPON_KILL:
+			process_weapon_kill_packet(data, header_info);
+			break;
+
 		case WING_CREATE:
 			process_wing_create_packet( data, header_info );
 			break;
@@ -1797,7 +1801,7 @@ void multi_reset_timestamps()
 		Players[i].update_dumbfire_time = timestamp(0);
 		Players[i].update_lock_time = timestamp(0);
 
-		Net_players[i].s_info.voice_token_timestamp = -1;
+		Net_players[i].s_info.voice_token_timestamp = timestamp(-1);
 	}
 
 	// reset standalone gui timestamps (these are not game critical, so there is not much danger)

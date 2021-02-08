@@ -798,8 +798,9 @@ void multi_create_player( int net_player_num, player *pl, const char* name, net_
 	// Net_players[net_player_num].respawn_count = 0;
 	Net_players[net_player_num].last_heard_time = timer_get_fixed_seconds();
 	Net_players[net_player_num].reliable_socket = PSNET_INVALID_SOCKET;
-	Net_players[net_player_num].s_info.kick_timestamp = -1;
-	Net_players[net_player_num].s_info.voice_token_timestamp = -1;
+	Net_players[net_player_num].s_info.kick_timestamp = timestamp(-1);
+	Net_players[net_player_num].s_info.voice_token_timestamp = timestamp(-1);
+	Net_players[net_player_num].s_info.player_collision_timestamp = timestamp(-1);
 	Net_players[net_player_num].s_info.tracker_security_last = -1;
 	Net_players[net_player_num].s_info.target_objnum = -1;
 	Net_players[net_player_num].s_info.accum_buttons = 0;
@@ -3603,6 +3604,11 @@ int multi_pack_unpack_desired_vel_and_desired_rotvel( int write, bool full_physi
 	int a = 0, b = 0, c = 0;
 	int d = 0, e = 0, f = 0;
 
+	// we could have reduced it to 8 when full physics is false, and saved the byte, 
+	// but this ends up allowing us more accuracy during capship warpin/out
+	const int z_bitcount = (full_physics) ? 9 : 16; 				
+	const int z_capfactor = (full_physics) ? 255 : 32640;
+
 	if ( write )	{
 		if (full_physics) {
 			// output desired rotational velocity
@@ -3635,18 +3641,19 @@ int multi_pack_unpack_desired_vel_and_desired_rotvel( int write, bool full_physi
 		if (pi->max_vel.xyz.y > 0.0f) {
 			e = fl2i(round( (local_desired_vel->xyz.y / pi->max_vel.xyz.y) * 7.0f));
 		}
+		float z_divisor = MAX(pi->afterburner_max_vel.xyz.z, pi->max_vel.xyz.z);
 		// for z velocity, take into account afterburner.
-		if (pi->max_vel.xyz.z > 0.0f) {
-			f = fl2i(round( (local_desired_vel->xyz.z / pi->afterburner_max_vel.xyz.z) * 255.0f));
+		if (z_divisor > 0.0f) {
+			f = fl2i(round( (local_desired_vel->xyz.z / z_divisor) * 255.0f));
 		}
 
 		CAP(d,-7,7);
 		CAP(e,-7,7);
-		CAP(f,-255,255);
+		CAP(f,-z_capfactor,z_capfactor);
 		bitbuffer_put( &buf, (uint)d,4);
 		bitbuffer_put( &buf, (uint)e,4);
-		bitbuffer_put( &buf, (uint)f,9);
 
+		bitbuffer_put( &buf, (uint)f,z_bitcount); // either 9 or 16 bits.
 		return bitbuffer_write_flush(&buf);
 
 	} else {
@@ -3665,10 +3672,13 @@ int multi_pack_unpack_desired_vel_and_desired_rotvel( int write, bool full_physi
 		// unpack desired velocity
 		d = bitbuffer_get_signed(&buf,4);
 		e = bitbuffer_get_signed(&buf,4);
-		f = bitbuffer_get_signed(&buf,9);
+		f = bitbuffer_get_signed(&buf,z_bitcount); // either 9 or 16 bits.
 		local_desired_vel->xyz.x = pi->max_vel.xyz.x * i2fl(d)/7.0f;
 		local_desired_vel->xyz.y = pi->max_vel.xyz.y * i2fl(e)/7.0f;
-		local_desired_vel->xyz.z = pi->afterburner_max_vel.xyz.z * i2fl(f)/255.0f;
+
+		float z_multiplier = MAX(pi->afterburner_max_vel.xyz.z, pi->max_vel.xyz.z);
+
+		local_desired_vel->xyz.z = z_multiplier * i2fl(f)/255.0f;
 
 
 		return bitbuffer_read_flush(&buf);

@@ -604,7 +604,7 @@ void multi_voice_server_process()
 	for(idx=0;idx<MAX_PLAYERS;idx++){
 		if(MULTI_CONNECTED(Net_players[idx]) && (Net_players[idx].s_info.voice_token_timestamp != -1) && timestamp_elapsed(Net_players[idx].s_info.voice_token_timestamp)){
 			// unset it so that he can have the token again
-			Net_players[idx].s_info.voice_token_timestamp = -1;
+			Net_players[idx].s_info.voice_token_timestamp = timestamp(-1);
 		}
 	}
 }
