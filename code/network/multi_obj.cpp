@@ -2225,8 +2225,8 @@ int multi_oo_maybe_update(net_player *pl, object *obj, ubyte *data)
 		return 0;
 	}
 
-	// stamp hasn't popped yet
-	if((stamp != -1) && !timestamp_elapsed_safe(stamp, OO_MAX_TIMESTAMP)){
+	// stamp hasn't popped yet, or this is marked for client update only
+	if(obj->flags[Object::Object_Flags::Multi_client_simulated] || ((stamp != -1) && !timestamp_elapsed_safe(stamp, OO_MAX_TIMESTAMP))){
 		return 0;
 	}
 	
@@ -3151,8 +3151,9 @@ int multi_oo_is_interp_object(object *objp)
 	}
 
 	// if I'm a client and this is not me, I need to interp it
+	// Cyborg17 -- Or the server has marked this as a client updated ship -- Like when the support ship is docking with a client.
 	if(!MULTIPLAYER_MASTER){
-		if(objp != Player_obj){
+		if(objp != Player_obj && !(objp->flags[Object::Object_Flags::Multi_client_simulated])){
 			return 1;
 		} else {
 			return 0;
@@ -3160,7 +3161,7 @@ int multi_oo_is_interp_object(object *objp)
 	}
 
 	// servers only interpolate other player ships
-	if(!(objp->flags[Object::Object_Flags::Player_ship])){
+	if(!(objp->flags[Object::Object_Flags::Player_ship]) && !(objp->flags[Object::Object_Flags::Multi_client_simulated])){
 		return 0;
 	}
 
@@ -3539,4 +3540,18 @@ void oo_display()
 		}
 	}
 	*/
+}
+
+void send_switch_simulator_packet(object* objp)
+{
+	Assert(objp != nullptr);
+	Assertion(objp->instance >= 0 && objp->instance < MAX_SHIPS, "Somehow send_switch_simulator_packet got passed an invalid object of %d.", objp->instance);
+	Assertion(objp->type != OBJ_SHIP, "A non ship was passed to send_switch_simulator_packet. The type was %d", objp->type);
+
+	if (objp == nullptr || objp->instance < 0 || objp->instance < MAX_SHIPS || objp->type == OBJ_SHIP) {
+		return;
+	}
+
+
+
 }
