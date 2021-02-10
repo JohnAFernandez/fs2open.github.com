@@ -3131,7 +3131,10 @@ void ai_do_objects_docked_stuff(object *docker, int docker_point, object *dockee
 	// make sure they're not already docked!
 	if (dock_check_find_direct_docked_object(docker, dockee))
 	{
-		Warning(LOCATION, "Call to ai_do_objects_docked_stuff when objects are already docked!  Trace out and fix!\n");
+		// Cyborg17 - Multiplayer clients can often get info late and may do things at a weird time.  Basically it's not actually broken.
+		if (!MULTIPLAYER_CLIENT) {
+			Warning(LOCATION, "Call to ai_do_objects_docked_stuff when objects are already docked!  Trace out and fix!\n");
+		}
 		return;
 	}
 
@@ -3164,8 +3167,10 @@ void ai_do_objects_docked_stuff(object *docker, int docker_point, object *dockee
 	}
 
 	// add multiplayer hook here to deal with docked objects.  
-	if ( MULTIPLAYER_MASTER && update_clients)
+	if (MULTIPLAYER_MASTER && update_clients) {
+		mprintf(("sending a packet from the docking section."));
 		send_ai_info_update_packet( docker, AI_UPDATE_DOCK, dockee );
+	}
 }
 
 // code which is called when objects become undocked. Equivalent of above function.
@@ -3175,7 +3180,7 @@ void ai_do_objects_undocked_stuff( object *docker, object *dockee )
 	Assert((docker != NULL) && (dockee != NULL));
 
 	// make sure they're not already undocked!
-	if (!dock_check_find_direct_docked_object(docker, dockee))
+	if (!dock_check_find_direct_docked_object(docker, dockee) && !MULTIPLAYER_CLIENT)
 	{
 		Warning(LOCATION, "Call to ai_do_objects_undocked_stuff when objects are already undocked!  Trace out and fix!\n");
 		return;
@@ -3184,8 +3189,10 @@ void ai_do_objects_undocked_stuff( object *docker, object *dockee )
 	// add multiplayer hook here to deal with undocked objects.  Do it before we
 	// do anything else.  We don't need to send info for both objects, since multi
 	// only supports one docked object
-	if ( MULTIPLAYER_MASTER )
+	if (MULTIPLAYER_MASTER) {
+		mprintf(("sending packet from undocking!"));
 		send_ai_info_update_packet( docker, AI_UPDATE_UNDOCK, dockee );
+	}
 
 	if (docker->type == OBJ_SHIP && dockee->type == OBJ_SHIP)
 	{

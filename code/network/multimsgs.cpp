@@ -5103,14 +5103,17 @@ void send_ai_info_update_packet( object *objp, char what, object * other_objp )
 
 	// Assert( objp->type == OBJ_SHIP );
 	if(objp->type != OBJ_SHIP){
+		mprintf(("early return 1"));
 		return;
 	}
 	aip = &Ai_info[Ships[objp->instance].ai_index];
 
 	// do an out here
-	if ( Ships[objp->instance].is_dying_or_departing())
+	if (Ships[objp->instance].is_dying_or_departing()) {
+		mprintf(("early return 2"));
 		return;
-
+	}
+	mprintf(("no early return!\n"));
 	switch( what ) {
 
 	case AI_UPDATE_DOCK:
@@ -5218,20 +5221,33 @@ void process_ai_info_update_packet( ubyte *data, header *hinfo)
 	GET_USHORT( net_signature );		// signature of the object that we are dealing with.
 	GET_DATA( code );					// code of what we are doing.
 	objp = multi_get_network_object( net_signature );
-	if ( !objp )
+	mprintf(("Getting the ai update packet. %d,%d,", net_signature, (int)code));
+	if ( !objp ){
 		nprintf(("Network", "Couldn't find object for ai update\n"));
+		mprintf(("NULL!,"));
+	}
+	else if (objp->type == OBJ_SHIP) {
+		mprintf(("%s,", Ships[objp->instance].ship_name));
+	}
+	
 
 	switch( code ) {
 	case AI_UPDATE_DOCK:
 		GET_USHORT( other_net_signature );
 		GET_DATA( docker_index );
 		GET_DATA( dockee_index );
+		mprintf(("branch1,%d,%d,%d,", other_net_signature, docker_index, dockee_index));
 		other_objp = multi_get_network_object( other_net_signature );
 		if ( !other_objp )
 			nprintf(("Network", "Couldn't find other object for ai update on dock\n"));
 		
 		// if we don't have an object to work with, break out of loop
 		if ( !objp || !other_objp || (objp->type != OBJ_SHIP) || (other_objp->type != OBJ_SHIP)){
+			if (other_objp != nullptr && other_objp->type == OBJ_SHIP) {
+				mprintf(("%s ",Ships[other_objp->instance].ship_name));
+			}
+
+			mprintf(("early out"));
 			break;
 		}
 
@@ -5243,10 +5259,15 @@ void process_ai_info_update_packet( ubyte *data, header *hinfo)
 	case AI_UPDATE_UNDOCK:
 		GET_USHORT( other_net_signature );
 		other_objp = multi_get_network_object( other_net_signature );
-		
+		mprintf(("branch2,%d", other_net_signature));
 		// if we don't have an object to work with, break out of loop
-		if ( !objp )
+		if (!objp) {
+			mprintf(("early out"));
 			break;
+		}
+		else if (objp->type == OBJ_SHIP) {
+			mprintf(("%s", Ships[objp->instance].ship_name));
+		}
 
 		ai_do_objects_undocked_stuff( objp, other_objp );
 		break;
@@ -5255,9 +5276,11 @@ void process_ai_info_update_packet( ubyte *data, header *hinfo)
 		GET_INT( mode );
 		GET_INT( submode );
 		GET_USHORT( other_net_signature );
+		mprintf(("branch3,%d,%d,%d,", mode, submode, other_net_signature));
 		if ( mode & (AI_GOAL_DOCK|AI_GOAL_REARM_REPAIR) ) {
 			GET_DATA(docker_index);
 			GET_DATA(dockee_index);
+			mprintf(("extra,%d,%d", docker_index, dockee_index));
 		}
 
 		// be sure that we have a ship object!!!
@@ -5282,6 +5305,8 @@ void process_ai_info_update_packet( ubyte *data, header *hinfo)
 		// get a shipname if we can.
 		other_objp = multi_get_network_object( other_net_signature );
 		if ( other_objp && (other_objp->type == OBJ_SHIP) ) {
+			mprintf(("%s", Ships[objp->instance].ship_name));
+
 			// get a pointer to the shipname in question.  Use the ship_name value in the
 			// ship.  We are only using this for HUD display, so I think that using this
 			// method will be fine.
@@ -5300,6 +5325,7 @@ void process_ai_info_update_packet( ubyte *data, header *hinfo)
 		nprintf(("Network", "Invalid code for ai update: %d\n", code));
 		break;
 	}
+	mprintf(("\n"));
 	PACKET_SET_SIZE();
 }
 

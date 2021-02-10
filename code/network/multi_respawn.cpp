@@ -334,7 +334,7 @@ int multi_respawn_common_stuff(p_object *pobjp)
 
 	// get the team and slot
 	shipp = &Ships[objp->instance];
-	multi_ts_get_team_and_slot(shipp->ship_name, &team, &slot_index);
+	multi_ts_get_team_and_slot(pobjp->name, &team, &slot_index);
 	Assert( team != -1 );
 	Assert( slot_index != -1 );
 

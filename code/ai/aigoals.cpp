@@ -2112,6 +2112,7 @@ void ai_process_mission_orders( int objnum, ai_info *aip )
 	current_goal = &aip->goals[0];
 
 	if ( MULTIPLAYER_MASTER ){
+		mprintf(("sending packet from process mission orders"));
 		send_ai_info_update_packet( objp, AI_UPDATE_ORDERS );
 	}
 

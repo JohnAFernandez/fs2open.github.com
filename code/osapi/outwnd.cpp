@@ -248,7 +248,7 @@ void outwnd_init()
 			} else if (Is_standalone) {
 				FreeSpace_logfilename = "fs2_standalone.log";
 			} else {
-				FreeSpace_logfilename = "fs2_open.log";
+				FreeSpace_logfilename = "fs2_open3.log";
 			}
 
 			// create data file path if it does not exist

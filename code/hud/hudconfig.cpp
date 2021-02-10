@@ -1120,7 +1120,8 @@ void hud_config_button_do(int n)
 		break;
 
 	case HCB_I_UP:
-		if( HCS_CONV(HC_color_sliders[HCS_ALPHA].get_currentItem()) >= 255){
+		// Cyborg17 -- Do not Move the sliders if nothing is selected.
+		if( HCS_CONV(HC_color_sliders[HCS_ALPHA].get_currentItem()) >= 255 || (!HC_select_all && HC_gauge_selected < 0)){
 			gamesnd_play_iface(InterfaceSounds::GENERAL_FAIL);
 		} else {
 			gamesnd_play_iface(InterfaceSounds::USER_SELECT);
@@ -1160,7 +1161,8 @@ void hud_config_button_do(int n)
 		break;
 
 	case HCB_I_DOWN:
-		if( HCS_CONV(HC_color_sliders[HCS_ALPHA].get_currentItem()) <= 0){
+		// Cyborg17 -- Do not Move the sliders if nothing is selected.
+		if( HCS_CONV(HC_color_sliders[HCS_ALPHA].get_currentItem()) <= 0 || (!HC_select_all && HC_gauge_selected < 0)){
 			gamesnd_play_iface(InterfaceSounds::GENERAL_FAIL);
 		} else {
 			gamesnd_play_iface(InterfaceSounds::USER_SELECT);
