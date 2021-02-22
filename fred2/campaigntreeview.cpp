@@ -271,7 +271,7 @@ void stuff_link_with_formula(int *link_idx, int formula, int mission_num)
 					Elements[mission_num].from_links++;
 
 				} else
-					Int3();			// bogus operator in campaign file
+					UNREACHABLE("'bogus operator in campaign file', please report to a coder.");			// bogus operator in campaign file
 
 				free_sexp(CDR(node2));
 				free_one_sexp(node);

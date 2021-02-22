@@ -1102,7 +1102,7 @@ int get_nearest_turret_objnum(int turret_parent_objnum, ship_subsys *turret_subs
 					break;
 
 				default:
-					Int3(); //Means invalid number passed.
+					UNREACHABLE("An invalid type of %d was found when looking for a turret target", turret_subsys->turret_targeting_order[i]); //Means invalid number passed.
 			}
 		}
 	}
@@ -1214,9 +1214,9 @@ int find_turret_enemy(ship_subsys *turret_subsys, int objnum, vec3d *tpos, vec3d
 		Assert( !((Objects[enemy_objnum].flags[Object::Object_Flags::Flak_protected]) && flak_flag) );
 		Assert( !((Objects[enemy_objnum].flags[Object::Object_Flags::Laser_protected]) && laser_flag) );
 		Assert( !((Objects[enemy_objnum].flags[Object::Object_Flags::Missile_protected]) && missile_flag) );
+		Assert( !(Objects[enemy_objnum].flags[Object::Object_Flags::Protected]) );
 
 		if ( Objects[enemy_objnum].flags[Object::Object_Flags::Protected] ) {
-			Int3();
 			enemy_objnum = aip->target_objnum;
 		}
 	}

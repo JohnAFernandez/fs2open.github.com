@@ -2483,13 +2483,13 @@ void ai_evade_object(object *evader, object *evaded)
 {
 	ai_info	*aip;
 
-	Assert(evader != NULL);
-	Assert(evaded != NULL);
+	Assert(evader != nullptr);
+	Assert(evaded != nullptr);
+	Assert(evader != evaded);
 	Assert(evader->instance != -1);
 	Assert(Ships[evader->instance].ai_index != -1);
 
 	if (evaded == evader) {
-		Int3();	//	Bogus!  Who tried to get me to evade myself!  Trace out and fix!
 		return;
 	}
 

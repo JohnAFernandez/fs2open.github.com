@@ -410,7 +410,7 @@ int campaign_editor::handler(int code, int node, char *str)
 		return node;
 
 	default:
-		Int3();
+		UNREACHABLE("The campaign editor's 'handler' function was passed an invalid code of: %d, please report!", code);
 	}
 
 	return -1;

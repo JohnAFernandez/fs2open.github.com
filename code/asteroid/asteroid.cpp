@@ -508,7 +508,7 @@ static int get_debris_weight(int ship_debris_index)
 			return LARGE_DEBRIS_WEIGHT;
 
 		default:
-			Int3();
+			UNREACHABLE("get_debris_weight is trying to pass an invalid size of %d, please report!", size);
 			return 1;
 	}
 }

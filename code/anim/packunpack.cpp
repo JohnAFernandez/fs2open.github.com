@@ -29,20 +29,21 @@ anim_instance *init_anim_instance(anim *ptr, int bpp)
 {
 	anim_instance *inst;
 
+	Assert(ptr);
+
 	if (!ptr) {
-		Int3();
-		return NULL;
+		return nullptr;
 	}
 
 	if ( ptr->flags & ANF_STREAMED ) {
+		Assert(ptr->file_offset >= 0);
 		if ( ptr->file_offset < 0 ) {
-			Int3();
-			return NULL;
+			return nullptr;
 		}
 	} else {
+		Assert(ptr->data);
 		if ( !ptr->data ) {
-			Int3();
-			return NULL;
+			return nullptr;
 		}
 	}
 
@@ -56,10 +57,10 @@ anim_instance *init_anim_instance(anim *ptr, int bpp)
 	inst->data = ptr->data;
 	inst->file_offset = ptr->file_offset;
 	inst->stop_now = FALSE;
-	inst->aa_color = NULL;
+	inst->aa_color = nullptr;
 
 	inst->frame = (ubyte *) vm_malloc(inst->parent->width * inst->parent->height * (bpp >> 3));
-	Assert( inst->frame != NULL );
+	Assert( inst->frame != nullptr );
 	memset( inst->frame, 0, inst->parent->width * inst->parent->height * (bpp >> 3) );
 
 	return inst;
@@ -168,7 +169,7 @@ int unpack_pixel(anim_instance *ai, ubyte *data, ubyte pix, int aabitmap, int bp
 
 			break;
 		default:
-			Int3();
+			UNREACHABLE("unpack_pixel was passed an unsupported number of bits per pixel for an aabitmap of %d, please report!", bpp);
 		}
 	} else {		
 		// if the pixel value is 255, or is the xparent color, make it so		
@@ -219,7 +220,7 @@ int unpack_pixel(anim_instance *ai, ubyte *data, ubyte pix, int aabitmap, int bp
 			break;
 
 		default:
-			Int3();
+			UNREACHABLE("unpack_pixel was passed an unsupported number of bits per pixel of %d, please report!", bpp);
 			return 0;
 	}
 
@@ -266,7 +267,7 @@ int unpack_pixel_count(anim_instance *ai, ubyte *data, ubyte pix, int count = 0,
 
 			break;
 		default :
-			Int3();			
+			UNREACHABLE("unpack_pixel_count was passed an unsupported number of bits per pixel for an aabitmap of %d, please report!", bpp);
 		}
 	} else {		
 		// if the pixel value is 255, or is the xparent color, make it so		
@@ -315,6 +316,9 @@ int unpack_pixel_count(anim_instance *ai, ubyte *data, ubyte pix, int count = 0,
 
 			case 8:
 				*(data + idx) = bit_8;
+				break;
+			default:
+				UNREACHABLE("unpack_pixel_count was passed an unsupported number of bits per pixel of %d, please report!", bpp);
 				break;
 			}
 	}

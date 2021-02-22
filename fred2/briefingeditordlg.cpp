@@ -984,7 +984,7 @@ void briefing_editor_dlg::OnMakeIcon()
 					break;
 
 				default:
-					Int3();
+					UNREACHABLE("Briefing Dialog only supports creating icons for ships, player start ships, Waypoints and Jump Nodes, not type: %d, please report!", ptr->type);
 			}
 
 			if (ship >= 0) {

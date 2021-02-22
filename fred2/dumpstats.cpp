@@ -364,7 +364,7 @@ void DumpStats::get_object_stats(CString &buffer)
 				break;
 
 			default:
-				Int3();
+				UNREACHABLE("Invalid object type of: %d found present in mission. Please report this to a coder!",i);
 				break;
 			}
 		}
@@ -500,7 +500,7 @@ void DumpStats::get_objectives_and_goals(CString &buffer)
 			break;
 
 		default:
-			Int3();
+			UNREACHABLE("There should only be Primary, Secondary and Bonus goals, not %d type goals, please report to a coder!", Mission_goals[i].type & GOAL_TYPE_MASK);
 			break;
 		}
 	}
