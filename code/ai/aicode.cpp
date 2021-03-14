@@ -15760,6 +15760,8 @@ int ai_issue_rearm_request(object *requester_objp)
 	// (Arriving_support_ship may be non-NULL in either of these cases, but mission_bring_in_support_ship has a check for that)
 	if (result == 0 || result == 2) {
 		ai_do_objects_repairing_stuff( requester_objp, NULL, REPAIR_INFO_QUEUE );
+		// temporary for testing.
+		Assert(!MULTIPLAYER_CLIENT);
 		mission_bring_in_support_ship( requester_objp );
 		return -1;
 	}

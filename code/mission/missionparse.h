@@ -519,7 +519,7 @@ int get_parse_name_index(const char *name);
 void mission_parse_eval_stuff();
 
 // code to bring in a repair ship.
-void mission_bring_in_support_ship( object *requester_objp );
+void mission_bring_in_support_ship( object *requester_objp, ushort net_signature = 0 );
 int mission_is_support_ship_arriving( void );
 void mission_add_to_arriving_support( object *requester_objp );
 int mission_is_repair_scheduled( object *objp );

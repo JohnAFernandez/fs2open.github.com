@@ -5015,7 +5015,7 @@ void process_repair_info_packet(ubyte *data, header *hinfo)
 		}
 	} else {
 		if ( code == REPAIR_INFO_WARP_ADD ){
-			mission_bring_in_support_ship( repaired_objp );
+			mission_bring_in_support_ship( repaired_objp, repair_signature );
 		} else {
 			mission_remove_scheduled_repair( repaired_objp );
 		}

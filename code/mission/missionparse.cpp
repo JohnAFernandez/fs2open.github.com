@@ -7828,7 +7828,7 @@ int get_warp_in_pos(vec3d *pos, object *objp, float x, float y, float z)
 /**
  * Modified by Goober5000 to allow more flexibility in support ships
  */
-void mission_bring_in_support_ship( object *requester_objp )
+void mission_bring_in_support_ship( object *requester_objp, ushort net_signature )
 {
 	vec3d center, warp_in_pos;
 	p_object *pobj;
@@ -7990,7 +7990,14 @@ void mission_bring_in_support_ship( object *requester_objp )
 	pobj->created_object = NULL;
 	pobj->group = -1;
 	pobj->persona_index = -1;
-	pobj->net_signature = multi_assign_network_signature(MULTI_SIG_SHIP);
+
+	// Cyborg - client needs this to have this bashed in from the server because there can be latency issues.
+	if (MULTIPLAYER_CLIENT) {
+		pobj->net_signature = net_signature;
+	} else {
+		pobj->net_signature = multi_assign_network_signature(MULTI_SIG_SHIP);
+	}
+
 	pobj->wing_status_wing_index = -1;
 	pobj->wing_status_wing_pos = -1;
 	pobj->respawn_count = 0;
