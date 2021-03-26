@@ -2148,52 +2148,81 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 }
 
 // reset the timestamp appropriately for the passed in object
-void multi_oo_reset_timestamp(net_player *pl, object *objp, int range, int in_cone)
+int multi_oo_get_obj_update_rate(net_player* pl, object* objp, bool* in_cone)
 {
-	int stamp = 0;	
+	int range, rate = 0;
+	vec3d player_eye = vmd_zero_vector, obj_dot = vmd_zero_vector;
+
+	// check dot products		
+	player_eye = pl->s_info.eye_orient.vec.fvec;
+	vm_vec_sub(&obj_dot, &objp->pos, &pl->s_info.eye_pos);
+
+	if (!(IS_VEC_NULL(&obj_dot))) {
+		vm_vec_normalize(&obj_dot);
+		float eye_dot = vm_vec_dot(&obj_dot, &player_eye);		
+		*in_cone = (eye_dot >= OO_VIEW_CONE_DOT) ;
+	}
+	else {
+		*in_cone = false;
+	}
+
+	// determine distance (near, medium, far)
+	vm_vec_sub(&obj_dot, &objp->pos, &pl->s_info.eye_pos);
+	float dist = vm_vec_mag(&obj_dot);	
+
+	if(dist < OO_NEAR_DIST){
+		range = OO_NEAR;
+	} else if(dist < OO_MIDRANGE_DIST){
+		range = OO_MIDRANGE;
+	} else {
+		range = OO_FAR;
+	}
 
 	// if this is the guy's target, 
 	if((pl->s_info.target_objnum != -1) && (pl->s_info.target_objnum == OBJ_INDEX(objp))){
-		stamp = Multi_oo_target_update_times[pl->p_info.options.obj_update_level];
+		rate = Multi_oo_target_update_times[pl->p_info.options.obj_update_level];
 	} else {
 		// reset the timestamp appropriately
 		if(in_cone){
 			// base it upon range
 			switch(range){
 			case OO_NEAR:
-				stamp = Multi_oo_front_near_update_times[pl->p_info.options.obj_update_level];
+				rate = Multi_oo_front_near_update_times[pl->p_info.options.obj_update_level];
 				break;
 
 			case OO_MIDRANGE:
-				stamp = Multi_oo_front_medium_update_times[pl->p_info.options.obj_update_level];
+				rate = Multi_oo_front_medium_update_times[pl->p_info.options.obj_update_level];
 				break;
 
 			case OO_FAR:
-				stamp = Multi_oo_front_far_update_times[pl->p_info.options.obj_update_level];
+				rate = Multi_oo_front_far_update_times[pl->p_info.options.obj_update_level];
+				break;
+			default:
+				UNREACHABLE("Bad range number in multi_oo_get_obj_update_rate of %d. Go get a coder!", range);
 				break;
 			}
 		} else {
 			// base it upon range
 			switch(range){
 			case OO_NEAR:
-				stamp = Multi_oo_rear_near_update_times[pl->p_info.options.obj_update_level];
+				rate = Multi_oo_rear_near_update_times[pl->p_info.options.obj_update_level];
 				break;
 
 			case OO_MIDRANGE:
-				stamp = Multi_oo_rear_medium_update_times[pl->p_info.options.obj_update_level];
+				rate = Multi_oo_rear_medium_update_times[pl->p_info.options.obj_update_level];
 				break;
 
 			case OO_FAR:
-				stamp = Multi_oo_rear_far_update_times[pl->p_info.options.obj_update_level];
+				rate = Multi_oo_rear_far_update_times[pl->p_info.options.obj_update_level];
+				break;
+			default:
+				UNREACHABLE("Bad range number in multi_oo_get_obj_update_rate of %d. Go get a coder!", range);
 				break;
 			}
 		}						
 	}
 
-	// reset the timestamp for this object
-	if(objp->type == OBJ_SHIP){
-		Oo_info.player_frame_info[pl->player_id].last_sent[objp->net_signature].timestamp = timestamp(stamp);
-	} 
+	return rate;
 }
 
 // determine what needs to get sent for this player regarding the passed object, and when
@@ -2202,11 +2231,6 @@ int multi_oo_maybe_update(net_player *pl, object *obj, ubyte *data)
 	ushort oo_flags = 0;
 	int stamp;
 	int player_index;
-	vec3d player_eye;
-	vec3d obj_dot;
-	float eye_dot, dist;
-	int in_cone;
-	int range;
 	ship *shipp;
 	ship_info *sip;
 
@@ -2240,30 +2264,14 @@ int multi_oo_maybe_update(net_player *pl, object *obj, ubyte *data)
 	if(shipp->ship_info_index >= 0){
 		sip = &Ship_info[shipp->ship_info_index];
 	}
-	
-	// check dot products		
-	player_eye = pl->s_info.eye_orient.vec.fvec;
-	vm_vec_sub(&obj_dot, &obj->pos, &pl->s_info.eye_pos);
-	in_cone = 0;
-	if (!(IS_VEC_NULL(&obj_dot))) {
-		vm_vec_normalize(&obj_dot);
-		eye_dot = vm_vec_dot(&obj_dot, &player_eye);		
-		in_cone = (eye_dot >= OO_VIEW_CONE_DOT) ? 1 : 0;
-	}
-							
-	// determine distance (near, medium, far)
-	vm_vec_sub(&obj_dot, &obj->pos, &pl->s_info.eye_pos);
-	dist = vm_vec_mag(&obj_dot);		
-	if(dist < OO_NEAR_DIST){
-		range = OO_NEAR;
-	} else if(dist < OO_MIDRANGE_DIST){
-		range = OO_MIDRANGE;
-	} else {
-		range = OO_FAR;
-	}
+
+	bool in_cone = false;
 
 	// reset the timestamp for the next update for this guy
-	multi_oo_reset_timestamp(pl, obj, range, in_cone);
+	if (sip != nullptr) {
+		int new_timestamp = multi_oo_get_obj_update_rate(pl, obj, &in_cone);
+		Oo_info.player_frame_info[pl->player_id].last_sent[obj->net_signature].timestamp = timestamp(new_timestamp);
+	}
 	
 	// position should be almost constant, except for ships that aren't moving.
 	if ( (Oo_info.player_frame_info[pl->player_id].last_sent[net_sig_idx].position != obj->pos) && (vm_vec_mag_quick(&obj->phys_info.vel) > 0.0f ) ) {
@@ -3203,7 +3211,19 @@ void multi_oo_interp(object* objp)
 		return;
 	}
 
-	float packet_delta = interp_data->pos_time_delta;
+	float packet_delta;
+	int player_id;
+
+	if (MULTIPLAYER_CLIENT) {
+		bool in_cone = false;
+		packet_delta = i2fl(multi_oo_get_obj_update_rate(Net_player, objp, &in_cone))/ TIMESTAMP_FREQUENCY;
+		player_id = 0;
+	}
+	else {
+		player_id = i2fl(multi_find_player_by_net_signature(net_sig_idx))/TIMESTAMP_FREQUENCY;
+		// instead of trying to guess or use the average, use the values that FSO would use to update ships
+		packet_delta = (float)Multi_oo_target_update_times[Net_players[player_id].p_info.options.obj_update_level];
+	}
 
 	// if this ship doesn't have enough data points yet or somehow else invalid, pretend it's a normal ship and skip it.
 	if (interp_data->prev_pack_pos_frame == -1) {
@@ -3217,7 +3237,6 @@ void multi_oo_interp(object* objp)
 
 		// add the ~1/2 of ping to keep the players in better sync
 		if (MULTIPLAYER_MASTER) {
-			int player_id = multi_find_player_by_net_signature(net_sig_idx);
 			temp_numerator += Net_players[player_id].s_info.ping.ping_avg / 2;
 		}
 		else {
