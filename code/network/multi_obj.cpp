@@ -3225,7 +3225,7 @@ void multi_oo_interp(object* objp)
 	else {
 		player_id = multi_find_player_by_net_signature(net_sig_idx);
 		// instead of trying to guess or use the average, use the values that FSO would use to update ships
-		packet_delta = (float)Multi_oo_target_update_times[Net_players[player_id].p_info.options.obj_update_level];
+		packet_delta = (float)Multi_oo_target_update_times[Net_players[player_id].p_info.options.obj_update_level]/ TIMESTAMP_FREQUENCY;
 	}
 
 	// if this ship doesn't have enough data points yet or somehow else invalid, pretend it's a normal ship and skip it.
