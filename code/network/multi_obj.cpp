@@ -2197,6 +2197,7 @@ int multi_oo_get_obj_update_rate(net_player* pl, object* objp, bool* in_cone)
 			case OO_FAR:
 				rate = Multi_oo_front_far_update_times[pl->p_info.options.obj_update_level];
 				break;
+
 			default:
 				UNREACHABLE("Bad range number in multi_oo_get_obj_update_rate of %d. Go get a coder!", range);
 				break;
@@ -2215,6 +2216,7 @@ int multi_oo_get_obj_update_rate(net_player* pl, object* objp, bool* in_cone)
 			case OO_FAR:
 				rate = Multi_oo_rear_far_update_times[pl->p_info.options.obj_update_level];
 				break;
+
 			default:
 				UNREACHABLE("Bad range number in multi_oo_get_obj_update_rate of %d. Go get a coder!", range);
 				break;
@@ -3216,11 +3218,12 @@ void multi_oo_interp(object* objp)
 
 	if (MULTIPLAYER_CLIENT) {
 		bool in_cone = false;
+		// instead of trying to guess or use the average, use the values that FSO would use to update ships
 		packet_delta = i2fl(multi_oo_get_obj_update_rate(Net_player, objp, &in_cone))/ TIMESTAMP_FREQUENCY;
 		player_id = 0;
 	}
 	else {
-		player_id = i2fl(multi_find_player_by_net_signature(net_sig_idx))/TIMESTAMP_FREQUENCY;
+		player_id = multi_find_player_by_net_signature(net_sig_idx);
 		// instead of trying to guess or use the average, use the values that FSO would use to update ships
 		packet_delta = (float)Multi_oo_target_update_times[Net_players[player_id].p_info.options.obj_update_level];
 	}
@@ -3292,10 +3295,10 @@ void multi_oo_interp(object* objp)
 			vec3d interp_point;
 			interp_data->pos_spline.bez_get_point(&interp_point, u);
 			// now to smooth out the error that the client caused during the last round of interpolation.
-			if ((time_factor < 2.0f) && (time_factor > 0.0f) && (vm_vec_mag_squared(&interp_data->position_error) > 0.0f)) {
+			if ((time_factor < 3.0f) && (time_factor > 1.0f) && (vm_vec_mag_squared(&interp_data->position_error) > 0.0f)) {
 				vec3d remove_error_vector;
 				// .5 and 2 are multiplicative inverses. We want all the error gone at time_factor 2.
-				float temp_error_factor = 1 - (time_factor * 0.5f);
+				float temp_error_factor = (3.0f - time_factor) / 2.0f;
 				vm_vec_copy_scale(&remove_error_vector, &interp_data->position_error, temp_error_factor);
 				vm_vec_add2(&interp_point, &remove_error_vector);
 			}
