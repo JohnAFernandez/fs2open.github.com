@@ -1620,7 +1620,7 @@ void process_ingame_ship_request_packet(ubyte *data, header *hinfo)
 	case INGAME_SR_DENY :
 		PACKET_SET_SIZE();
 
-		// set this to -1 so we can pick again
+		// set this to 0 so we can pick again
 		Multi_ingame_join_sig = 0;
 
 		// display a popup
