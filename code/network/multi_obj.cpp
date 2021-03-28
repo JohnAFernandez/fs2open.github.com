@@ -1666,6 +1666,9 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		Assertion(!(oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUPPORT_SHIP)), "Invalid flag from client, please report! oo_flags value: %d\n", oo_flags);
 		if (oo_flags & (OO_AI_NEW | OO_SHIELDS_NEW | OO_HULL_NEW | OO_SUPPORT_SHIP)) {
 			offset += data_size;
+			if (MULTIPLAYER_MASTER) {
+				mprintf(("\nSPOT 1\n"));
+			}
 			return offset;
 		}
 	}
@@ -1687,6 +1690,10 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 	// if we can't find the object, skip the packet
 	if ( (pobjp == nullptr) || (pobjp->type != OBJ_SHIP) || (pobjp->instance < 0) || (pobjp->instance >= MAX_SHIPS) || (Ships[pobjp->instance].ship_info_index < 0) || (Ships[pobjp->instance].ship_info_index >= ship_info_size())) {
 		offset += data_size;
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("\nSPOT 2\n"));
+		}
+
 		return offset;
 	}
 
@@ -1785,13 +1792,25 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 			}
 
 			interp_data->pos_timestamp = timestamp();
+			if (MULTIPLAYER_MASTER) {
+				mprintf(("pos_timestamp: %d\n", interp_data->pos_timestamp));
+			}
 
 		} // if we actually received a slightly old frame...
 		else if (seq_num > interp_data->prev_pos_comparison_frame){
+			if (MULTIPLAYER_MASTER) {
+				mprintf(("\nSPOT 4\n"));
+			}
+
 			//update timing info.
 			if (seq_num != interp_data->cur_pack_pos_frame) {
 				interp_data->prev_pack_pos_frame = interp_data->prev_pos_comparison_frame = seq_num;
 				adjust_interp_pos = true;
+			}
+		}
+		else {
+			if (MULTIPLAYER_MASTER) {
+				mprintf(("\nSPOT 5\n"));
 			}
 		}
 
@@ -2861,6 +2880,12 @@ void multi_oo_maybe_update_interp_info(int player_id, object* objp, vec3d* new_p
 			multi_oo_calc_interp_splines(player_id, objp, new_ori_mat, new_phys_info);
 		}
 	}
+	else {
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("\nSPOT 6\n"));
+		}
+
+	}
 }
 
 // display any oo info on the hud
@@ -3171,6 +3196,7 @@ int multi_oo_is_interp_object(object *objp)
 
 	// servers only interpolate other player ships
 	if(!(objp->flags[Object::Object_Flags::Player_ship])){
+		mprintf(("Skipping non player %s", Ships[objp->instance].ship_name));
 		return 0;
 	}
 
@@ -3191,9 +3217,17 @@ void multi_oo_interp(object* objp)
 	Assert(objp->net_signature <= STANDALONE_SHIP_SIG);
 
 	if (objp->type != OBJ_SHIP || objp->net_signature == STANDALONE_SHIP_SIG) {
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("\nSPOT 8\n"));
+		}
+
 		return;
 	}
 	if ((objp->instance < 0) || (objp->instance >= MAX_SHIPS)) {
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("\nSPOT 9\n"));
+		}
+
 		return;
 	}
 	// Now that we know we have a valid ship, do stream weapon firing for this ship before we do anything else that makes us abort
@@ -3210,6 +3244,10 @@ void multi_oo_interp(object* objp)
 	oo_packet_and_interp_tracking* interp_data = &Oo_info.interp[net_sig_idx];
 
 	if (interp_data == nullptr) {
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("\nSPOT 10\n"));
+		}
+
 		return;
 	}
 
@@ -3230,13 +3268,25 @@ void multi_oo_interp(object* objp)
 
 	// if this ship doesn't have enough data points yet or somehow else invalid, pretend it's a normal ship and skip it.
 	if (interp_data->prev_pack_pos_frame == -1) {
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("Branch 1\n"));
+		}
+
 		physics_sim_vel(&objp->pos, &objp->phys_info, flFrametime, &objp->orient);
 		physics_sim_rot(&objp->orient, &objp->phys_info, flFrametime);
 
 	} // once there are enough data points, we begin interpolating.
 	else {
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("Branch 2\n"));
+		}
+
 		// figure out how much time has passed
 		int temp_numerator = timestamp() - interp_data->pos_timestamp;
+
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("numerator_calc:%d,%d,", timestamp(), interp_data->pos_timestamp));
+		}
 
 		// add the ~1/2 of ping to keep the players in better sync
 		if (MULTIPLAYER_MASTER) {
@@ -3249,11 +3299,17 @@ void multi_oo_interp(object* objp)
 		// divide in order to change to flFrametime format
 		float time_elapsed = i2fl(temp_numerator) / TIMESTAMP_FREQUENCY;
 
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("%d,%f,\n", temp_numerator, time_elapsed));
+		}
 		// Cyborg17 - Here's the new timing calculation: we subtract the last packet's arrival time 
 		// from the current timestamp to see how long it's been and add 1/2 of the current ping, and 
 		// then we divide by the difference in time between the last two packets.
 		// We add one because we do not want to go back into data from before the current packet was received.
 		float time_factor = (time_elapsed / packet_delta) + 1.0f;
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("TF,%f\n", time_factor));
+		}
 
 		// if there was no movement, bash position and velocity, rotation is handled after.
 		if (interp_data->prev_packet_positionless) {
@@ -3261,11 +3317,19 @@ void multi_oo_interp(object* objp)
 			objp->pos = interp_data->new_packet_position;
 			objp->orient = interp_data->new_orientation;
 			objp->phys_info.vel = vmd_zero_vector;
+			if (MULTIPLAYER_MASTER) {
+				mprintf(("Branch 3\n"));
+			}
+
 		} // Overshoting in this frame or some edge case bug. Just sim the ship from the known values.
 		else if (time_factor > 4.0f || time_factor < 1.0f || interp_data->client_simulation_mode) {
 			// if transitioning to uninterpolated movement, we need to jump to the end of the simulated points 
 			// and then simulate forward some if there's extra time. 
 			float regular_sim_delta;
+			if (MULTIPLAYER_MASTER) {
+				mprintf(("Branch 4\n"));
+			}
+
 
 			if (!interp_data->client_simulation_mode) {
 				interp_data->client_simulation_mode = true;
@@ -3287,6 +3351,10 @@ void multi_oo_interp(object* objp)
 			}
 		} // valid time factors.
 		else {
+			if (MULTIPLAYER_MASTER) {
+				mprintf(("Branch 5\n"));
+			}
+
 			interp_data->client_simulation_mode = false;
 
 			// Cyborg17 - we are no longer blending two interpolation curves.  I'm not sure *how*, but they were somehow making it look 
@@ -3400,6 +3468,10 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	Assert(objp != nullptr);
 
 	if (objp == nullptr) {
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("\nSPOT 7\n"));
+		}
+
 		return;
 	}
 
@@ -3425,6 +3497,9 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	// while also doing interpolation for a longer period of time.
 
 	point1 = Oo_info.interp[net_sig_idx].old_packet_position;
+	if (MULTIPLAYER_MASTER) {
+		mprintf(("P1,%f,%f,%f\n", point1.xyz.x,point1.xyz.y, point1.xyz.z));
+	}
 	point2 = Oo_info.interp[net_sig_idx].new_packet_position; 
 	matrix_copy = *new_orient;
 	physics_copy = *new_phys_info;
@@ -3441,6 +3516,9 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	vm_vec_unrotate(&physics_copy.desired_vel, &Oo_info.interp[net_sig_idx].cur_pack_local_des_vel, &matrix_copy);
 
 	Oo_info.interp[net_sig_idx].anticipated_angles_a = angle_equivalent;
+	if (MULTIPLAYER_MASTER) {
+		mprintf(("P2,%f,%f,%f\n", point2.xyz.x,point2.xyz.y, point2.xyz.z));
+	}
 
 	// Since point2 is calculated, pass it off to point3 to finish off the calculations, which is 2 more deltas later
 	point3 = point2;
@@ -3462,6 +3540,9 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	// ------------ CALCUATION 3 ------------ //
 	physics_sim(&point3, &matrix_copy, &physics_copy, delta);			
 	vm_extract_angles_matrix_alternate(&angle_equivalent, &matrix_copy);
+	if (MULTIPLAYER_MASTER) {
+		mprintf(("P3,%f,%f,%f\n", point3.xyz.x,point3.xyz.y, point3.xyz.z));
+	}
 
 	// Readjust desired velocity, assuming that you would have the same throttle.
 	vm_vec_unrotate(&physics_copy.desired_vel, &Oo_info.interp[net_sig_idx].cur_pack_local_des_vel, &matrix_copy);
