@@ -1600,6 +1600,9 @@ void process_ingame_ship_request_packet(ubyte *data, header *hinfo)
         objp->flags.remove(Object::Object_Flags::Could_be_player);
 		objp->flags.set(Object::Object_Flags::Player_ship);
 
+		// remove any potentially problemantic AI only flags.
+		Ai_info[Ships[objp->instance].ai_index].ai_flags.remove(AI::AI_Flags::Formation_object);
+
 		// send a player settings packet to update all other players of this guy's final choices
 		send_player_settings_packet();
 
