@@ -646,6 +646,7 @@ void multi_respawn_process_packet(ubyte *data, header *hinfo)
 		GET_USHORT( net_sig );
 		pobjp = mission_parse_get_arrival_ship( net_sig );
 		Assert( pobjp != NULL );
+		// TODO: CHECK THAT THE MISSION IS ENDING BEFORE RESPAWN!
 		multi_respawn_ai( pobjp );
 		break;		
 
