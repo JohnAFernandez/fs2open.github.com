@@ -1778,7 +1778,9 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		if (seq_num > interp_data->pos_comparison_frame) {
 			// mark this packet as a brand new update.
 			pos_new = true;
-
+			if (MULTIPLAYER_MASTER) {
+				mprintf(("packet_perceived_as_new,%d,%d,%d\n",interp_data->cur_pack_pos_frame,interp_data->prev_pack_pos_frame, seq_num));
+			}
 			// make sure to turn off no position change mode.
 			interp_data->prev_packet_positionless = false;
 
@@ -3482,6 +3484,14 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	// if an error or invalid value, use the local timestamps instead of those received. Should be rare.
 	if (delta <= 0.0f) {
 		delta = (float)(timestamp() - Oo_info.interp[net_sig_idx].pos_timestamp) / TIMESTAMP_FREQUENCY;
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("True,%f\n",delta));
+		}
+	}
+	else {
+		if (MULTIPLAYER_MASTER) {
+			mprintf(("False,%f\n",delta));
+		}
 	}
 
 	Oo_info.interp[net_sig_idx].pos_time_delta = delta;
