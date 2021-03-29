@@ -462,10 +462,6 @@ void multi_team_handle_join(net_player *pl)
 			else if(Net_players[idx].p_info.team == 1){
 				team1_count++;
 			} 
-			// some other case - should never happen
-			else {
-				Int3();
-			}
 		}
 	}
 
