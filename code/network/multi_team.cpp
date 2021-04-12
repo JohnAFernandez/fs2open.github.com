@@ -478,9 +478,6 @@ void multi_team_handle_join(net_player *pl)
 
 	// send a team update
 	multi_team_send_update();
-
-	// verify that we have valid team stuff
-	multi_team_verify();
 }
 
 // set all ships in the mission to be marked as the proper team (TEAM_HOSTILE, TEAM_FRIENLY)
