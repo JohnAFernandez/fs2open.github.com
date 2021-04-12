@@ -124,7 +124,9 @@ class flagset {
 	bool none_set() { return values.none(); }
 
 	void from_u64(std::uint64_t num) { values = (unsigned long) num; }
-	std::uint64_t to_u64() const { return (std::uint64_t) values.to_ulong(); }
+
+	// can cause crashes on windows unless to_ullong() is used, but the cast is still needed
+	std::uint64_t to_u64() const { return (std::uint64_t) values.to_ullong(); }
 
 	size_t hash() const { return std::hash<std::bitset<SIZE>>()(values); }
 };
