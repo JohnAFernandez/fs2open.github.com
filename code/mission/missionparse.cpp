@@ -6017,30 +6017,34 @@ bool post_process_mission()
 
 	// before doing anything else, we must validate all of the sexpressions that were loaded into the mission.
 	// Loop through the Sexp_nodes array and send the top level functions to the check_sexp_syntax parser
+	// Cyborg -- If you are a ingame joiner, your sexps will be taken care of by the server, and checking will 
+	// actually crash mission load, since a list of objects present are also given to them only after this point.
 
-	for (i = 0; i < Num_sexp_nodes; i++) {
-		if (is_sexp_top_level(i) && (!Fred_running || (i != Sexp_clipboard))) {
-			int result, bad_node, op;
+	if (!(Game_mode & GM_MULTIPLAYER) && (Net_player->flags & NETINFO_FLAG_INGAME_JOIN)) {
+		for (i = 0; i < Num_sexp_nodes; i++) {
+			if (is_sexp_top_level(i) && (!Fred_running || (i != Sexp_clipboard))) {
+				int result, bad_node, op;
 
-			op = get_operator_index(i);
-			Assert(op != -1);  // need to make sure it is an operator before we treat it like one..
-			result = check_sexp_syntax( i, query_operator_return_type(op), 1, &bad_node);
+				op = get_operator_index(i);
+				Assert(op != -1);  // need to make sure it is an operator before we treat it like one..
+				result = check_sexp_syntax(i, query_operator_return_type(op), 1, &bad_node);
 
-			// entering this if statement will result in program termination!!!!!
-			// print out an error based on the return value from check_sexp_syntax()
-			// G5K: now entering this statement simply aborts the mission load
-			if ( result ) {
-				SCP_string sexp_str;
-				SCP_string error_msg;
+				// entering this if statement will result in program termination!!!!!
+				// print out an error based on the return value from check_sexp_syntax()
+				// G5K: now entering this statement simply aborts the mission load
+				if (result) {
+					SCP_string sexp_str;
+					SCP_string error_msg;
 
-				convert_sexp_to_string(sexp_str, i, SEXP_ERROR_CHECK_MODE);
-				truncate_message_lines(sexp_str, 30);
-				sprintf(error_msg, "%s.\n\nIn sexpression: %s\n(Error appears to be: %s)", sexp_error_message(result), sexp_str.c_str(), Sexp_nodes[bad_node].text);
-				Warning(LOCATION, "%s", error_msg.c_str());
+					convert_sexp_to_string(sexp_str, i, SEXP_ERROR_CHECK_MODE);
+					truncate_message_lines(sexp_str, 30);
+					sprintf(error_msg, "%s.\n\nIn sexpression: %s\n(Error appears to be: %s)", sexp_error_message(result), sexp_str.c_str(), Sexp_nodes[bad_node].text);
+					Warning(LOCATION, "%s", error_msg.c_str());
 
-				// syntax errors are recoverable in Fred but not FS
-				if (!Fred_running) {
-					return false;
+					// syntax errors are recoverable in Fred but not FS
+					if (!Fred_running) {
+						return false;
+					}
 				}
 			}
 		}
