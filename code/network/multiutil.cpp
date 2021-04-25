@@ -2374,6 +2374,10 @@ int multi_query_lag_status()
 		return 0;
 	} 
 
+	// if the client knows they are supposed to wait for the server
+	if (Netgame.flags & NETINFO_FLAG_CLIENT_IN_MISSION_WAIT) {
+		return 0;
+	}
 	// not lagged
 	return -1;
 }

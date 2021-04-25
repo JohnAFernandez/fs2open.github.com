@@ -622,6 +622,7 @@ typedef struct network_buffer {
 #define NETINFO_FLAG_MT_SEND_FAILED			(1<<24)		// set during MT stats update process indicating we didn't properly send his stats
 #define NETINFO_FLAG_MT_DONE				(1<<25)		// set when a player has been processed for stats (fail, succeed, or otherwise)
 #define NETINFO_FLAG_HAXOR					(1<<26)		// the player has some form of hacked client data
+#define NETINFO_FLAG_CLIENT_IN_MISSION_WAIT (1<<27)		// The client has detected that they are ahead of the server and needs to wait 
 
 #define NETPLAYER_IS_OBSERVER(player)		(player->flags & (NETINFO_FLAG_OBSERVER|NETINFO_FLAG_OBS_PLAYER))
 #define NETPLAYER_IS_DEAD(player)			(player->flags & (NETINFO_FLAG_LIMBO|NETINFO_FLAG_RESPAWNING))

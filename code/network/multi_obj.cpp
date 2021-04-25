@@ -96,6 +96,10 @@ struct oo_packet_and_interp_tracking {
 	int pos_timestamp;					// Time that FSO processes the most recent position packet
 	vec3d old_packet_position;			// The last packet's pos
 	vec3d new_packet_position;			// The current packet's pos
+	vec3d anticipated_position1;		// The first position anticipated to be reached.
+	vec3d anticipated_position2;		// The second position anticipated to be reached.
+	vec3d anticipated_position3;		// The third position anticipated to be reached.
+
 	vec3d position_error;				// Position error that is removed over a few frames
 
 	angles old_angles;					// The last packet's orientation (in angles)
@@ -157,6 +161,12 @@ struct oo_general_info {
 	// The previously received frametimes.  One entry for *every* frame, received or not, up to the last received frame.
 	// For frames it does not receive, it assumes that the frame time is the same as the frames around it.
 	SCP_vector<ubyte> received_frametimes[MAX_PLAYERS];
+	int cumulative_total[MAX_PLAYERS];
+	std::uint64_t received_total_times[MAX_PLAYERS];
+	std::uint64_t first_total_times[MAX_PLAYERS];
+	std::uint64_t adjusted_total_time[MAX_PLAYERS];
+	std::uint64_t server_start_time; // this is the big one that *must* be received.
+	std::uint64_t client_waiting_time;
 
 	// Frame tracking info, we can have up to INT_MAX frames, but to save on bandwidth and memory we have to "wrap"
 	// the index.  Cur_frame_index goes up to MAX_FRAMES_RECORDED and makes info easy to access, wrap_count counts 
@@ -549,7 +559,11 @@ void multi_ship_record_add_timestamp(int pl_id, ubyte timestamp, int seq_num) {
 	int temp_diff = seq_num - (int)Oo_info.received_frametimes[pl_id].size() + 1;
 	// if it already has enough slots, just fill in the value, because it really should be the same as before.
 	if (temp_diff <= 0) {
-		Oo_info.received_frametimes[pl_id].at(seq_num) = timestamp;
+		// if this is brand new, increment the total
+		if (Oo_info.received_frametimes[pl_id].at(seq_num) == 0) {
+			Oo_info.cumulative_total[pl_id] += timestamp;
+			Oo_info.received_frametimes[pl_id].at(seq_num) = timestamp;
+		}
 	}	// if there weren't enough slots, create the necessary slots.
 	else {
 		// loop is checked against 1, because once there is only a difference of 1, we should add the timestamp onto the end.
@@ -557,12 +571,32 @@ void multi_ship_record_add_timestamp(int pl_id, ubyte timestamp, int seq_num) {
 			// keep adding zero to the timestamps we have not yet received, because that is our impossible value.
 			Oo_info.received_frametimes[pl_id].push_back(0);
 		}
-		// lastly, add the timestamp we received to the end.
+		// lastly, add the timestamp we received to the end, and increment the cumulative total.
 		Oo_info.received_frametimes[pl_id].push_back(timestamp);
+		Oo_info.cumulative_total[pl_id] += timestamp;
 	}
 
 }
 
+int multi_ship_record_get_missing_timing(int pl_id, int seq_num) 
+{
+	Assert(seq_num >= 0);
+
+	if (static_cast<int>(Oo_info.received_frametimes[pl_id].size()) > (seq_num + 1)) {
+		int total = Oo_info.received_frametimes[pl_id].back();
+
+		while (seq_num < static_cast<int>(Oo_info.received_frametimes[pl_id].size()) ){
+			total += Oo_info.received_frametimes[pl_id].back();
+			seq_num++;
+		}
+
+		return total;
+	}
+	else {
+		return 0;
+	}
+
+}
 
 // quickly lookup how much time has passed between two frames.
 uint multi_ship_record_get_time_elapsed(int original_frame, int new_frame) 
@@ -584,6 +618,63 @@ int multi_ship_record_find_time_after_frame(int starting_frame, int ending_frame
 
 	int return_value = time_elapsed - (Oo_info.timestamps[ending_frame] - Oo_info.timestamps[starting_frame]);
 	return return_value;
+}
+
+// if we seeing a discrepancy of more than four frames, we need to adjust our timing.
+constexpr std::uint64_t MAXIMUM_MISSED_FRAME_TOLERANCE = 3 * (1000/60);
+
+std::uint64_t multi_oo_detect_disruption(int player_index)
+{
+	if (Oo_info.first_total_times[player_index] == 0) {
+		mprintf(("\n\nearly_return, there is no time info to do our work with!\n\n"));
+		return 0;
+	}
+
+	Assert(Oo_info.received_total_times[player_index] >= Oo_info.first_total_times[player_index]);
+
+	// convert from timestamps to microseconds.
+	std::uint64_t total = static_cast<std::uint64_t>(Oo_info.cumulative_total[player_index]) * 1000;
+	// calculate the difference
+	std::uint64_t difference = (Oo_info.received_total_times[player_index] - Oo_info.first_total_times[player_index]) - (total + Oo_info.adjusted_total_time[player_index]);
+
+	mprintf(("Time,%i,%i,%i,%i,%i,%i\n", (int)MAXIMUM_MISSED_FRAME_TOLERANCE, (int)difference, (int)Oo_info.received_total_times[player_index], (int)total, (int)Oo_info.first_total_times[player_index], (int)Oo_info.adjusted_total_time[player_index]));
+
+	// and then check the tolerance.  If we're beyond it, have the client wait. 
+	// Wrapping, if it is working properly, should be impossible.
+	if (difference < MAXIMUM_MISSED_FRAME_TOLERANCE) {
+		return 0;
+	} else {
+		return difference;
+	}
+}
+
+#define MICROSECONDS_PER_SECOND_2 1000000
+
+void multi_oo_client_handle_time_desync()
+{
+	if (Netgame.flags & NETINFO_FLAG_CLIENT_IN_MISSION_WAIT) {
+
+		// quick conversion to microseconds.
+		std::uint64_t frame_time = (Frametime * MICROSECONDS_PER_SECOND_2) / 65536;
+
+		if (frame_time > Oo_info.client_waiting_time) {
+			Oo_info.client_waiting_time = 0;
+			Netgame.flags &= ~NETINFO_FLAG_CLIENT_IN_MISSION_WAIT;
+		}
+		else {
+			Oo_info.client_waiting_time -= Frametime;
+		}
+		
+		return;
+	}
+
+	std::uint64_t discrepency = multi_oo_detect_disruption(0);
+
+	if (discrepency > 0) {
+		Netgame.flags |= NETINFO_FLAG_CLIENT_IN_MISSION_WAIT;
+		
+		Oo_info.client_waiting_time = discrepency;
+	}
 }
 
 // Returns whether weapons currently being created should be part of the rollback simulation.
@@ -1784,7 +1875,10 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 				adjust_interp_pos = true;
 			}
 
-			interp_data->pos_timestamp = timestamp();
+			int time_calc = Oo_info.cumulative_total[pl->player_id];
+			
+			interp_data->pos_timestamp = time_calc - multi_ship_record_get_missing_timing(pl->player_id, seq_num);
+			mprintf(("c,%d,%d,%d\n", interp_data->pos_timestamp, time_calc, timestamp()));
 
 		} // if we actually received a slightly old frame...
 		else if (seq_num > interp_data->prev_pos_comparison_frame){
@@ -1808,7 +1902,7 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		
 		// Cyborg17 - fully bash if we're past the position update tolerance or not moving
 		// Past the update tolerance will cause a jump, but it should be nice and smooth immediately afterwards
-		if(pos_new && (temp_distance > OO_POS_UPDATE_TOLERANCE || new_phys_info.vel == vmd_zero_vector)){
+		if(false && pos_new && (temp_distance > OO_POS_UPDATE_TOLERANCE || new_phys_info.vel == vmd_zero_vector)){
 			pobjp->pos = new_pos;
 			//Also, make sure that FSO knows that it does not need to smooth anything out
 			interp_data->position_error = vmd_zero_vector;
@@ -1827,6 +1921,8 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 		}
 
 		multi_oo_maybe_update_interp_info(pl->player_id, pobjp, &new_pos, &new_angles, &new_orient, &new_phys_info, adjust_interp_pos, pos_new);
+		if (pos_new) {
+		}
 
 	} // in order to allow the server to send only new pos and ori info, we have to do a couple checks here
 	else if (seq_num == interp_data->most_recent_packet){
@@ -2397,9 +2493,18 @@ void multi_oo_process_all(net_player *pl)
 		temp_timestamp = TIMESTAMP_OUT_IF_ERROR; // average amount of time per frame on a 60fps machine
 	}
 
-	// finish adding the timestamp
+	// finish adding the timestamp, both versions
 	auto time_out = (ubyte)temp_timestamp;
 	ADD_DATA(time_out);
+
+	// this is expensive for bandwidth, but worthwhile because it will actually keep clients and servers in sync.
+	std::uint64_t microseconds_out = timer_get_microseconds();
+
+	if (Oo_info.server_start_time == 0) {
+		Oo_info.server_start_time = microseconds_out;
+	}
+
+	ADD_ULONG(microseconds_out);
 
 	ubyte stop;
 	int add_size;	
@@ -2457,6 +2562,7 @@ void multi_oo_process_all(net_player *pl)
 			// Cyborg17 - regurgitate shared header
 			ADD_INT(Oo_info.number_of_frames);
 			ADD_DATA(time_out);
+			ADD_ULONG(microseconds_out);
 		}
 
 		if(add_size){
@@ -2525,14 +2631,30 @@ void multi_oo_process_update(ubyte *data, header *hinfo)
 	int seq_num;
 	ubyte timestamp;
 	ubyte stop;	
+	std::uint64_t microseconds_in;
 
-	// TODO: ADD COMPLICATED TIMESTAMP LOGIC HERE
 	GET_INT(seq_num);
 	GET_DATA(timestamp);
+	GET_ULONG(microseconds_in);
 	GET_DATA(stop);
 	
 	multi_ship_record_add_timestamp(pl->player_id, timestamp, seq_num);
 
+	if (player_index > -1 && Oo_info.received_total_times[player_index] < microseconds_in) {
+		// check to see if this is the first one 
+		if (Oo_info.received_total_times[player_index] == 0) {
+			if (pl == Netgame.server) {
+				Oo_info.server_start_time = microseconds_in;
+			}
+			else {
+				Oo_info.first_total_times[player_index] = microseconds_in;
+			}
+		}
+		Oo_info.received_total_times[player_index] = microseconds_in;
+	} else if (Oo_info.received_total_times[0] < microseconds_in){
+		Oo_info.received_total_times[0] = microseconds_in;
+	}
+	
 	while(stop == 0xff){
 		// process the data
 		offset += multi_oo_unpack_data(pl, data + offset, seq_num);
@@ -2558,7 +2680,12 @@ void multi_init_oo_and_ship_tracker()
 	for (int i = 0; i < MAX_PLAYERS; i++) { // NOLINT
 		Oo_info.received_frametimes[i].clear();
 		Oo_info.received_frametimes[i].reserve(36000); // enough memory for 10 minutes worth of frame time.
+		Oo_info.cumulative_total[i] = 0;
+		Oo_info.received_total_times[i] = 0;
+		Oo_info.first_total_times[i] = 0;
 	}
+
+	Oo_info.server_start_time = 0;
 
 	Oo_info.number_of_frames = 0;
 	Oo_info.cur_frame_index = 0;
@@ -2646,6 +2773,9 @@ void multi_init_oo_and_ship_tracker()
 	temp_interp.pos_time_delta = -1.0f;
 	temp_interp.old_packet_position = vmd_zero_vector;
 	temp_interp.new_packet_position = vmd_zero_vector;
+	temp_interp.anticipated_position1 = vmd_zero_vector;
+	temp_interp.anticipated_position2 = vmd_zero_vector;
+	temp_interp.anticipated_position3 = vmd_zero_vector;
 	temp_interp.position_error = vmd_zero_vector;
 
 	temp_interp.old_angles = vmd_zero_angles;
@@ -2719,6 +2849,8 @@ void multi_oo_send_control_info()
 	}
 	auto time_out = (ubyte)temp_timestamp;
 	ADD_DATA(time_out);
+	auto microseconds_out = timer_get_microseconds();
+	ADD_ULONG(microseconds_out);
 
 	// pos and orient always
 	oo_flags = OO_POS_AND_ORIENT_NEW;		
@@ -2792,6 +2924,8 @@ void multi_oo_send_changed_object(object *changedobj)
 	}
 	auto time_out = (ubyte)temp_timestamp;
 	ADD_DATA(time_out);
+	auto microseconds_out = timer_get_microseconds();
+	ADD_ULONG(microseconds_out);
 
 	// pos and orient always
 	oo_flags = (OO_POS_AND_ORIENT_NEW);
@@ -3203,6 +3337,8 @@ void multi_oo_interp(object* objp)
 		return;
 	}
 
+	int player_id = multi_find_player_by_net_signature(net_sig_idx);
+
 	float packet_delta = interp_data->pos_time_delta;
 
 	// if this ship doesn't have enough data points yet or somehow else invalid, pretend it's a normal ship and skip it.
@@ -3216,11 +3352,10 @@ void multi_oo_interp(object* objp)
 		int temp_numerator = timestamp() - interp_data->pos_timestamp;
 
 		// add the ~1/2 of ping to keep the players in better sync
-		if (MULTIPLAYER_MASTER) {
-			int player_id = multi_find_player_by_net_signature(net_sig_idx);
+		if ( false && MULTIPLAYER_MASTER) {
 			temp_numerator += Net_players[player_id].s_info.ping.ping_avg / 2;
 		}
-		else {
+		else if(false){
 			temp_numerator += Netgame.server->s_info.ping.ping_avg / 2;
 		}
 
@@ -3232,7 +3367,7 @@ void multi_oo_interp(object* objp)
 		// then we divide by the difference in time between the last two packets.
 		// We add one because we do not want to go back into data from before the current packet was received.
 		float time_factor = (time_elapsed / packet_delta) + 1.0f;
-
+		mprintf(("%f,%f,%f,",time_factor,time_elapsed, packet_delta));
 		// if there was no movement, bash position and velocity, rotation is handled after.
 		if (interp_data->prev_packet_positionless) {
 			interp_data->client_simulation_mode = false;
@@ -3273,41 +3408,46 @@ void multi_oo_interp(object* objp)
 			vec3d interp_point;
 			interp_data->pos_spline.bez_get_point(&interp_point, u);
 			// now to smooth out the error that the client caused during the last round of interpolation.
-			if ((time_factor < 2.0f) && (time_factor > 0.0f) && (vm_vec_mag_squared(&interp_data->position_error) > 0.0f)) {
+			if (false && (time_factor < 3.0f) && (time_factor > 1.0f) && (vm_vec_mag_squared(&interp_data->position_error) > 0.0f)) {
 				vec3d remove_error_vector;
-				// .5 and 2 are multiplicative inverses. We want all the error gone at time_factor 2.
-				float temp_error_factor = 1 - (time_factor * 0.5f);
+				// .5 and 2 are multiplicative inverses. We want all the error gone at time_factor 3.
+				float temp_error_factor = 2 - (time_factor * 0.5f);
 				vm_vec_copy_scale(&remove_error_vector, &interp_data->position_error, temp_error_factor);
 				vm_vec_add2(&interp_point, &remove_error_vector);
 			}
 
 			// set the new position.
-			objp->pos = interp_point;
+//			objp->pos = interp_point;
 
 			// Now rotational interpolation
 			// exactly on the middle point, save some time and just put the ship on that orientation.
 			if (time_factor == 2.0f) {
 				vm_angles_2_matrix(&objp->orient, &interp_data->anticipated_angles_a);
+				objp->pos = interp_data->anticipated_position1;
 				objp->phys_info.vel = interp_data->anticipated_velocity1;
 			} // Same for being exactly on the end point
 
 			else if (time_factor == 3.0f) {
 				vm_angles_2_matrix(&objp->orient, &interp_data->anticipated_angles_b);
+				objp->pos = interp_data->anticipated_position2;
 				objp->phys_info.vel = interp_data->anticipated_velocity2;
 			}
 			else if (time_factor == 4.0f) {
 				vm_angles_2_matrix(&objp->orient, &interp_data->anticipated_angles_c);
+				objp->pos = interp_data->anticipated_position3;
 				objp->phys_info.vel = interp_data->anticipated_velocity3;
 
 			} // in case we have to do our interpolation. We cannot do anything if it's less than 1 because those are actually old values that *should* never happen.
 			else if (time_factor > 1.0f) {
 				angles temp_angles, old_angles, new_angles;
-				vec3d old_velocity, new_velocity;
+				vec3d old_pos, new_pos, old_velocity, new_velocity;
 				// Between packet and first interpolated angles
 				if (time_factor < 2.0f) {
 
 					old_angles = interp_data->new_angles;
 					new_angles = interp_data->anticipated_angles_a;
+					old_pos = interp_data->new_packet_position;
+					new_pos = interp_data->anticipated_position1;
 					old_velocity = interp_data->new_velocity;
 					new_velocity = interp_data->anticipated_velocity1;
 
@@ -3317,6 +3457,8 @@ void multi_oo_interp(object* objp)
 
 					old_angles = interp_data->anticipated_angles_a;
 					new_angles = interp_data->anticipated_angles_b;
+					old_pos = interp_data->anticipated_position1;
+					new_pos = interp_data->anticipated_position2;
 					old_velocity = interp_data->anticipated_velocity1;
 					new_velocity = interp_data->anticipated_velocity2;
 
@@ -3326,6 +3468,8 @@ void multi_oo_interp(object* objp)
 
 					old_angles = interp_data->anticipated_angles_b;
 					new_angles = interp_data->anticipated_angles_c;
+					old_pos = interp_data->anticipated_position2;
+					new_pos = interp_data->anticipated_position3;
 					old_velocity = interp_data->anticipated_velocity2;
 					new_velocity = interp_data->anticipated_velocity3;
 
@@ -3334,6 +3478,11 @@ void multi_oo_interp(object* objp)
 
 				vm_interpolate_angles_quick(&temp_angles, &old_angles, &new_angles, time_factor);
 				vm_angles_2_matrix(&objp->orient, &temp_angles);
+
+				vm_vec_scale(&new_pos, time_factor);
+				vm_vec_scale(&old_pos, 1 - time_factor);
+				vm_vec_add(&objp->pos, &new_pos, &old_pos);
+
 				vm_vec_scale(&new_velocity, time_factor);
 				vm_vec_scale(&old_velocity, 1 - time_factor);
 				vm_vec_add(&objp->phys_info.vel, &new_velocity, &old_velocity);
@@ -3366,6 +3515,8 @@ void multi_oo_interp(object* objp)
 	vm_vec_unrotate(&global_rubberband_correction, &local_rubberband_correction, &objp->orient);
 
 	vm_vec_add2(&objp->pos, &global_rubberband_correction);
+
+	mprintf(("pos,%f,%f,%f\n", objp->pos.xyz.x,objp->pos.xyz.y,objp->pos.xyz.z));
 
 	// duplicate the rest of the physics engine's calls here to make the simulation more exact.
 	objp->phys_info.speed = vm_vec_mag(&objp->phys_info.vel);
@@ -3415,17 +3566,18 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	physics_sim(&point2, &matrix_copy, &physics_copy, delta);			
 	vm_extract_angles_matrix_alternate(&angle_equivalent, &matrix_copy);
 
+	Oo_info.interp[net_sig_idx].anticipated_position1 = point2;
+
 	// Adjust desired velocity, because it's in world coordinates, and it doesn't make sense to reuse the same one four more times.
 	vm_vec_unrotate(&physics_copy.desired_vel, &Oo_info.interp[net_sig_idx].cur_pack_local_des_vel, &matrix_copy);
 
 	Oo_info.interp[net_sig_idx].anticipated_angles_a = angle_equivalent;
+	Oo_info.interp[net_sig_idx].anticipated_velocity1 = physics_copy.vel;
 
 	// Since point2 is calculated, pass it off to point3 to finish off the calculations, which is 2 more deltas later
 	point3 = point2;
 
 	// ------------ CALCUATION 2 ------------ //
-
-	Oo_info.interp[net_sig_idx].anticipated_velocity1 = physics_copy.vel;
 	
 	// Only the angles get stored here.
 	physics_sim(&point3, &matrix_copy, &physics_copy, delta);			
@@ -3434,6 +3586,7 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	// Readjust desired velocity, assuming that you would have the same throttle.
 	vm_vec_unrotate(&physics_copy.desired_vel, &Oo_info.interp[net_sig_idx].cur_pack_local_des_vel, &matrix_copy);
 
+	Oo_info.interp[net_sig_idx].anticipated_position2 = point3;
 	Oo_info.interp[net_sig_idx].anticipated_angles_b = angle_equivalent;
 	Oo_info.interp[net_sig_idx].anticipated_velocity2 = physics_copy.vel;
 
@@ -3444,6 +3597,7 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	// Readjust desired velocity, assuming that you would have the same throttle.
 	vm_vec_unrotate(&physics_copy.desired_vel, &Oo_info.interp[net_sig_idx].cur_pack_local_des_vel, &matrix_copy);
 
+	Oo_info.interp[net_sig_idx].anticipated_position3 = point3;
 	Oo_info.interp[net_sig_idx].anticipated_angles_c = angle_equivalent;
 	Oo_info.interp[net_sig_idx].anticipated_velocity3 = physics_copy.vel;
 

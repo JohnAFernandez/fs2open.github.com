@@ -3567,7 +3567,7 @@ void game_simulation_frame()
 	training_check_objectives();
 	
 	// do all interpolation now
-	if ( MULTIPLAYER_CLIENT && !multi_endgame_ending() && !(Netgame.flags & NG_FLAG_SERVER_LOST)) {
+	if ( MULTIPLAYER_CLIENT && !multi_endgame_ending() && !(Netgame.flags & (NG_FLAG_SERVER_LOST | NETINFO_FLAG_CLIENT_IN_MISSION_WAIT))) {
 		// client side processing of warping in effect stages
 		multi_do_client_warp(flFrametime);     
 	

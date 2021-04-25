@@ -83,6 +83,9 @@ matrix multi_ship_record_lookup_orientation(object* objp, int frame);
 // figures out how much time has passed bwetween the two frames.
 int multi_ship_record_find_time_after_frame(int client_frame, int frame, int time_elapsed);
 
+// detect and find the delay for a multi_disruption
+void multi_oo_client_handle_time_desync();
+
 // This stores the information we got from the client to create later.
 void multi_ship_record_add_rollback_shot(object* pobjp, vec3d* pos, matrix* orient, int frame, bool secondary);
 

@@ -1241,6 +1241,8 @@ void multi_do_frame()
 				}				
 			}
 
+			multi_oo_client_handle_time_desync();
+
 			// bytes received info
 			if( (Next_bytes_time < 0) || ((time(NULL) - Next_bytes_time) > BYTES_SENT_TIME) ){
 				if(Net_player != NULL){
@@ -1310,7 +1312,7 @@ void multi_do_frame()
 	multi_fs_tracker_process();
 
 	// Cyborg17 update the new frame recording system for accurate client shots, needs to go after most everything else in multi.
-	if (Game_mode & GM_IN_MISSION) {
+	if (Game_mode & GM_IN_MISSION && !(Netgame.flags & NETINFO_FLAG_CLIENT_IN_MISSION_WAIT)) {
 		multi_ship_record_increment_frame();
 	}
 
