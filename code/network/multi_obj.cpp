@@ -621,21 +621,22 @@ int multi_ship_record_find_time_after_frame(int starting_frame, int ending_frame
 }
 
 // if we seeing a discrepancy of more than four frames, we need to adjust our timing.
-constexpr std::uint64_t MAXIMUM_MISSED_FRAME_TOLERANCE = 3 * (1000/60);
+constexpr std::uint64_t MAXIMUM_MISSED_FRAME_TOLERANCE = 3 * (1000000/60);
 
+// for clients to detect when the server has had some timing issues.
 std::uint64_t multi_oo_detect_disruption(int player_index)
 {
-	if (Oo_info.first_total_times[player_index] == 0) {
+	if (Oo_info.server_start_time == 0) {
 		mprintf(("\n\nearly_return, there is no time info to do our work with!\n\n"));
 		return 0;
 	}
 
-	Assert(Oo_info.received_total_times[player_index] >= Oo_info.first_total_times[player_index]);
+	Assert(Oo_info.received_total_times[player_index] >= Oo_info.server_start_time);
 
 	// convert from timestamps to microseconds.
 	std::uint64_t total = static_cast<std::uint64_t>(Oo_info.cumulative_total[player_index]) * 1000;
 	// calculate the difference
-	std::uint64_t difference = (Oo_info.received_total_times[player_index] - Oo_info.first_total_times[player_index]) - (total + Oo_info.adjusted_total_time[player_index]);
+	std::uint64_t difference = (Oo_info.received_total_times[player_index] - Oo_info.server_start_time) - (total + Oo_info.adjusted_total_time[player_index]);
 
 	mprintf(("Time,%i,%i,%i,%i,%i,%i\n", (int)MAXIMUM_MISSED_FRAME_TOLERANCE, (int)difference, (int)Oo_info.received_total_times[player_index], (int)total, (int)Oo_info.first_total_times[player_index], (int)Oo_info.adjusted_total_time[player_index]));
 
@@ -644,6 +645,7 @@ std::uint64_t multi_oo_detect_disruption(int player_index)
 	if (difference < MAXIMUM_MISSED_FRAME_TOLERANCE) {
 		return 0;
 	} else {
+		mprintf(("but I'm returning the value....\n"));
 		return difference;
 	}
 }
@@ -667,8 +669,15 @@ void multi_oo_client_handle_time_desync()
 		
 		return;
 	}
+	
+	int player_index = find_player_id(Netgame.server->player_id);
+	mprintf(("Pindex,%d,", player_index));
 
-	std::uint64_t discrepency = multi_oo_detect_disruption(0);
+	if (player_index < 0) {
+		player_index = 0;
+	}
+	mprintf(("%d,", player_index));
+	std::uint64_t discrepency = multi_oo_detect_disruption(player_index);
 
 	if (discrepency > 0) {
 		Netgame.flags |= NETINFO_FLAG_CLIENT_IN_MISSION_WAIT;
@@ -2645,6 +2654,7 @@ void multi_oo_process_update(ubyte *data, header *hinfo)
 		if (Oo_info.received_total_times[player_index] == 0) {
 			if (pl == Netgame.server) {
 				Oo_info.server_start_time = microseconds_in;
+				Oo_info.first_total_times[player_index] = microseconds_in;
 			}
 			else {
 				Oo_info.first_total_times[player_index] = microseconds_in;
@@ -2653,6 +2663,7 @@ void multi_oo_process_update(ubyte *data, header *hinfo)
 		Oo_info.received_total_times[player_index] = microseconds_in;
 	} else if (Oo_info.received_total_times[0] < microseconds_in){
 		Oo_info.received_total_times[0] = microseconds_in;
+		Oo_info.server_start_time = microseconds_in;
 	}
 	
 	while(stop == 0xff){
@@ -3349,8 +3360,11 @@ void multi_oo_interp(object* objp)
 	} // once there are enough data points, we begin interpolating.
 	else {
 		// figure out how much time has passed
-		int temp_numerator = timestamp() - interp_data->pos_timestamp;
-
+		int temp_numerator;
+		
+		if (MULTIPLAYER_MASTER) {
+			temp_numerator = timestamp() - interp_data->pos_timestamp;
+		}
 		// add the ~1/2 of ping to keep the players in better sync
 		if ( false && MULTIPLAYER_MASTER) {
 			temp_numerator += Net_players[player_id].s_info.ping.ping_avg / 2;
