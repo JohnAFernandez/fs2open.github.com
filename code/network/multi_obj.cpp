@@ -93,7 +93,8 @@ struct oo_packet_and_interp_tracking {
 	bool prev_packet_positionless;		// a flag that marks if the last packet as having no new position or orientation info.
 
 	float pos_time_delta;				// How much time passed between position packets, in the same format as flFrametime
-	int pos_timestamp;					// Time that FSO processes the most recent position packet
+	int position_remote_timestamp;					// Time that FSO processes the most recent position packet
+	int prev_pos_timestamp;				// Time that FSO processed the previous position packet.
 	vec3d old_packet_position;			// The last packet's pos
 	vec3d new_packet_position;			// The current packet's pos
 	vec3d anticipated_position1;		// The first position anticipated to be reached.
@@ -162,11 +163,11 @@ struct oo_general_info {
 	// For frames it does not receive, it assumes that the frame time is the same as the frames around it.
 	SCP_vector<ubyte> received_frametimes[MAX_PLAYERS];
 	int cumulative_total[MAX_PLAYERS];
-	std::uint64_t received_total_times[MAX_PLAYERS];
-	std::uint64_t first_total_times[MAX_PLAYERS];
-	std::uint64_t adjusted_total_time[MAX_PLAYERS];
-	std::uint64_t server_start_time; // this is the big one that *must* be received.
-	std::uint64_t client_waiting_time;
+	int received_total_times[MAX_PLAYERS];
+	int first_total_times[MAX_PLAYERS];
+	int adjusted_total_time[MAX_PLAYERS];
+	int server_start_time; // this is the big one that *must* be received.
+	int client_waiting_time;
 
 	// Frame tracking info, we can have up to INT_MAX frames, but to save on bandwidth and memory we have to "wrap"
 	// the index.  Cur_frame_index goes up to MAX_FRAMES_RECORDED and makes info easy to access, wrap_count counts 
@@ -621,10 +622,10 @@ int multi_ship_record_find_time_after_frame(int starting_frame, int ending_frame
 }
 
 // if we seeing a discrepancy of more than four frames, we need to adjust our timing.
-constexpr std::uint64_t MAXIMUM_MISSED_FRAME_TOLERANCE = 3 * (1000000/60);
+constexpr int MAXIMUM_MISSED_FRAME_TOLERANCE = 3 * (1000/60);
 
 // for clients to detect when the server has had some timing issues.
-std::uint64_t multi_oo_detect_disruption(int player_index)
+int multi_oo_detect_disruption(int player_index)
 {
 	if (Oo_info.server_start_time == 0) {
 		mprintf(("\n\nearly_return, there is no time info to do our work with!\n\n"));
@@ -634,9 +635,9 @@ std::uint64_t multi_oo_detect_disruption(int player_index)
 	Assert(Oo_info.received_total_times[player_index] >= Oo_info.server_start_time);
 
 	// convert from timestamps to microseconds.
-	std::uint64_t total = static_cast<std::uint64_t>(Oo_info.cumulative_total[player_index]) * 1000;
+	int total = Oo_info.cumulative_total[player_index] * 1000;
 	// calculate the difference
-	std::uint64_t difference = (Oo_info.received_total_times[player_index] - Oo_info.server_start_time) - (total + Oo_info.adjusted_total_time[player_index]);
+	int difference = (Oo_info.received_total_times[player_index] - Oo_info.server_start_time) - (total + Oo_info.adjusted_total_time[player_index]);
 
 	mprintf(("Time,%i,%i,%i,%i,%i,%i\n", (int)MAXIMUM_MISSED_FRAME_TOLERANCE, (int)difference, (int)Oo_info.received_total_times[player_index], (int)total, (int)Oo_info.first_total_times[player_index], (int)Oo_info.adjusted_total_time[player_index]));
 
@@ -645,7 +646,7 @@ std::uint64_t multi_oo_detect_disruption(int player_index)
 	if (difference < MAXIMUM_MISSED_FRAME_TOLERANCE) {
 		return 0;
 	} else {
-		mprintf(("but I'm returning the value....\n"));
+		mprintf(("but I'm returning the value, %d....\n", difference));
 		return difference;
 	}
 }
@@ -657,7 +658,7 @@ void multi_oo_client_handle_time_desync()
 	if (Netgame.flags & NETINFO_FLAG_CLIENT_IN_MISSION_WAIT) {
 
 		// quick conversion to microseconds.
-		std::uint64_t frame_time = (Frametime * MICROSECONDS_PER_SECOND_2) / 65536;
+		int frame_time = (Frametime * MICROSECONDS_PER_SECOND_2) / 65536000;
 
 		if (frame_time > Oo_info.client_waiting_time) {
 			Oo_info.client_waiting_time = 0;
@@ -677,7 +678,7 @@ void multi_oo_client_handle_time_desync()
 		player_index = 0;
 	}
 	mprintf(("%d,", player_index));
-	std::uint64_t discrepency = multi_oo_detect_disruption(player_index);
+	int discrepency = multi_oo_detect_disruption(player_index);
 
 	if (discrepency > 0) {
 		Netgame.flags |= NETINFO_FLAG_CLIENT_IN_MISSION_WAIT;
@@ -1884,10 +1885,20 @@ int multi_oo_unpack_data(net_player* pl, ubyte* data, int seq_num)
 				adjust_interp_pos = true;
 			}
 
-			int time_calc = Oo_info.cumulative_total[pl->player_id];
-			
-			interp_data->pos_timestamp = time_calc - multi_ship_record_get_missing_timing(pl->player_id, seq_num);
-			mprintf(("c,%d,%d,%d\n", interp_data->pos_timestamp, time_calc, timestamp()));
+			interp_data->prev_pos_timestamp = interp_data->position_remote_timestamp;
+
+			int time_calc;
+
+			if (MULTIPLAYER_MASTER) {
+				time_calc = Oo_info.cumulative_total[pl->player_id];
+			} else {
+				time_calc = Oo_info.received_total_times[pl->player_id] - Oo_info.server_start_time;
+			}
+
+			interp_data->position_remote_timestamp = time_calc; //-multi_ship_record_get_missing_timing(pl->player_id, seq_num);
+			mprintf(("c,%d,%d,%d,%d\n", Oo_info.received_total_times[pl->player_id],interp_data->position_remote_timestamp, time_calc, timestamp()));
+
+			interp_data->pos_time_delta = (float)(interp_data->position_remote_timestamp - interp_data->prev_pos_timestamp) / TIMESTAMP_FREQUENCY;
 
 		} // if we actually received a slightly old frame...
 		else if (seq_num > interp_data->prev_pos_comparison_frame){
@@ -2507,13 +2518,13 @@ void multi_oo_process_all(net_player *pl)
 	ADD_DATA(time_out);
 
 	// this is expensive for bandwidth, but worthwhile because it will actually keep clients and servers in sync.
-	std::uint64_t microseconds_out = timer_get_microseconds();
+	int milliseconds_out = timer_get_milliseconds();
 
 	if (Oo_info.server_start_time == 0) {
-		Oo_info.server_start_time = microseconds_out;
+		Oo_info.server_start_time = milliseconds_out;
 	}
 
-	ADD_ULONG(microseconds_out);
+	ADD_INT(milliseconds_out);
 
 	ubyte stop;
 	int add_size;	
@@ -2571,7 +2582,7 @@ void multi_oo_process_all(net_player *pl)
 			// Cyborg17 - regurgitate shared header
 			ADD_INT(Oo_info.number_of_frames);
 			ADD_DATA(time_out);
-			ADD_ULONG(microseconds_out);
+			ADD_INT(milliseconds_out);
 		}
 
 		if(add_size){
@@ -2640,30 +2651,30 @@ void multi_oo_process_update(ubyte *data, header *hinfo)
 	int seq_num;
 	ubyte timestamp;
 	ubyte stop;	
-	std::uint64_t microseconds_in;
+	int milliseconds_in;
 
 	GET_INT(seq_num);
 	GET_DATA(timestamp);
-	GET_ULONG(microseconds_in);
+	GET_INT(milliseconds_in);
 	GET_DATA(stop);
 	
 	multi_ship_record_add_timestamp(pl->player_id, timestamp, seq_num);
 
-	if (player_index > -1 && Oo_info.received_total_times[player_index] < microseconds_in) {
+	if (player_index > -1 && Oo_info.received_total_times[player_index] < milliseconds_in) {
 		// check to see if this is the first one 
 		if (Oo_info.received_total_times[player_index] == 0) {
 			if (pl == Netgame.server) {
-				Oo_info.server_start_time = microseconds_in;
-				Oo_info.first_total_times[player_index] = microseconds_in;
+				Oo_info.server_start_time = milliseconds_in;
+				Oo_info.first_total_times[player_index] = milliseconds_in;
 			}
 			else {
-				Oo_info.first_total_times[player_index] = microseconds_in;
+				Oo_info.first_total_times[player_index] = milliseconds_in;
 			}
 		}
-		Oo_info.received_total_times[player_index] = microseconds_in;
-	} else if (Oo_info.received_total_times[0] < microseconds_in){
-		Oo_info.received_total_times[0] = microseconds_in;
-		Oo_info.server_start_time = microseconds_in;
+		Oo_info.received_total_times[player_index] = milliseconds_in;
+	} else if (Oo_info.received_total_times[0] < milliseconds_in){
+		Oo_info.received_total_times[0] = milliseconds_in;
+		Oo_info.server_start_time = milliseconds_in;
 	}
 	
 	while(stop == 0xff){
@@ -2860,8 +2871,8 @@ void multi_oo_send_control_info()
 	}
 	auto time_out = (ubyte)temp_timestamp;
 	ADD_DATA(time_out);
-	auto microseconds_out = timer_get_microseconds();
-	ADD_ULONG(microseconds_out);
+	int microseconds_out = timer_get_milliseconds();
+	ADD_INT(microseconds_out);
 
 	// pos and orient always
 	oo_flags = OO_POS_AND_ORIENT_NEW;		
@@ -2935,8 +2946,8 @@ void multi_oo_send_changed_object(object *changedobj)
 	}
 	auto time_out = (ubyte)temp_timestamp;
 	ADD_DATA(time_out);
-	auto microseconds_out = timer_get_microseconds();
-	ADD_ULONG(microseconds_out);
+	int microseconds_out = timer_get_milliseconds();
+	ADD_INT(microseconds_out);
 
 	// pos and orient always
 	oo_flags = (OO_POS_AND_ORIENT_NEW);
@@ -3363,7 +3374,10 @@ void multi_oo_interp(object* objp)
 		int temp_numerator;
 		
 		if (MULTIPLAYER_MASTER) {
-			temp_numerator = timestamp() - interp_data->pos_timestamp;
+			temp_numerator = timestamp() - interp_data->prev_pos_timestamp;
+		}
+		else {
+			temp_numerator = timer_get_milliseconds() - interp_data->prev_pos_timestamp;
 		}
 		// add the ~1/2 of ping to keep the players in better sync
 		if ( false && MULTIPLAYER_MASTER) {
@@ -3380,7 +3394,7 @@ void multi_oo_interp(object* objp)
 		// from the current timestamp to see how long it's been and add 1/2 of the current ping, and 
 		// then we divide by the difference in time between the last two packets.
 		// We add one because we do not want to go back into data from before the current packet was received.
-		float time_factor = (time_elapsed / packet_delta) + 1.0f;
+		float time_factor = time_elapsed / packet_delta;
 		mprintf(("%f,%f,%f,",time_factor,time_elapsed, packet_delta));
 		// if there was no movement, bash position and velocity, rotation is handled after.
 		if (interp_data->prev_packet_positionless) {
@@ -3513,7 +3527,7 @@ void multi_oo_interp(object* objp)
 
 	local_rubberband_correction = vmd_zero_vector;
 
-	constexpr float anti_rubberbanding_factor = 0.5f;
+	constexpr float anti_rubberbanding_factor = 0.0f;
 
 	// a difference in sign means something just rubberbanded.
 	if ( ((local_displacement.xyz.x < 0.0f) && (temp_local_vel.xyz.x > 0.0f)) || ((local_displacement.xyz.x > 0.0f) && (temp_local_vel.xyz.x < 0.0f)) ) {
@@ -3549,13 +3563,13 @@ void multi_oo_calc_interp_splines(int player_id, object* objp, matrix *new_orien
 	ushort net_sig_idx = objp->net_signature;
 	
 	// find the float time version of how much time has passed
-	float delta = multi_oo_calc_pos_time_difference(player_id, net_sig_idx);
+	float delta = Oo_info.interp[net_sig_idx].pos_time_delta;
 	// if an error or invalid value, use the local timestamps instead of those received. Should be rare.
-	if (delta <= 0.0f) {
-		delta = (float)(timestamp() - Oo_info.interp[net_sig_idx].pos_timestamp) / TIMESTAMP_FREQUENCY;
-	}
+//	if (delta <= 0.0f) {
+//		delta = (float)(timestamp() - Oo_info.interp[net_sig_idx].prev_pos_timestamp) / TIMESTAMP_FREQUENCY;
+//	}
 
-	Oo_info.interp[net_sig_idx].pos_time_delta = delta;
+//	Oo_info.interp[net_sig_idx].pos_time_delta = delta;
 
 	// create the vector which will hold the spline
 	vec3d point1, point2, point3;
