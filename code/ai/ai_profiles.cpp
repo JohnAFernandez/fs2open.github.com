@@ -481,7 +481,7 @@ void parse_ai_profiles_tbl(const char *filename)
 					if (path_radii >= Minimum_subsystem_path_pt_dist) {
 						profile->subsystem_path_radii = path_radii;
 					} else {
-						mprintf(("Warning: \"$override radius for subsystem path points:\" should be >= %i (read %i). Value will not be used. ", Minimum_subsystem_path_pt_dist, path_radii));
+						mprintf(("Warning: \"$override radius for subsystem path points:\" should be >= %i (read %i). Value will not be used.\n", Minimum_subsystem_path_pt_dist, path_radii));
 					}
 				}
 
@@ -543,6 +543,8 @@ void parse_ai_profiles_tbl(const char *filename)
 				set_flag(profile, "$friendly ships use AI profile countermeasure chance:", AI::Profile_Flags::Friendlies_use_countermeasure_firechance);
 
 				set_flag(profile, "$improved subsystem attack pathing:", AI::Profile_Flags::Improved_subsystem_attack_pathing);
+
+				set_flag(profile, "$fixed ship-weapon collisions:", AI::Profile_Flags::Fixed_ship_weapon_collision);
 
 				// if we've been through once already and are at the same place, force a move
 				if (saved_Mp && (saved_Mp == Mp))
@@ -696,5 +698,8 @@ void ai_profile_t::reset()
 	// this flag has been enabled ever since 3.7.2
 	if (mod_supports_version(3, 7, 2)) {
 		flags.set(AI::Profile_Flags::Fix_ramming_stationary_targets_bug);
+	}
+	if (mod_supports_version(21, 4, 0)) {
+		flags.set(AI::Profile_Flags::Fixed_ship_weapon_collision);
 	}
 }
