@@ -639,7 +639,7 @@ int multi_oo_detect_disruption(int player_index)
 	// calculate the difference
 	int difference = (Oo_info.received_total_times[player_index] - Oo_info.server_start_time) - (total + Oo_info.adjusted_total_time[player_index]);
 
-	mprintf(("Time,%i,%i,%i,%i,%i,%i\n", (int)MAXIMUM_MISSED_FRAME_TOLERANCE, (int)difference, (int)Oo_info.received_total_times[player_index], (int)total, (int)Oo_info.first_total_times[player_index], (int)Oo_info.adjusted_total_time[player_index]));
+	mprintf(("Time,%i,%i,%i,%i,%i,%i\n", MAXIMUM_MISSED_FRAME_TOLERANCE, difference, Oo_info.received_total_times[player_index], total, Oo_info.first_total_times[player_index], Oo_info.adjusted_total_time[player_index]));
 
 	// and then check the tolerance.  If we're beyond it, have the client wait. 
 	// Wrapping, if it is working properly, should be impossible.
@@ -2658,7 +2658,11 @@ void multi_oo_process_update(ubyte *data, header *hinfo)
 	GET_INT(milliseconds_in);
 	GET_DATA(stop);
 	
-	multi_ship_record_add_timestamp(pl->player_id, timestamp, seq_num);
+	int player_id = find_player_id(pl->player_id);
+
+	Assertion(player_id >= 0, "Invalid player index of %d coming from player_ID, please report!", player_id, pl->player_id);
+
+	multi_ship_record_add_timestamp(player_id, timestamp, seq_num);
 
 	if (player_index > -1 && Oo_info.received_total_times[player_index] < milliseconds_in) {
 		// check to see if this is the first one 
@@ -3428,7 +3432,6 @@ void multi_oo_interp(object* objp)
 			}
 		} // valid time factors.
 		else {
-			interp_data->client_simulation_mode = false;
 
 			// Cyborg17 - we are no longer blending two interpolation curves.  I'm not sure *how*, but they were somehow making it look 
 			// less erratic when the timing was broken in the first place. 
@@ -3530,13 +3533,13 @@ void multi_oo_interp(object* objp)
 	constexpr float anti_rubberbanding_factor = 0.0f;
 
 	// a difference in sign means something just rubberbanded.
-	if ( ((local_displacement.xyz.x < 0.0f) && (temp_local_vel.xyz.x > 0.0f)) || ((local_displacement.xyz.x > 0.0f) && (temp_local_vel.xyz.x < 0.0f)) ) {
+	if (false && ((local_displacement.xyz.x < 0.0f) && (temp_local_vel.xyz.x > 0.0f)) || ((local_displacement.xyz.x > 0.0f) && (temp_local_vel.xyz.x < 0.0f))) {
 		local_rubberband_correction.xyz.x = anti_rubberbanding_factor * -local_displacement.xyz.x;
 	}
-	if ( ((local_displacement.xyz.y < 0.0f) && (temp_local_vel.xyz.y > 0.0f)) || ((local_displacement.xyz.y > 0.0f) && (temp_local_vel.xyz.y < 0.0f)) ) {
+	if (false && ((local_displacement.xyz.y < 0.0f) && (temp_local_vel.xyz.y > 0.0f)) || ((local_displacement.xyz.y > 0.0f) && (temp_local_vel.xyz.y < 0.0f))) {
 		local_rubberband_correction.xyz.y = anti_rubberbanding_factor * -local_displacement.xyz.y;
 	}
-	if ( ((local_displacement.xyz.z < 0.0f) && (temp_local_vel.xyz.z > 0.0f)) || ((local_displacement.xyz.z > 0.0f) && (temp_local_vel.xyz.z < 0.0f)) ) {
+	if (false && ((local_displacement.xyz.z < 0.0f) && (temp_local_vel.xyz.z > 0.0f)) || ((local_displacement.xyz.z > 0.0f) && (temp_local_vel.xyz.z < 0.0f))) {
 		local_rubberband_correction.xyz.z = anti_rubberbanding_factor * -local_displacement.xyz.z;
 	}
 
@@ -3545,6 +3548,7 @@ void multi_oo_interp(object* objp)
 	vm_vec_add2(&objp->pos, &global_rubberband_correction);
 
 	mprintf(("pos,%f,%f,%f\n", objp->pos.xyz.x,objp->pos.xyz.y,objp->pos.xyz.z));
+	interp_data->client_simulation_mode = true;
 
 	// duplicate the rest of the physics engine's calls here to make the simulation more exact.
 	objp->phys_info.speed = vm_vec_mag(&objp->phys_info.vel);
