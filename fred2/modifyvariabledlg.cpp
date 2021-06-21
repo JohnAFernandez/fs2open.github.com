@@ -58,6 +58,7 @@ BEGIN_MESSAGE_MAP(CModifyVariableDlg, CDialog)
 	ON_BN_CLICKED(IDC_TYPE_CAMPAIGN_PERSISTENT, OnTypeMissionProgress)
 	ON_BN_CLICKED(IDC_TYPE_NETWORK_VARIABLE, OnTypeNetworkVariable)
 	ON_BN_CLICKED(IDC_TYPE_ETERNAL, OnTypeEternal)
+	ON_BN_CLICKED(IDC_TYPE_TECH_ROOM_VAR, OnTypeTechRoomVar)
 	ON_CBN_SELCHANGE(IDC_MODIFY_VARIABLE_NAME, OnSelchangeModifyVariableName)
 	ON_CBN_EDITCHANGE(IDC_MODIFY_VARIABLE_NAME, OnEditchangeModifyVariableName)
 	ON_EN_KILLFOCUS(IDC_MODIFY_DEFAULT_VALUE, OnKillfocusModifyDefaultValue)
@@ -190,6 +191,7 @@ void CModifyVariableDlg::OnTypeMissionClose()
 	// if the variable isn't persistent, it can't be eternal
 	if (!m_type_on_mission_close && !m_type_on_mission_progress) {
 		m_type_eternal = false;
+		m_type_eternal_simulator = false;
 	}
 
 	set_variable_type();
@@ -209,6 +211,7 @@ void CModifyVariableDlg::OnTypeMissionProgress()
 	// if the variable isn't persistent, it can't be eternal
 	if (!m_type_on_mission_close && !m_type_on_mission_progress) {
 		m_type_eternal = false;
+		m_type_eternal_simulator = false;
 	}
 
 	set_variable_type();
@@ -224,7 +227,18 @@ void CModifyVariableDlg::OnTypeEternal()
 	// if the variable isn't persistent, it can't be eternal
 	if (!m_type_on_mission_close && !m_type_on_mission_progress) {
 		m_type_eternal = false;
+		m_type_eternal_simulator = false;
 		MessageBox("Eternal variables must have a different persistence type set first!");
+	}
+
+	// have to disable tech room use if not enabled.
+	if (m_type_eternal) {
+		((CButton *)GetDlgItem(IDC_TYPE_TECH_ROOM_VAR))->EnableWindow(true);
+	}
+	else {
+		((CButton *)GetDlgItem(IDC_TYPE_TECH_ROOM_VAR))->EnableWindow(false);
+		((CButton *)GetDlgItem(IDC_TYPE_TECH_ROOM_VAR))->SetCheck(false);
+		m_type_eternal_simulator = false;
 	}
 
 	set_variable_type();
@@ -275,6 +289,7 @@ void CModifyVariableDlg::OnSelchangeModifyVariableName()
 	m_type_on_mission_close = ((Sexp_variables[sexp_variable_index].type & SEXP_VARIABLE_SAVE_ON_MISSION_CLOSE) != 0) ? true : false;
 	m_type_network_variable = ((Sexp_variables[sexp_variable_index].type & SEXP_VARIABLE_NETWORK) != 0) ? true : false;
 	m_type_eternal = ((Sexp_variables[sexp_variable_index].type & SEXP_VARIABLE_SAVE_TO_PLAYER_FILE) != 0) ? true : false;
+	m_type_eternal_simulator = ((Sexp_variables[sexp_variable_index].type & SEXP_VARIABLE_SAVE_TO_PLAYER_ALWAYS) != 0) ? true : false;
 	set_variable_type();
 
 	// Set new default value for selection
@@ -394,6 +409,10 @@ BOOL CModifyVariableDlg::OnInitDialog()
 	pWnd = GetDlgItem(IDC_TYPE_ETERNAL);
 	m_EternalToolTip->AddTool(pWnd, "This type of variable is saved to the player file. So it can be referred to by other campaigns");
 	m_EternalToolTip->Activate(TRUE);
+
+	pWnd = GetDlgItem(IDC_TYPE_TECH_ROOM_VAR);
+	m_TechRoomEnabledToolTip->AddTool(pWnd, "Enables an eternal variable to be accessed in the Techroom for this mission.");
+	m_TechRoomEnabledToolTip->Activate(TRUE);
 	
 	return TRUE;  // return TRUE unless you set the focus to a control
 	              // EXCEPTION: OCX Property Pages should return FALSE
@@ -422,6 +441,7 @@ void CModifyVariableDlg::set_variable_type()
 	((CButton *) GetDlgItem(IDC_TYPE_PLAYER_PERSISTENT))->SetCheck(m_type_on_mission_close);
 	((CButton *) GetDlgItem(IDC_TYPE_NETWORK_VARIABLE))->SetCheck(m_type_network_variable);
 	((CButton *) GetDlgItem(IDC_TYPE_ETERNAL))->SetCheck(m_type_eternal);
+	((CButton *) GetDlgItem(IDC_TYPE_TECH_ROOM_VAR))->SetCheck(m_type_eternal_simulator);
 }
 
 void CModifyVariableDlg::OnOK() 
@@ -602,4 +622,20 @@ void CModifyVariableDlg::OnDropdownModifyVariableName()
 	cbox->DeleteString(m_combo_last_modified_index+1);
 
 	cbox->SetCurSel(m_combo_last_modified_index);
+}
+
+
+void CModifyVariableDlg::OnTypeTechRoomVar()
+{
+	m_type_eternal_simulator = ((CButton *) GetDlgItem(IDC_TYPE_TECH_ROOM_VAR))->GetCheck() ? true : false;
+
+	// Double check that this will only be on while eternal is...
+	if (m_type_eternal_simulator && !m_type_eternal) {
+		m_type_eternal_simulator = false;
+		((CButton *) GetDlgItem(IDC_TYPE_TECH_ROOM_VAR))->SetCheck(false);
+		((CButton *) GetDlgItem(IDC_TYPE_TECH_ROOM_VAR))->EnableWindow(false);
+	}
+	else {
+		m_modified_type = true; 
+	}
 }

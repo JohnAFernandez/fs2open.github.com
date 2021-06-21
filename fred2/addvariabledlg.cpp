@@ -28,6 +28,7 @@ BEGIN_MESSAGE_MAP(CAddVariableDlg, CDialog)
 	ON_BN_CLICKED(IDC_TYPE_CAMPAIGN_PERSISTENT, OnTypeMissionProgress)
 	ON_BN_CLICKED(IDC_TYPE_PLAYER_PERSISTENT, OnTypeMissionClose)
 	ON_BN_CLICKED(IDC_TYPE_NETWORK_VARIABLE, OnTypeNetworkVariable)
+	ON_BN_CLICKED(IDC_TYPE_TECH_ROOM_VAR, OnTypeEternalSimulator)
 	ON_BN_CLICKED(IDC_TYPE_ETERNAL, OnTypeEternal)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
@@ -62,6 +63,7 @@ BOOL CAddVariableDlg::OnInitDialog() {
 	m_type_on_mission_progress = false;
 	m_type_on_mission_close = false;
 	m_type_eternal = false;
+	m_type_eternal_simulator = false;
 	m_type_network_variable = false;
 	set_variable_type();
 
@@ -89,6 +91,10 @@ BOOL CAddVariableDlg::OnInitDialog() {
 	m_EternalToolTip->AddTool(pWnd, "This type of variable is saved to the player file. So it can be referred to by other campaigns");
 	m_EternalToolTip->Activate(TRUE);
 	
+	pWnd = GetDlgItem(IDC_TYPE_TECH_ROOM_VAR);
+	m_TechRoomEnabledToolTip->AddTool(pWnd, "Enables an eternal variable to be accessed in the Techroom for this mission.");
+	m_TechRoomEnabledToolTip->Activate(TRUE);
+
 	// Send default name and values into dialog box
 	UpdateData(FALSE);
 
@@ -152,8 +158,10 @@ void CAddVariableDlg::OnTypeMissionProgress() {
 		m_type_on_mission_close = false;
 
 	// if the variable isn't persistent, it can't be eternal
-	if (!m_type_on_mission_progress && !m_type_on_mission_close)
+	if (!m_type_on_mission_progress && !m_type_on_mission_close) {
 		m_type_eternal = false;
+		m_type_eternal_simulator = false;
+	}
 
 	set_variable_type();
 }
@@ -161,6 +169,10 @@ void CAddVariableDlg::OnTypeMissionProgress() {
 void CAddVariableDlg::OnTypeNetworkVariable() {
 	m_type_network_variable = ((CButton *) GetDlgItem(IDC_TYPE_NETWORK_VARIABLE))->GetCheck() ? true : false;
 	set_variable_type();
+}
+
+void CAddVariableDlg::OnTypeEternalSimulator() {
+	m_type_eternal_simulator = ((CButton *) GetDlgItem(IDC_TYPE_TECH_ROOM_VAR))->GetCheck() ? true : false;
 }
 
 void CAddVariableDlg::OnTypeNumber() {
@@ -175,12 +187,9 @@ void CAddVariableDlg::OnTypeMissionClose() {
 		m_type_on_mission_progress = false;
 
 	// if the variable isn't persistent, it can't be eternal
-	if (!m_type_on_mission_progress && !m_type_on_mission_close)
+	if (!m_type_on_mission_progress && !m_type_on_mission_close){
 		m_type_eternal = false;
-
-	// if the variable isn't persistent, it can't be eternal
-	if (!m_type_on_mission_close && !m_type_on_mission_progress) {
-		m_type_eternal = false;
+		m_type_eternal_simulator = false;
 	}
 
 	set_variable_type();
@@ -216,6 +225,7 @@ void CAddVariableDlg::set_variable_type() {
 	((CButton *) GetDlgItem(IDC_TYPE_PLAYER_PERSISTENT))->SetCheck(m_type_on_mission_close);
 	((CButton *) GetDlgItem(IDC_TYPE_NETWORK_VARIABLE))->SetCheck(m_type_network_variable);
 	((CButton *) GetDlgItem(IDC_TYPE_ETERNAL))->SetCheck(m_type_eternal);
+	((CButton *) GetDlgItem(IDC_TYPE_TECH_ROOM_VAR))->SetCheck(m_type_eternal_simulator);
 }
 
 void CAddVariableDlg::validate_data(int set_focus) {

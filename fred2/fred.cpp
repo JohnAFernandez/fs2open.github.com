@@ -191,7 +191,7 @@ int CFREDApp::ExitInstance() {
 BOOL CFREDApp::InitInstance() {
 	static char *c;
 	static char *tok = "whee";
-
+	Warning(LOCATION, "attach time!");
 	// disable the debug memory stuff
 	//	_CrtSetDbgFlag(~(_CRTDBG_ALLOC_MEM_DF) & _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
 

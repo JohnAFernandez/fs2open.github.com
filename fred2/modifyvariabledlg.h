@@ -37,6 +37,7 @@ public:
 	bool			m_type_on_mission_close;
 	bool			m_type_on_mission_progress;
 	bool			m_type_eternal;
+	bool			m_type_eternal_simulator;
 	bool			m_type_network_variable;
 	bool			m_modified_name;
 	bool			m_modified_value;
@@ -71,6 +72,7 @@ protected:
 	CToolTipCtrl* m_ProgressToolTip;
 	CToolTipCtrl* m_CloseToolTip;
 	CToolTipCtrl* m_EternalToolTip;
+	CToolTipCtrl* m_TechRoomEnabledToolTip;
 
 	// Generated message map functions
 	//{{AFX_MSG(CModifyVariableDlg)
@@ -80,6 +82,8 @@ protected:
 	afx_msg void OnTypeMissionClose();
 	afx_msg void OnTypeMissionProgress();
 	afx_msg void OnTypeEternal();
+	afx_msg void OnTypeTechRoomVar();
+
 	afx_msg void OnTypeNetworkVariable();
 	afx_msg void OnSelchangeModifyVariableName();
 	afx_msg void OnEditchangeModifyVariableName();

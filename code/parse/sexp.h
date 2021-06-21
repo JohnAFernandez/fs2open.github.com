@@ -949,6 +949,8 @@ const char *CTEXT(int n);
 //Karajorma
 #define SEXP_VARIABLE_NETWORK				(1<<28)
 #define SEXP_VARIABLE_SAVE_TO_PLAYER_FILE	(1<<27)
+// Cyborg - what if we want it to work in the mission simulator?
+#define SEXP_VARIABLE_SAVE_TO_PLAYER_ALWAYS (1<<26)
 
 #define SEXP_VARIABLE_IS_PERSISTENT (SEXP_VARIABLE_SAVE_ON_MISSION_PROGRESS|SEXP_VARIABLE_SAVE_ON_MISSION_CLOSE)
 

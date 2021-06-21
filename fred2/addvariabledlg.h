@@ -44,6 +44,7 @@ public:
 	bool m_type_on_mission_close;			//!< True if the variable is saved whenever the mission ends
 	bool m_type_network_variable;		    //!< True if the variable is a network variable (multiplayer)
 	bool m_type_eternal;						//!< True if the variable is saved to the player file instead
+	bool m_type_eternal_simulator;			//!< True if the variable would be saved even if it was in the mission simulator
 
 	bool m_create;  //!< True if the variable should be created upon the dialog's closure
 
@@ -58,6 +59,7 @@ protected:
 	CToolTipCtrl* m_ProgressToolTip;
 	CToolTipCtrl* m_CloseToolTip;
 	CToolTipCtrl* m_EternalToolTip;
+	CToolTipCtrl* m_TechRoomEnabledToolTip;
 
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 	//}}AFX_VIRTUAL
@@ -130,6 +132,11 @@ protected:
 	 */
 	afx_msg void OnTypeNetworkVariable();
 
+	/*
+	 * @brief Handler for the Tech Room Variable checkbox
+	*/
+	afx_msg void OnTypeEternalSimulator();
+
 	/**
 	 * @brief Handler for the type checkboxes and radio buttons.
 	 *
@@ -138,6 +145,8 @@ protected:
 	afx_msg void set_variable_type();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
+public:
+	afx_msg void OnBnClickedCheck1();
 };
 
 //{{AFX_INSERT_LOCATION}}

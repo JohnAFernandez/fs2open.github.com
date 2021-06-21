@@ -1817,21 +1817,11 @@ void mission_campaign_jump_to_mission(const char* name, bool no_skip)
 	}
 }
 
-// Goober5000
-void mission_campaign_save_on_close_variables()
+// helper function, should only be called in mission_campaign_save_on_close_variables() below
+void mission_campaign_save_eternal_variables(bool mission_simulator) 
 {
-	int i;
-
-	// make sure we are actually playing a campaign
-	if (!(Game_mode & GM_CAMPAIGN_MODE))
-		return;
-
-	// make sure this is a single-player campaign
-	if (!(Campaign.type == CAMPAIGN_TYPE_SINGLE))
-		return;
-
 	// now save variables
-	for (i = 0; i < sexp_variable_count(); i++) {
+	for (int i = 0; i < sexp_variable_count(); i++) {
 		// we only want the on mission close type. On campaign progress type are dealt with elsewhere
 		if ( !(Sexp_variables[i].type & SEXP_VARIABLE_SAVE_ON_MISSION_CLOSE) ) {
 			continue;
@@ -1841,26 +1831,52 @@ void mission_campaign_save_on_close_variables()
 
 		// deal with eternals 
 		if ((Sexp_variables[i].type & SEXP_VARIABLE_SAVE_TO_PLAYER_FILE)) {
-			// check if variable already exists and updated it
-			for (auto& current_variable : Player->variables) {
-				if (!(stricmp(Sexp_variables[i].variable_name, current_variable.variable_name))) {
-					current_variable = Sexp_variables[i];
+			if (!mission_simulator || (mission_simulator && Sexp_variables[i].type & SEXP_VARIABLE_SAVE_TO_PLAYER_ALWAYS)) {
+				// check if variable already exists and update it
+				for (auto& current_variable : Player->variables) {
+					if (!(stricmp(Sexp_variables[i].variable_name, current_variable.variable_name))) {
+						current_variable = Sexp_variables[i];
 
-					found = true;
-					break;
+						found = true;
+						break;
+					}
+				}
+
+				// if not found then add new entry
+				if (!found) {
+					Player->variables.push_back(Sexp_variables[i]);
 				}
 			}
+		}
+	}
+}
 
-			// if not found then add new entry
-			if (!found) {
-				Player->variables.push_back(Sexp_variables[i]);
-			}
+// Goober5000
+void mission_campaign_save_on_close_variables()
+{
+	// If we aren't playing a single-player campaign, the only type of variables
+	// we will save is eternal variables.
+	if (!(Game_mode & GM_CAMPAIGN_MODE)) {
+		// multiplayer missions can't save variables here.
+		if (Game_mode & GM_MULTIPLAYER){
+			return;
 		}
 
-	}
+		mission_campaign_save_eternal_variables(true);
 
-	// store any non-eternal on mission close variables
-	mission_campaign_store_variables(SEXP_VARIABLE_SAVE_ON_MISSION_CLOSE, false);
+	} else {
+	
+		// if a campaign make sure it is a single-player. Multiplayer campaigns are not supported.
+		if (!(Campaign.type == CAMPAIGN_TYPE_SINGLE))
+			return;
+
+		// handle eternal variables.
+		mission_campaign_save_eternal_variables(false);
+
+		// store any non-eternal on mission close variables
+		mission_campaign_store_variables(SEXP_VARIABLE_SAVE_ON_MISSION_CLOSE, false);
+
+	}
 }
 
 void mission_campaign_load_failure_popup()

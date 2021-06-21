@@ -1645,6 +1645,10 @@ BOOL sexp_tree::OnCommand(WPARAM wParam, LPARAM lParam)
 				type |= SEXP_VARIABLE_SAVE_TO_PLAYER_FILE;
 			}
 
+			if (dlg.m_type_eternal_simulator) {
+				type |= SEXP_VARIABLE_SAVE_TO_PLAYER_ALWAYS;
+			}
+
 			// add variable
 			sexp_add_variable(dlg.m_default_value, dlg.m_variable_name, type);
 
@@ -1716,6 +1720,10 @@ BOOL sexp_tree::OnCommand(WPARAM wParam, LPARAM lParam)
 
 			if (dlg.m_type_eternal) {
 				type |= SEXP_VARIABLE_SAVE_TO_PLAYER_FILE;
+			}
+
+			if (dlg.m_type_eternal_simulator) {
+				type |= SEXP_VARIABLE_SAVE_TO_PLAYER_ALWAYS;
 			}
 
 			// update sexp_variable

@@ -1157,6 +1157,7 @@
 #define IDC_CONTAINER_CAMPAIGN_PERSIST  1668
 #define IDC_CONTAINER_ETERNAL_PERSIST   1669
 #define IDC_RENAME_CONTAINER            1670
+#define IDC_TYPE_TECH_ROOM_VAR          1671
 #define ID_FILE_MISSIONNOTES            32771
 #define ID_DUPLICATE                    32774
 #define ID_VIEW_ROTATE                  32775
@@ -1448,7 +1449,7 @@
 #define _APS_3D_CONTROLS                     1
 #define _APS_NEXT_RESOURCE_VALUE        326
 #define _APS_NEXT_COMMAND_VALUE         33102
-#define _APS_NEXT_CONTROL_VALUE         1660
+#define _APS_NEXT_CONTROL_VALUE         1672
 #define _APS_NEXT_SYMED_VALUE           105
 #endif
 #endif
