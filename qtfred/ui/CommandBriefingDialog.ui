@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Dialog</class>
- <widget class="QDialog" name="Dialog">
+ <class>fso::fred::dialogs::CommandBriefingDialog</class>
+ <widget class="QDialog" name="fso::fred::dialogs::CommandBriefingDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -320,7 +320,7 @@
   <connection>
    <sender>okAndCancelButtons</sender>
    <signal>accepted()</signal>
-   <receiver>Dialog</receiver>
+   <receiver>fso::fred::dialogs::CommandBriefingDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -336,7 +336,7 @@
   <connection>
    <sender>okAndCancelButtons</sender>
    <signal>rejected()</signal>
-   <receiver>Dialog</receiver>
+   <receiver>fso::fred::dialogs::CommandBriefingDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

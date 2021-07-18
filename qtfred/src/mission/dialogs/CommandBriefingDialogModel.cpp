@@ -20,8 +20,10 @@ namespace dialogs {
 
 bool CommandBriefingDialogModel::apply()
 {
-	
+	return true;
 }
+
+void CommandBriefingDialogModel::reject() {}
 
 void CommandBriefingDialogModel::update_init()
 {

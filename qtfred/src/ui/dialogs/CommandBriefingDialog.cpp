@@ -2,7 +2,7 @@
 
 #include "ui_CommandBriefingDialog.h"
 
-#include "iff_defs/iff_defs.h"
+#include "iff_defs/iff_defs.h" // probably won't need these two...
 #include "mission/missionmessage.h"
 
 #include <globalincs/linklist.h>
@@ -36,33 +36,56 @@ namespace dialogs {
 
 	void CommandBriefingDialog::closeEvent(QCloseEvent*){}
 
-	void CommandBriefingDialog::on_previousStageButton_clicked(){}
+	void CommandBriefingDialog::on_actionPrevStage_clicked(){}
 
-	void CommandBriefingDialog::on_nextStageButton_clicked(){}
+	void CommandBriefingDialog::on_actionNextStage_clicked(){}
 
-	void CommandBriefingDialog::on_addStageButton_clicked(){}
+	void CommandBriefingDialog::on_actionAddStage_clicked(){}
 
-	void CommandBriefingDialog::on_insertStageButton_clicked(){}
+	void CommandBriefingDialog::on_actionInsertStage_clicked(){}
 
-	void CommandBriefingDialog::on_deleteStageButton_clicked(){}
+	void CommandBriefingDialog::on_actionDeleteStage_clicked(){}
 
-	void CommandBriefingDialog::on_changeTeams_clicked (){}
+	void CommandBriefingDialog::on_actionChangeTeams_clicked (){}
 
-	void CommandBriefingDialog::on_copyToOtherTeams_clicked(){}
+	void CommandBriefingDialog::on_actionCopyToOtherTeams_clicked(){}
 
-	void CommandBriefingDialog::on_browseAnimationFile_clicked(){}
+	void CommandBriefingDialog::on_actionBrowseAnimation_clicked(){}
 
-	void CommandBriefingDialog::on_browseSoundFile_clicked(){}
+	void CommandBriefingDialog::on_actionBrowseSpeechFile_clicked(){}
 
-	void CommandBriefingDialog::on_testSoundFile_clicked(){}
+	void CommandBriefingDialog::on_actionTestSpeechFileButton_clicked(){}
+
+	void CommandBriefingDialog::on_actionLowResolutionBrowse_clicked(){}
+
+	void CommandBriefingDialog::on_actionHighResolutionBrowse_clicked(){}
 
 	void CommandBriefingDialog::updateUI(){}
 
-	void CommandBriefingDialog::briefingTextChanged(const QString&){}
+	void CommandBriefingDialog::briefingTextChanged(const QString& string)
+	{
+		_model->setBriefingText(string.toStdString());
+	}
 
-	void CommandBriefingDialog::animationFilenameChanged(const QString&){}
+	void CommandBriefingDialog::animationFilenameChanged(const QString& string)
+	{
+		_model->setAnimationFilename(string.toStdString());
+	}
 
-	void CommandBriefingDialog::speechFilenameChanged(const QString&){}
+	void CommandBriefingDialog::speechFilenameChanged(const QString& string)
+	{
+		_model->setSpeechFilename(string.toStdString());
+	}
+
+	void CommandBriefingDialog::lowResolutionFilenameChanged(const QString& string)
+	{
+		_model->setLowResolutionFilename(string.toStdString());
+	}
+
+	void CommandBriefingDialog::highResolutionFilenameChanged(const QString& string)
+	{
+		_model->setHighResolutionFilename(string.toStdString());
+	}
 
 } // dialogs
 } // fred

@@ -18,11 +18,15 @@ class CommandBriefingDialogModel: public AbstractDialogModel {
 	SCP_string getAnimationFilename() { return _animationFilename; }
 	SCP_string getSpeechFilename() { return _speechFilename; }
 	ubyte getCurrentTeam() { return _currentTeam; }
+	SCP_string getLowResolutionFilename() { return _lowResolutionFilename; }
+	SCP_string getHighResolutionFilename() { return _highResolutionFilename; }
 
 	void setBriefingText(const SCP_string& briefingText) { modify<SCP_string>(_briefingText, briefingText); }
 	void setAnimationFilename(const SCP_string& animationFilename) { modify<SCP_string>(_animationFilename, animationFilename); }
 	void setSpeechFilename(const SCP_string& speechFilename) { modify<SCP_string>(_speechFilename, speechFilename); }
 	void setCurrentTeam(const ubyte& teamIn) {}; // not yet fully supported
+	void setLowResolutionFilename(const SCP_string& lowResolutionFilename) { modify<SCP_string>(_lowResolutionFilename, lowResolutionFilename); }
+	void setHighResolutionFilename(const SCP_string& highResolutionFilename) { modify<SCP_string>(_highResolutionFilename, highResolutionFilename); }
 
 	bool query_modified() const;
 	void update_init();
@@ -38,6 +42,8 @@ class CommandBriefingDialogModel: public AbstractDialogModel {
 	SCP_string _briefingText;
 	SCP_string _animationFilename;
 	SCP_string _speechFilename;
+	SCP_string _lowResolutionFilename;
+	SCP_string _highResolutionFilename;
 	int _currentTeam;
 	int _currentStage;
 	int _totalStages;

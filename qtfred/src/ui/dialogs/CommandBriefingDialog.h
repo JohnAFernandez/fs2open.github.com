@@ -30,16 +30,18 @@ protected:
 	void closeEvent(QCloseEvent*) override;
 
 private slots: // where the buttons go
-	void on_previousStageButton_clicked();
-	void on_nextStageButton_clicked();
-	void on_addStageButton_clicked();
-	void on_insertStageButton_clicked();
-	void on_deleteStageButton_clicked();
-	void on_changeTeams_clicked();
-	void on_copyToOtherTeams_clicked();
-	void on_browseAnimationFile_clicked();
-	void on_browseSoundFile_clicked();
-	void on_testSoundFile_clicked();
+	void on_actionPrevStage_clicked();
+	void on_actionNextStage_clicked();
+	void on_actionAddStage_clicked();
+	void on_actionInsertStage_clicked();
+	void on_actionDeleteStage_clicked();
+	void on_actionChangeTeams_clicked();
+	void on_actionCopyToOtherTeams_clicked();
+	void on_actionBrowseAnimation_clicked();
+	void on_actionBrowseSpeechFile_clicked();
+	void on_actionTestSpeechFileButton_clicked();
+	void on_actionLowResolutionBrowse_clicked();
+	void on_actionHighResolutionBrowse_clicked();
 
 private:
 	std::unique_ptr<Ui::CommandBriefingDialog> ui;
@@ -52,6 +54,8 @@ private:
 	void briefingTextChanged(const QString&);
 	void animationFilenameChanged(const QString&);
 	void speechFilenameChanged(const QString&);
+	void lowResolutionFilenameChanged(const QString&);
+	void highResolutionFilenameChanged(const QString&)
 };
 } // namespace dialogs
 } // namespace fred
